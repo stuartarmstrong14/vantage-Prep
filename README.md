@@ -110,6 +110,10 @@ The endpoint accepts Postmark, Mailgun and SendGrid style posts, or a plain JSON
 - Changing or resetting a password, or deactivating someone, signs them out everywhere.
 - QC sign-offs record the initials, the date and the logged-in person's name, taken by the server.
 
+## Archiving
+
+A car is archived automatically once it has been on the system for more than 365 days (counted from the day it arrived). Archived cars leave the In prep and Completed tabs and appear under **Archived**. Nothing is deleted, and archived cars are still included in every report. Only an administrator can delete a car, using Delete car in its sheet.
+
 ## Changing the checklist
 
 The stages and tick boxes are listed at the top of `public/app.js` (`STAGES`). Edit the names there. Ticks are stored against the stage and item ids, so renaming a label keeps existing ticks, while removing an item hides its old ticks.

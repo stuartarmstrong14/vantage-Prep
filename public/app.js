@@ -204,12 +204,18 @@
   /* ---------- list ---------- */
   // Prep is completed once the car reaches the Quality Check stage.
   function isDone(c) { return c.stage === 'ready'; }
+  // A car is archived automatically once it has been on the system for more than 365 days. Nothing is deleted.
+  function isArchived(c) { return !!c.added && dayNum(todayStr()) - dayNum(c.added) > 365; }
   function visible() {
     var q = state.q.trim().toLowerCase();
     var out = [];
     state.cars.forEach(function (c, id) {
-      if (isDone(c) !== (state.tab === 'done')) return;
-      if (state.tab !== 'done' && state.f !== 'all' && c.stage !== state.f) return;
+      if (state.tab === 'arch') { if (!isArchived(c)) return; }
+      else {
+        if (isArchived(c)) return;
+        if (isDone(c) !== (state.tab === 'done')) return;
+        if (state.tab === 'prep' && state.f !== 'all' && c.stage !== state.f) return;
+      }
       if (q && ((c.reg || '') + ' ' + (c.tag || '') + ' ' + (c.make || '') + ' ' + (c.model || '') + ' ' + (c.colour || '')).toLowerCase().indexOf(q) < 0) return;
       out.push({ id: id, c: c });
     });
@@ -222,8 +228,10 @@
   }
   function render() {
     if (!state.user) return;
-    var all = [];
-    state.cars.forEach(function (c) { all.push(c); });
+    var every = [];
+    state.cars.forEach(function (c) { every.push(c); });
+    var archived = every.filter(isArchived);
+    var all = every.filter(function (c) { return !isArchived(c); });
     var inPrep = all.filter(function (c) { return c.stage !== 'ready'; });
     var completed = all.filter(isDone);
     var active = all.filter(function (c) { return !isDone(c); });
@@ -233,9 +241,11 @@
     $('#s-done').textContent = completed.length;
     $('#tab-prep-n').textContent = active.length;
     $('#tab-done-n').textContent = completed.length;
+    $('#tab-arch-n').textContent = archived.length;
+    $('#tab-arch').setAttribute('aria-selected', state.tab === 'arch');
     $('#tab-prep').setAttribute('aria-selected', state.tab === 'prep');
     $('#tab-done').setAttribute('aria-selected', state.tab === 'done');
-    $('#stage-filter').hidden = state.tab === 'done';
+    $('#stage-filter').hidden = state.tab !== 'prep';
 
     var sel = $('#stage-filter');
     var opts = '<option value="all">All stages (' + active.length + ')</option>' + STAGES.map(function (s) {
@@ -254,7 +264,7 @@
       list.innerHTML = '<div class="empty" style="grid-column:1/-1"><h2>No cars in prep</h2><p>Add the first car as it arrives. Each one gets a checklist from inbound through to quality check.</p>' + (readOnly() ? '' : '<button class="btn primary" type="button" data-act="add" style="min-height:48px;padding:0 26px">Add car</button>') + '</div>';
       return;
     }
-    if (!vis.length) { list.innerHTML = '<div class="empty" style="grid-column:1/-1"><p>' + (state.tab === 'done' && !state.q.trim() ? 'No cars have completed prep yet. A car moves here when it reaches Quality Check.' : 'No cars match this search.') + '</p></div>'; return; }
+    if (!vis.length) { list.innerHTML = '<div class="empty" style="grid-column:1/-1"><p>' + (state.tab === 'done' && !state.q.trim() ? 'No cars have completed prep yet. A car moves here when it reaches Quality Check.' : state.tab === 'arch' && !state.q.trim() ? 'Nothing archived yet. A car moves here automatically 365 days after it arrived. It is still counted in the reports.' : 'No cars match this search.') + '</p></div>'; return; }
     list.innerHTML = vis.map(function (r) { return cardHtml(r.id, r.c); }).join('');
   }
   function cardHtml(id, c) {
@@ -399,6 +409,7 @@
   /* ---------- events: list and car sheet ---------- */
   $('#tab-prep').addEventListener('click', function () { state.tab = 'prep'; render(); });
   $('#tab-done').addEventListener('click', function () { state.tab = 'done'; render(); });
+  $('#tab-arch').addEventListener('click', function () { state.tab = 'arch'; render(); });
   $('#stage-filter').addEventListener('change', function (e) { state.f = e.target.value; render(); });
   $('#q').addEventListener('input', function (e) { state.q = e.target.value; render(); });
   function toList() {
@@ -592,7 +603,7 @@
   function one(n) { return (Math.round(n * 10) / 10).toString(); }
   function renderReports() {
     var all = []; state.cars.forEach(function (c, id) { all.push(Object.assign({ id: id }, c)); });
-    var done = all.filter(isDone), active = all.filter(function (c) { return !isDone(c); });
+    var done = all.filter(isDone), active = all.filter(function (c) { return !isDone(c) && !isArchived(c); });
     var avg = done.length ? done.reduce(function (n, c) { return n + carDays(c); }, 0) / done.length : 0;
     var onT = done.filter(function (c) { return carDays(c) <= TARGET; }).length;
     var pct = done.length ? Math.round(onT / done.length * 100) : 0;

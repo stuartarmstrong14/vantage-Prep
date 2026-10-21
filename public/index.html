@@ -78,6 +78,7 @@
       <div class="tabs" role="tablist" aria-label="Stock">
         <button class="tab" type="button" role="tab" id="tab-prep" aria-selected="true">In prep <span class="num" id="tab-prep-n">0</span></button>
         <button class="tab" type="button" role="tab" id="tab-done" aria-selected="false">Completed <span class="num" id="tab-done-n">0</span></button>
+        <button class="tab" type="button" role="tab" id="tab-arch" aria-selected="false">Archived <span class="num" id="tab-arch-n">0</span></button>
       </div>
     </div>
     <main id="list" class="grid" aria-live="polite"></main>
@@ -131,7 +132,7 @@
 <div class="overlay" id="ov-reports" hidden>
   <div class="sheet wide" role="dialog" aria-modal="true" aria-labelledby="rp-h">
     <div class="sheet-head">
-      <div><h2 id="rp-h" style="font-size:28px;font-weight:700">Reports</h2><p class="muted-s" style="margin-top:4px;font-size:15px">Live from the stock list. Target is <span id="rp-target">7</span> days from arrival to completed.</p></div>
+      <div><h2 id="rp-h" style="font-size:28px;font-weight:700">Reports</h2><p class="muted-s" style="margin-top:4px;font-size:15px">Live from the stock list, including archived cars. Target is <span id="rp-target">7</span> days from arrival to completed.</p></div>
       <button class="icon-btn" id="rp-close" type="button" aria-label="Close">&times;</button>
     </div>
     <div id="rp-body"></div>

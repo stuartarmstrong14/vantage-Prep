@@ -1,0 +1,51 @@
+:root{--navy:#112D5B;--ground:#E6EBF0;--line:#B9C4CF;--bad:#B4281F}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--navy);font-family:'Urbanist','Nunito Sans','Segoe UI',system-ui,sans-serif;font-size:16px;line-height:1.45}
+[hidden]{display:none!important}
+
+/* ---------- screen controls ---------- */
+.controls{background:#fff;border-bottom:1px solid var(--line);padding:16px}
+.controls-in{max-width:1000px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
+.controls h1{margin:0;font-size:30px;line-height:1.1}
+.back{color:var(--navy);font-weight:600;text-decoration:none}
+.back:hover{text-decoration:underline}
+.note{margin:0;font-weight:600}
+.warn{margin:0;background:#FBEBC8;color:#6B4400;border-radius:12px;padding:10px 14px;font-weight:600}
+.hint{margin:0;color:#566B84;font-size:14px}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.row label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:700;color:#566B84}
+select{font:inherit;color:var(--navy);background:#fff;border:1px solid var(--line);border-radius:999px;padding:9px 16px;min-height:44px}
+button{font:inherit;font-weight:700;color:#fff;background:var(--navy);border:0;border-radius:999px;padding:0 28px;min-height:44px;cursor:pointer}
+button:hover{filter:brightness(1.15)}
+:focus-visible{outline:3px solid #5BA8E8;outline-offset:2px}
+
+#pages{padding:24px 16px 48px;display:flex;flex-direction:column;align-items:center;gap:24px}
+.page{background:#fff;box-shadow:0 2px 10px rgba(17,45,91,.18);max-width:100%;overflow:auto}
+.page.label{width:100mm;height:70mm}
+.page.sheet{width:200mm;height:280mm;display:grid;grid-template-columns:repeat(2,100mm);grid-auto-rows:70mm}
+
+/* ---------- the sticker ---------- */
+.sticker{width:100mm;height:70mm;padding:4mm;display:flex;flex-direction:column;justify-content:space-between;background:#fff;color:var(--navy)}
+.page.sheet .sticker{outline:.2mm solid #C9D1D9;outline-offset:-.2mm}
+.s-logo{display:block;height:9mm;width:auto;align-self:flex-start}
+.s-body{display:flex;gap:5mm;align-items:center;min-height:0}
+.s-qr{width:40mm;height:40mm;flex:none}
+.s-qr svg{display:block;width:100%;height:100%}
+.s-info{display:flex;flex-direction:column;gap:2.2mm;min-width:0}
+.s-plate{display:inline-block;align-self:flex-start;background:#F7D117;color:#141414;font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-weight:600;font-size:7.4mm;letter-spacing:.08em;line-height:1;padding:1.3mm 2.6mm .9mm;border:.35mm solid #141414;border-radius:1mm;text-transform:uppercase;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.s-car{font-weight:700;font-size:5mm;line-height:1.15;overflow-wrap:anywhere}
+.s-tag{font-weight:600;font-size:3.8mm;color:#33507a}
+.s-foot{margin:0;font-weight:700;font-size:3.5mm;letter-spacing:.01em}
+
+/* ---------- printing ---------- */
+@media print{
+  body{background:#fff}
+  .no-print{display:none!important}
+  #pages{padding:0;gap:0;display:block}
+  .page{box-shadow:none;overflow:visible;margin:0;break-after:page;page-break-after:always}
+  .page:last-child{break-after:auto;page-break-after:auto}
+}
+@media (max-width:640px){
+  .page.sheet{width:100%;height:auto;grid-template-columns:1fr}
+  .page.sheet .sticker{width:100%}
+}

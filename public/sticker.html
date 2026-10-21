@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QR stickers | Vantage Prep Tracker</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=Urbanist:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="/sticker.css">
+</head>
+<body>
+<header class="controls no-print">
+  <div class="controls-in">
+    <a class="back" href="/">&larr; Back to stock</a>
+    <h1>QR stickers</h1>
+    <p class="note" id="msg" role="status">Loading…</p>
+    <p class="warn" id="warn" hidden></p>
+    <div class="row" id="ctl" hidden>
+      <label for="layout">Layout
+        <select id="layout">
+          <option value="label">Single label, 100 × 70 mm</option>
+          <option value="sheet">A4 sheet, 8 per page</option>
+        </select>
+      </label>
+      <button type="button" id="print">Print</button>
+    </div>
+    <p class="hint" id="hint" hidden>In the print window, turn headers and footers off, set margins to None (or Default for the A4 sheet) and keep the scale at 100%.</p>
+  </div>
+</header>
+<main id="pages"></main>
+<script src="/qr.js"></script>
+<script src="/sticker.js"></script>
+</body>
+</html>

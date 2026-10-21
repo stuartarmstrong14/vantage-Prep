@@ -1,0 +1,115 @@
+# Vantage prep tracker
+
+A web app for tracking used cars through preparation, with a username and password login for each member of staff.
+
+- **Staff** can add cars, tick off prep and sign off QC with their initials.
+- **Advisors** can look at progress but cannot change anything. This is the role for sales advisors who scan QR stickers.
+- **Administrators** can also delete cars and add, deactivate or reset staff logins.
+- Everyone sees changes from other people within about 8 seconds.
+
+## QR stickers
+
+Every car can have a QR sticker for the dashboard.
+
+1. Add the car. In its sheet, press **Print QR sticker**. To print several, use **Print QR stickers** above the stock list; it prints whatever cars the current filter shows.
+2. Choose **Single label** (100 × 70 mm) or **A4 sheet** (8 per page, with cutting lines), then Print.
+3. Stick it on the dashboard and tick **QR sticker fitted** on the car's Inbound checklist.
+4. An advisor scans it with their phone camera. They sign in (their login is remembered on their phone) and the car opens showing its stage and every completed step.
+
+The sticker shows the registration, model and tag number only. The progress itself is behind the login, so a customer who scans it sees a sign-in screen and nothing else.
+
+**Set `PUBLIC_URL` before printing** (see below). The QR code contains the web address of this app. If you print while using the app at `http://localhost:3000`, the codes will only work on that computer. The sticker page warns you when this is the case.
+
+If a sticker is damaged, print it again from the same car. The code never changes, so old and new stickers both work.
+
+It needs **Node.js 22.13 or newer** and nothing else. There are no packages to install.
+
+## Try it on your own computer
+
+```
+npm start
+```
+
+Open http://localhost:3000. The first time, you are asked to create the administrator account. After that, use **Account > Manage staff logins** to add everyone else.
+
+## Quick test deploy (Render)
+
+1. Put this folder in a GitHub repository (private is fine).
+2. On render.com choose **New > Blueprint**, pick the repository, and apply. It reads `render.yaml`.
+3. When it is live, copy its web address into the `PUBLIC_URL` setting (Render shows it as `https://vantage-prep-xxxx.onrender.com`) and redeploy, so QR codes use it.
+4. Open the address straight away and create the administrator account. Whoever opens it first becomes the administrator.
+
+The free plan sleeps when idle and **wipes the data on every restart**. It is for testing only. For real use, add a disk and set `DATA_DIR`, as described below.
+
+## Put it on the internet for your team
+
+You need somewhere that runs a Node.js app (or a Docker container) **and keeps a permanent disk**. The database lives in the `data` folder, so on a host that wipes its disk on every restart you would lose your cars and logins.
+
+1. Upload this folder (or build the included `Dockerfile`).
+2. Start command: `npm start` (or let Docker run it).
+3. Mount a persistent disk or volume and point `DATA_DIR` at it. The Dockerfile uses `/data`.
+4. Serve it over **HTTPS**. Most hosts do this for you. Passwords are not safe over plain http.
+5. Set `TRUST_PROXY=1` if the host puts a proxy in front of the app (nearly all do; the Dockerfile sets it).
+
+Typical choices are a small VPS, Fly.io, Railway or Render with a disk attached.
+
+## Adding cars by email
+
+Send an email to a dedicated address and each car in it is added at **Inbound**, so nobody types it in twice. Use one car per group of lines, in this order. Price, TAC and service lines are ignored:
+
+```
+AYGO X
+YB19CYZ
+TAG-184
+TAC
+SERVICE
+MOT
+MILEAGE- 58552
+PRICE – 8690
+```
+
+- Several cars can go in one email. Blank lines between lines are fine.
+- The make is filled in when it is written before the model (Toyota Aygo X) or the model is a common one (Aygo, Golf, Fiesta). Otherwise it is left blank for staff to complete.
+- If the MOT line has a date (for example `MOT 12/03/2027`), that date is used.
+- A registration already in stock is skipped, so forwarding the same email twice is safe.
+- New cars show "Last updated by Email" and a note asking staff to check the details.
+
+Set up:
+
+1. Set `INBOUND_SECRET` to a long random string, and `INBOUND_ALLOWED` to the email addresses allowed to send, for example `sam@yourdomain.co.uk`.
+2. Use an inbound-email service (Postmark inbound is the simplest) with an address such as `prep@yourdomain.co.uk`, and point its webhook at `https://your-app-address/api/inbound?key=YOUR_SECRET`.
+3. Send yourself a test email and check the car appears.
+
+The endpoint accepts Postmark, Mailgun and SendGrid style posts, or a plain JSON `{ "from": "...", "text": "..." }` from tools such as Zapier or Make. The sender check relies on the From header, so the secret in the web address is what keeps the endpoint private. Do not share it.
+
+## Settings (environment variables)
+
+| Name | Default | What it does |
+| --- | --- | --- |
+| `PORT` | `3000` | Port to listen on |
+| `DATA_DIR` | `./data` | Where the database is kept |
+| `PUBLIC_URL` | the address you are browsing | The live web address staff use, for example `https://prep.yourdomain.co.uk`. Put into every QR code |
+| `TZ_NAME` | `Europe/London` | Time zone used for "arrived" and sign-off dates |
+| `TRUST_PROXY` | off | Set to `1` behind a proxy so sign-in limits use the real visitor address |
+| `SESSION_SECRET` | made for you | Optional. Signs login cookies. By default one is created in the data folder |
+| `COOKIE_SECURE` | auto | Set to `1` to force the secure cookie flag |
+| `INBOUND_SECRET` | off | Turns on adding cars by email. The key the email service puts on the web address |
+| `INBOUND_ALLOWED` | anyone | Comma-separated sender addresses allowed to add cars by email |
+
+## Looking after it
+
+- **Backup:** `npm run backup` saves a copy to `data/backups`. Do this regularly and keep copies somewhere else too.
+- **Forgotten administrator password:** `npm run reset-password -- username NewPassword123`
+- **Leavers:** deactivate them under Manage staff logins. They are signed out straight away and their past sign-offs stay on record.
+
+## What is built in
+
+- Passwords are stored hashed (scrypt), never in plain text.
+- Login cookies are HttpOnly and SameSite, and are Secure over https.
+- Eight wrong attempts in 15 minutes locks that username on that device for 15 minutes.
+- Changing or resetting a password, or deactivating someone, signs them out everywhere.
+- QC sign-offs record the initials, the date and the logged-in person's name, taken by the server.
+
+## Changing the checklist
+
+The stages and tick boxes are listed at the top of `public/app.js` (`STAGES`). Edit the names there. Ticks are stored against the stage and item ids, so renaming a label keeps existing ticks, while removing an item hides its old ticks.

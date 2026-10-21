@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#7C95AE">
+<title>Vantage Prep Tracker</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23112D5B'/%3E%3Cpath d='M12 18h12l8 22 8-22h12L36 50H28z' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=Urbanist:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+
+<!-- Sign in / first-time setup -->
+<div class="authwrap" id="auth" hidden>
+  <div class="authbox">
+    <img class="authlogo" src="/logo.png" alt="Vantage Motor Group" width="560" height="156">
+    <h1 id="auth-title">Sign in</h1>
+    <p class="sec-sub" id="auth-sub"></p>
+    <form class="panel" id="auth-form">
+      <input class="pillfield" id="a-display" placeholder="Your full name" autocomplete="name" maxlength="60" hidden>
+      <input class="pillfield" id="a-user" placeholder="Username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="32" required>
+      <input class="pillfield" id="a-pass" type="password" placeholder="Password" autocomplete="current-password" maxlength="200" required>
+      <p class="formerr" id="a-err" role="alert" hidden></p>
+      <button class="pillbtn" id="a-go" type="submit">Sign in</button>
+    </form>
+  </div>
+</div>
+
+<!-- Tracker -->
+<div class="wrap" id="app" hidden>
+  <header class="bar">
+    <div class="brand"><img class="logo" src="/logo.png" alt="Vantage Motor Group" width="560" height="156"></div>
+    <button class="cell" id="add-btn" type="button">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      <span>Add car</span>
+    </button>
+    <button class="cell" id="acct-btn" type="button">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+      <span>Account</span>
+    </button>
+  </header>
+
+  <section class="hero" aria-label="Find a car">
+    <p class="kicker">Search our stock</p>
+    <h1>Get every car forecourt ready</h1>
+    <div class="panel">
+      <select class="pillfield" id="stage-filter" aria-label="Filter by stage"></select>
+      <input class="pillfield" id="q" type="search" placeholder="Registration, make or model" aria-label="Search cars" autocomplete="off">
+      <button class="pillbtn" id="go" type="button">Show cars</button>
+    </div>
+  </section>
+
+  <section class="sec" aria-label="Prep summary">
+    <div>
+      <h2>How prep is going</h2>
+      <p class="sec-sub">Target is <span id="target">7</span> days from arrival to quality check.</p>
+    </div>
+    <div class="stats">
+      <div class="stat"><b class="num" id="s-prep">0</b><span>In prep</span></div>
+      <div class="stat"><b class="num" id="s-ready">0</b><span>At quality check</span></div>
+      <div class="stat"><b class="num" id="s-avg">0</b><span>Avg days in prep</span></div>
+      <div class="stat" id="s-over-wrap"><b class="num" id="s-over">0</b><span>Over target</span></div>
+    </div>
+  </section>
+
+  <section class="sec" id="stock">
+    <div class="sec-head">
+      <h2>Our stock</h2>
+      <a class="btn" id="print-all" href="/sticker.html" target="_blank" rel="noopener" hidden>Print QR stickers</a>
+    </div>
+    <main id="list" class="grid" aria-live="polite"></main>
+  </section>
+</div>
+
+<!-- Car sheet -->
+<div class="overlay" id="ov-car" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="m-title">
+    <div class="sheet-head">
+      <div><span class="plate" id="m-plate"></span><div class="m-title" id="m-title"></div></div>
+      <button class="icon-btn" id="m-close" type="button" aria-label="Close">&times;</button>
+    </div>
+    <fieldset id="m-body">
+    <div class="block stagebar">
+      <div class="track" id="m-track"></div>
+      <div class="row">
+        <label class="lbl" for="m-stage" style="flex:1 1 150px">Stage
+          <select class="field" id="m-stage"></select>
+        </label>
+        <button class="btn primary" id="m-next" type="button" style="align-self:flex-end"></button>
+      </div>
+      <div class="money" id="m-days"></div>
+      <div><a class="btn" id="m-qr" href="/sticker.html" target="_blank" rel="noopener">Print QR sticker</a></div>
+    </div>
+
+    <div class="block">
+      <h3>Car details</h3>
+      <div class="fields" id="m-fields"></div>
+    </div>
+
+    <div class="block">
+      <h3>Prep checklist</h3>
+      <div id="m-checks" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+
+    <div class="block">
+      <h3>Notes</h3>
+      <textarea class="field" id="m-notes" aria-label="Notes" placeholder="Faults found, parts on order, who has the keys"></textarea>
+    </div>
+
+    <div class="block">
+      <p class="money" id="m-upd"></p>
+      <div><button class="btn danger" id="m-del" type="button" hidden>Delete car</button></div>
+    </div>
+    </fieldset>
+  </div>
+</div>
+
+<!-- New car sheet -->
+<div class="overlay" id="ov-new" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="n-h">
+    <div class="sheet-head">
+      <h2 id="n-h" style="font-size:28px;font-weight:700">Add a car</h2>
+      <button class="icon-btn" id="n-close" type="button" aria-label="Close">&times;</button>
+    </div>
+    <form id="n-form" class="block" autocomplete="off">
+      <div class="fields">
+        <label>Registration<input class="field" id="n-reg" required maxlength="10" placeholder="AB21 CDE"></label>
+        <label>Make<input class="field" id="n-make" required maxlength="40" placeholder="Ford"></label>
+        <label>Model<input class="field" id="n-model" required maxlength="40" placeholder="Focus"></label>
+        <label>Tag number<input class="field" id="n-tag" maxlength="12" placeholder="T1042"></label>
+        <label>Mileage<input class="field num" id="n-miles" type="number" inputmode="numeric" min="0" max="2000000" placeholder="42000"></label>
+        <label>Colour<input class="field" id="n-colour" maxlength="30" placeholder="Blue"></label>
+      </div>
+      <div class="row"><button class="btn primary" type="submit" style="min-height:50px;padding:0 28px">Add to prep</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- Account sheet -->
+<div class="overlay" id="ov-acct" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ac-h">
+    <div class="sheet-head">
+      <div>
+        <h2 id="ac-h" style="font-size:28px;font-weight:700"></h2>
+        <p class="money" id="ac-sub" style="margin-top:4px"></p>
+      </div>
+      <button class="icon-btn" id="ac-close" type="button" aria-label="Close">&times;</button>
+    </div>
+    <div class="block" id="ac-admin" hidden>
+      <h3>Staff</h3>
+      <div><button class="btn primary" id="ac-users" type="button" style="min-height:48px;padding:0 24px">Manage staff logins</button></div>
+    </div>
+    <form class="block" id="pw-form" autocomplete="off">
+      <h3>Change password</h3>
+      <div class="fields">
+        <label for="pw-cur">Current password<input class="field" id="pw-cur" type="password" autocomplete="current-password" maxlength="200" required></label>
+        <label for="pw-new">New password<input class="field" id="pw-new" type="password" autocomplete="new-password" minlength="8" maxlength="200" required></label>
+      </div>
+      <p class="formerr light" id="pw-err" role="alert" hidden></p>
+      <div class="row"><button class="btn" type="submit" style="min-height:46px">Save new password</button></div>
+    </form>
+    <div class="block">
+      <button class="btn primary" id="ac-out" type="button" style="min-height:48px;padding:0 24px;align-self:flex-start">Sign out</button>
+    </div>
+  </div>
+</div>
+
+<!-- Staff sheet (administrators) -->
+<div class="overlay" id="ov-users" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="us-h">
+    <div class="sheet-head">
+      <h2 id="us-h" style="font-size:28px;font-weight:700">Staff logins</h2>
+      <button class="icon-btn" id="us-close" type="button" aria-label="Close">&times;</button>
+    </div>
+    <div class="block"><div id="us-list" class="ulist"></div></div>
+    <form class="block" id="us-form" autocomplete="off">
+      <h3>Add a person</h3>
+      <div class="fields">
+        <label for="u-display">Full name<input class="field" id="u-display" maxlength="60" required></label>
+        <label for="u-user">Username<input class="field" id="u-user" maxlength="32" autocapitalize="none" spellcheck="false" required></label>
+        <label for="u-pass">Starting password<input class="field" id="u-pass" type="text" minlength="8" maxlength="200" autocomplete="off" required></label>
+        <label for="u-role">Role
+          <select class="field" id="u-role"><option value="staff">Staff</option><option value="advisor">Advisor (view only)</option><option value="admin">Administrator</option></select>
+        </label>
+      </div>
+      <p class="muted-s">Staff can add cars and tick off prep. Advisors can only look at progress, for example after scanning a car's QR sticker. Administrators can also delete cars and manage logins. Tell the person their starting password in person; they can change it under Account.</p>
+      <p class="formerr light" id="u-err" role="alert" hidden></p>
+      <div class="row"><button class="btn primary" type="submit" style="min-height:46px;padding:0 24px">Add person</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+<script src="/app.js" defer></script>
+</body>
+</html>

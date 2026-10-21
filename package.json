@@ -1,0 +1,15 @@
+{
+  "name": "vantage-prep-tracker",
+  "version": "1.0.0",
+  "description": "Used car stock preparation tracker with staff logins",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server.js",
+    "reset-password": "node --disable-warning=ExperimentalWarning scripts/reset-password.js",
+    "backup": "node --disable-warning=ExperimentalWarning scripts/backup.js"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  }
+}

@@ -1,0 +1,15 @@
+# One-click test deploy on Render (render.com). Free plan: data is wiped on every restart or deploy, so use it for testing only.
+# For real use, add a disk (paid plan) mounted at /data and set DATA_DIR=/data.
+services:
+  - type: web
+    name: vantage-prep
+    runtime: docker
+    plan: free
+    healthCheckPath: /healthz
+    envVars:
+      - key: TRUST_PROXY
+        value: "1"
+      - key: INBOUND_SECRET
+        generateValue: true
+      - key: PUBLIC_URL
+        sync: false

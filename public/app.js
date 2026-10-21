@@ -199,8 +199,8 @@
   }
 
   /* ---------- list ---------- */
-  // Prep is completed once the Quality Check is signed off.
-  function isDone(c) { return c.stage === 'ready' && !!c.done && c.done.ready_qc === true; }
+  // Prep is completed once the car reaches the Quality Check stage.
+  function isDone(c) { return c.stage === 'ready'; }
   function visible() {
     var q = state.q.trim().toLowerCase();
     var out = [];
@@ -224,10 +224,8 @@
     var inPrep = all.filter(function (c) { return c.stage !== 'ready'; });
     var completed = all.filter(isDone);
     var active = all.filter(function (c) { return !isDone(c); });
-    var ready = active.length - inPrep.length;
     var avg = inPrep.length ? Math.round(inPrep.reduce(function (n, c) { return n + carDays(c); }, 0) / inPrep.length * 10) / 10 : 0;
     $('#s-prep').textContent = inPrep.length;
-    $('#s-ready').textContent = ready;
     $('#s-avg').textContent = avg;
     $('#s-done').textContent = completed.length;
     $('#tab-prep-n').textContent = active.length;
@@ -253,7 +251,7 @@
       list.innerHTML = '<div class="empty" style="grid-column:1/-1"><h2>No cars in prep</h2><p>Add the first car as it arrives. Each one gets a checklist from inbound through to quality check.</p>' + (readOnly() ? '' : '<button class="btn primary" type="button" data-act="add" style="min-height:48px;padding:0 26px">Add car</button>') + '</div>';
       return;
     }
-    if (!vis.length) { list.innerHTML = '<div class="empty" style="grid-column:1/-1"><p>' + (state.tab === 'done' && !state.q.trim() ? 'No cars have completed prep yet. A car moves here once its Quality Check is signed off.' : 'No cars match this search.') + '</p></div>'; return; }
+    if (!vis.length) { list.innerHTML = '<div class="empty" style="grid-column:1/-1"><p>' + (state.tab === 'done' && !state.q.trim() ? 'No cars have completed prep yet. A car moves here when it reaches Quality Check.' : 'No cars match this search.') + '</p></div>'; return; }
     list.innerHTML = vis.map(function (r) { return cardHtml(r.id, r.c); }).join('');
   }
   function cardHtml(id, c) {

@@ -314,6 +314,9 @@ function applyCarPatch(cur, body, user) {
         next[onKey] = initials ? todayStr() : '';
         next[nameKey] = initials ? user.display : '';
       }
+    } else if (key === 'archived') {
+      if (typeof v !== 'boolean') throw new HttpError(400, 'Invalid request.');
+      next.archived = v;
     } else if (key === 'done') {
       if (!v || typeof v !== 'object' || Array.isArray(v)) throw new HttpError(400, 'Invalid checklist.');
       const done = Object.assign({}, cur.done || {});

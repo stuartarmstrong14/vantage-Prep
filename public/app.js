@@ -205,7 +205,12 @@
   // Prep is completed once the car reaches the Quality Check stage.
   function isDone(c) { return c.stage === 'ready'; }
   // A car is archived automatically once it has been on the system for more than 365 days. Nothing is deleted.
-  function isArchived(c) { return !!c.added && dayNum(todayStr()) - dayNum(c.added) > 365; }
+  // A person can also archive a completed car by hand, or restore one (archived: true / false overrides the 365 day rule).
+  function isArchived(c) {
+    if (c.archived === true) return true;
+    if (c.archived === false) return false;
+    return !!c.added && dayNum(todayStr()) - dayNum(c.added) > 365;
+  }
   function visible() {
     var q = state.q.trim().toLowerCase();
     var out = [];
@@ -379,6 +384,10 @@
     $('#m-days').innerHTML = '<span><b class="num">' + d + '</b> ' + (c.stage === 'ready' ? 'days from arrival to quality check' : 'days in prep, target ' + TARGET) + '</span><span>Arrived <b>' + esc(fmtDate(c.added)) + '</b></span><span><b class="num">' + doneCount(c) + '</b> of ' + TOTAL + ' tasks done</span>';
     $('#m-upd').textContent = c.updatedBy ? ('Last updated by ' + c.updatedBy + ', ' + new Date(c.updatedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })) : '';
 
+    var ab = $('#m-arch'), arch = isArchived(c);
+    ab.hidden = readOnly() || !(arch || isDone(c));
+    ab.textContent = arch ? 'Restore from archive' : 'Archive car';
+
     var ae = document.activeElement, ax = ae && ae.dataset && ae.dataset.x, av = ax ? ae.value : null, ass = null, ase = null;
     if (ax) { try { ass = ae.selectionStart; ase = ae.selectionEnd; } catch (er) { /* number inputs */ } }
     $('#m-checks').innerHTML = STAGES.map(function (s) {
@@ -458,6 +467,13 @@
     var s = e.target.dataset && e.target.dataset.s; if (!s) return;
     if (e.target.open) state.expanded.add(s); else state.expanded.delete(s);
   }, true);
+
+  $('#m-arch').addEventListener('click', function () {
+    var id = state.open, c = id && state.cars.get(id); if (!c) return;
+    var archive = !isArchived(c);
+    upd(id, { archived: archive });
+    if (archive) { closeCar(); toast('Car archived. Find it under Archived.'); } else toast('Car restored.');
+  });
 
   var delBtn = $('#m-del');
   delBtn.addEventListener('click', function () {

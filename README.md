@@ -112,7 +112,7 @@ The endpoint accepts Postmark, Mailgun and SendGrid style posts, or a plain JSON
 
 ## Archiving
 
-A car is archived automatically once it has been on the system for more than 365 days (counted from the day it arrived). Archived cars leave the In prep and Completed tabs and appear under **Archived**. Nothing is deleted, and archived cars are still included in every report. Only an administrator can delete a car, using Delete car in its sheet.
+A car is archived automatically once it has been on the system for more than 365 days (counted from the day it arrived). Archived cars leave the In prep and Completed tabs and appear under **Archived**. Nothing is deleted, and archived cars are still included in every report. Staff can also archive a completed car at any time with the **Archive car** button in its sheet, and bring any archived car back with **Restore from archive**. Only an administrator can delete a car, using Delete car in its sheet.
 
 ## Changing the checklist
 

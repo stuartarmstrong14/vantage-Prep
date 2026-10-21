@@ -269,7 +269,7 @@ function securityHeaders(res) {
 }
 
 /* ---------- validation ---------- */
-const STAGE_KEYS = ['arrived', 'mech', 'body', 'valet', 'photos', 'ready'];
+const STAGE_KEYS = ['arrived', 'valet', 'photos', 'mech', 'body', 'ready'];
 const SIGN = { bodyQcBy: ['bodyQcOn', 'bodyQcName'], finalQcBy: ['finalQcOn', 'finalQcName'] };
 const TEXT_LIMITS = { reg: 10, make: 40, model: 40, colour: 30, tag: 12 };
 const str = (v) => (typeof v === 'string' ? v : '');

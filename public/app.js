@@ -4,6 +4,8 @@
   /* ---------- checklist definition ---------- */
   var STAGES = [
     { k: 'arrived', l: 'Inbound', t: [['advert', 'Advertised on Auto Trader'], ['lines', 'Preparation lines requested'], ['qr', 'QR sticker fitted']] },
+    { k: 'valet', l: 'Valet', t: [['done', 'Valet completed']] },
+    { k: 'photos', l: 'Photos', t: [['done', 'Photographs completed']] },
     { k: 'mech', l: 'Mechanical', t: [['pt145', '145 point mechanical check'], ['service', 'Service'], ['motbook', 'MOT passed'], ['qc', 'Mechanical QC complete']] },
     { k: 'body', l: 'Bodywork', t: [
       ['cosmetic', 'Cosmetic check complete'],
@@ -12,8 +14,6 @@
       ['paint', 'Paint work completed'],
       ['qc', 'QC complete', { f: 'bodyQcBy', label: 'Initials', type: 'text', sign: 'bodyQcOn', name: 'bodyQcName' }]
     ] },
-    { k: 'valet', l: 'Valet', t: [['done', 'Valet completed']] },
-    { k: 'photos', l: 'Photos', t: [['done', 'Photographs completed']] },
     { k: 'ready', l: 'Quality Check', t: [['qc', 'Quality check completed', { f: 'finalQcBy', label: 'Initials', type: 'text', sign: 'finalQcOn', name: 'finalQcName' }]] }
   ];
   var TARGET = 7;
@@ -238,13 +238,6 @@
 
     var vis = state.loaded ? visible() : [];
     $('#go').textContent = 'Show ' + vis.length + (vis.length === 1 ? ' car' : ' cars');
-    var pa = $('#print-all'), printable = vis.slice(0, 100);
-    pa.hidden = readOnly() || !printable.length;
-    if (printable.length) {
-      pa.href = '/sticker.html?ids=' + printable.map(function (r) { return r.id; }).join(',');
-      pa.textContent = 'Print QR stickers (' + printable.length + ')';
-    }
-
     var list = $('#list');
     if (state.err) { list.innerHTML = '<div class="empty" style="grid-column:1/-1"><h2>Stock is not available</h2><p>' + esc(state.err) + '</p></div>'; return; }
     if (!state.loaded) { list.innerHTML = '<div class="empty" style="grid-column:1/-1"><p>Loading stock…</p></div>'; return; }

@@ -424,6 +424,10 @@
     var o = { done: {} }; o.done[t] = e.target.checked;
     var item = findItem(t), spec = item && item[2];
     if (spec && spec.sign && e.target.checked && !c[spec.f]) o[spec.f] = state.user.initials;   // sign with the logged-in person's initials
+    // Everything ticked: the car is prepped, so move it to Completed.
+    var after = Object.assign({}, c.done, o.done);
+    var all = STAGES.every(function (s) { return s.t.every(function (t) { return after[s.k + '_' + t[0]] === true; }); });
+    if (all && c.stage !== 'ready') { o.stage = 'ready'; toast('All prep complete. Moved to Completed.'); }
     upd(state.open, o);
   });
   $('#m-checks').addEventListener('input', function (e) {

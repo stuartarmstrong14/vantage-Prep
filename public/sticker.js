@@ -11,7 +11,19 @@
     return /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|0\.0\.0\.0)/.test(host) || /\.local$/.test(host) || host.indexOf('.') < 0;
   }
 
+  function smallHtml(c) {
+    var url = base + '/c/' + c.id;
+    var name = [c.make, c.model].filter(Boolean).join(' ');
+    return '<article class="sticker small">'
+      + '<div class="s-qr">' + QR.svg(url, { label: 'QR code for ' + (c.reg || 'this car') }) + '</div>'
+      + '<div class="s-info"><div class="s-plate">' + esc(c.reg || 'No reg') + '</div>'
+      + (c.tag ? '<div class="s-tag">' + esc(c.tag) + '</div>' : '')
+      + '<div class="s-car">' + esc(name) + '</div></div>'
+      + '</article>';
+  }
+
   function stickerHtml(c) {
+    if ($('#layout').value === 'small') return smallHtml(c);
     var url = base + '/c/' + c.id;
     var name = [c.make, c.model].filter(Boolean).join(' ');
     return '<article class="sticker">'
@@ -36,7 +48,7 @@
     $('#pages').innerHTML = html;
     var pg = document.getElementById('pagestyle');
     if (!pg) { pg = document.createElement('style'); pg.id = 'pagestyle'; document.head.appendChild(pg); }
-    pg.textContent = layout === 'sheet' ? '@page{size:A4;margin:8mm 5mm}' : '@page{size:100mm 70mm;margin:0}';
+    pg.textContent = layout === 'sheet' ? '@page{size:A4;margin:8mm 5mm}' : layout === 'small' ? '@page{size:50mm 30mm;margin:0}' : '@page{size:100mm 70mm;margin:0}';
     try { localStorage.setItem('stickerLayout', layout); } catch (e) { /* ignore */ }
   }
 
@@ -72,7 +84,7 @@
       $('#ctl').hidden = false; $('#hint').hidden = false;
       var saved = null;
       try { saved = localStorage.getItem('stickerLayout'); } catch (e) { /* ignore */ }
-      if (saved === 'sheet' || saved === 'label') $('#layout').value = saved;
+      if (saved === 'sheet' || saved === 'label' || saved === 'small') $('#layout').value = saved;
       draw();
     });
   }).catch(function () { message('Could not reach the server. Check your connection and reload.'); });

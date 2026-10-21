@@ -71,6 +71,7 @@ PRICE – 8690
 - Several cars can go in one email. Blank lines between lines are fine.
 - The make is filled in when it is written before the model (Toyota Aygo X) or the model is a common one (Aygo, Golf, Fiesta). Otherwise it is left blank for staff to complete.
 - **Prep requested:** the TAC, SERVICE and MOT lines in the email are shown as coloured tags on the car (for example `TAC, SERVICE` or `TAC ONLY`). Staff can switch them on or off in the car sheet. This replaces the old Colour box.
+- A `MOT` line with a date (for example `MOT - 25/05/2027`) is taken as the car's current MOT expiry, so MOT is **not** shown as requested. A `MOT` line with no date is shown as requested.
 - If the MOT line has a date (for example `MOT 12/03/2027`), that date is used.
 - A registration already in stock is skipped, so forwarding the same email twice is safe.
 - New cars show "Last updated by Email" and a note asking staff to check the details.

@@ -248,3 +248,13 @@ fieldset:disabled .chk input{opacity:.85}
 .seg span{font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap}
 .seg.on i{background:var(--ok)}.seg.on span{color:var(--ok)}
 .seg.cur i{background:var(--navy)}.seg.cur span{color:var(--ink)}
+
+/* prep requested: TAC, Service and MOT shown in colour when asked for */
+.prepreq{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.prepreq .lbl{font-size:13px;font-weight:700;color:var(--muted)}
+.pqs{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.pq{display:inline-flex;align-items:center;border-radius:999px;border:1.5px dashed var(--line);background:transparent;color:var(--muted);font-weight:700;font-size:13px;padding:2px 10px;line-height:1.5}
+.pqs.big .pq{font-size:15px;padding:0 18px;min-height:44px;cursor:pointer}
+.pq.on[data-k="TAC"]{background:var(--navy);color:var(--navy-ink);border:1.5px solid var(--navy)}
+.pq.on[data-k="SERVICE"]{background:var(--warn-bg);color:var(--warn);border:1.5px solid var(--warn)}
+.pq.on[data-k="MOT"]{background:var(--ok-bg);color:var(--ok);border:1.5px solid var(--ok)}

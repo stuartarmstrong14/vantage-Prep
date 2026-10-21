@@ -269,6 +269,7 @@ function securityHeaders(res) {
 }
 
 /* ---------- validation ---------- */
+const PREP_ITEMS = ['TAC', 'SERVICE', 'MOT'];
 const STAGE_KEYS = ['arrived', 'valet', 'photos', 'mech', 'body', 'ready'];
 const SIGN = { bodyQcBy: ['bodyQcOn', 'bodyQcName'], finalQcBy: ['finalQcOn', 'finalQcName'] };
 const TEXT_LIMITS = { reg: 10, make: 40, model: 40, colour: 30, tag: 12 };
@@ -314,6 +315,9 @@ function applyCarPatch(cur, body, user) {
         next[onKey] = initials ? todayStr() : '';
         next[nameKey] = initials ? user.display : '';
       }
+    } else if (key === 'prep') {
+      if (!Array.isArray(v) || v.some((x) => !PREP_ITEMS.includes(x))) throw new HttpError(400, 'Invalid request.');
+      next.prep = PREP_ITEMS.filter((x) => v.includes(x));
     } else if (key === 'archived') {
       if (typeof v !== 'boolean') throw new HttpError(400, 'Invalid request.');
       next.archived = v;
@@ -409,7 +413,7 @@ async function handleApi(req, res, url) {
       const key = inbound.normReg(f.reg);
       if (have.has(key)) { skipped.push(f.reg); continue; }
       have.add(key);
-      const car = { reg: f.reg, make: f.make, model: f.model, tag: f.tag, colour: '', mileage: f.mileage, mot: f.mot,
+      const car = { reg: f.reg, make: f.make, model: f.model, tag: f.tag, prep: f.prep || [], mileage: f.mileage, mot: f.mot,
         notes: 'Added from email. Check the details are right.', stage: 'arrived', added: todayStr(), readyAt: '', done: {},
         history: [{ s: 'arrived', at: new Date().toISOString(), by: 'Email' }] };
       q.insertCar.run(crypto.randomBytes(6).toString('hex'), JSON.stringify(car), new Date().toISOString(), 'Email');
@@ -487,8 +491,8 @@ async function handleApi(req, res, url) {
   if (method === 'POST' && p === '/api/cars') {
     const u = requireStaff(req);
     const b = await readJson(req);
-    const car = { reg: '', make: '', model: '', tag: '', colour: '', mileage: null, mot: '', notes: '', stage: 'arrived', added: todayStr(), readyAt: '', done: {} };
-    const filled = applyCarPatch(car, { reg: b.reg, make: b.make, model: b.model, tag: b.tag, colour: b.colour, mileage: b.mileage === undefined ? null : b.mileage }, u);
+    const car = { reg: '', make: '', model: '', tag: '', prep: [], mileage: null, mot: '', notes: '', stage: 'arrived', added: todayStr(), readyAt: '', done: {} };
+    const filled = applyCarPatch(car, { reg: b.reg, make: b.make, model: b.model, tag: b.tag, prep: b.prep || [], mileage: b.mileage === undefined ? null : b.mileage }, u);
     if (!filled.reg || !filled.make || !filled.model) throw new HttpError(400, 'Registration, make and model are required.');
     filled.history = [{ s: 'arrived', at: new Date().toISOString(), by: u.display }];
     const id = crypto.randomBytes(6).toString('hex');

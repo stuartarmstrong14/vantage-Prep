@@ -21,9 +21,11 @@
   var TOTAL = STAGES.reduce(function (n, s) { return n + s.t.length; }, 0);
   var FIELDS = [
     ['reg', 'Registration', 'text'], ['make', 'Make', 'text'], ['model', 'Model', 'text'], ['tag', 'Tag number', 'text'],
-    ['mileage', 'Mileage', 'number'], ['colour', 'Colour', 'text'], ['mot', 'MOT expiry', 'date']
+    ['mileage', 'Mileage', 'number'], ['mot', 'MOT expiry', 'date']
   ];
   var NUMERIC = { mileage: 1 };
+  // Prep requested on the car (from the email, or set by hand). Order and labels are fixed.
+  var PREP = [['TAC', 'TAC'], ['SERVICE', 'Service'], ['MOT', 'MOT']];
   var POLL_MS = 8000;
 
   /* ---------- small helpers ---------- */
@@ -231,7 +233,7 @@
         if (isDone(c) !== (state.tab === 'done')) return;
         if (state.tab === 'prep' && state.f !== 'all' && stageKey(c) !== state.f) return;
       }
-      if (q && ((c.reg || '') + ' ' + (c.tag || '') + ' ' + (c.make || '') + ' ' + (c.model || '') + ' ' + (c.colour || '')).toLowerCase().indexOf(q) < 0) return;
+      if (q && ((c.reg || '') + ' ' + (c.tag || '') + ' ' + (c.make || '') + ' ' + (c.model || '') + ' ' + (c.prep || []).join(' ')).toLowerCase().indexOf(q) < 0) return;
       out.push({ id: id, c: c });
     });
     out.sort(function (a, b) {
@@ -286,13 +288,14 @@
     var d = carDays(c), dc = daysClass(c), mi = motInfo(c);
     var st = STAGES[stageIdx(c)];
     var name = [c.make, c.model].filter(Boolean).join(' ');
-    var meta = [c.tag ? ('Tag ' + c.tag) : '', miles(c.mileage), c.colour].filter(Boolean).map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('');
+    var meta = [c.tag ? ('Tag ' + c.tag) : '', miles(c.mileage)].filter(Boolean).map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('');
     var tags = mi ? '<span class="pill ' + mi.cls + '">' + esc(mi.t) + '</span>' : '';
     var daysTxt = stageKey(c) === 'ready' ? ('Prepped in ' + d + 'd') : (d + (d === 1 ? ' day' : ' days') + ' in prep');
     return '<button class="car" type="button" data-open="' + esc(id) + '">'
       + '<div class="car-top"><span class="plate">' + esc(c.reg || 'No reg') + '</span><span class="pill num ' + dc + '">' + daysTxt + '</span></div>'
       + '<div class="car-name">' + esc(name || 'Unnamed car') + '</div>'
       + '<div class="car-meta">' + meta + '</div>'
+      + ((c.prep || []).length ? '<div class="pqs">' + PREP.filter(function (p) { return c.prep.indexOf(p[0]) >= 0; }).map(function (p) { return '<span class="pq on" data-k="' + p[0] + '">' + p[1] + '</span>'; }).join('') + '</div>' : '')
       + (tags ? '<div class="car-tags">' + tags + '</div>' : '')
       + trackHtml(c)
       + '<div class="car-foot"><strong>' + esc(st.l) + '</strong><span class="num">' + doneCount(c) + ' of ' + TOTAL + ' tasks</span></div>'
@@ -358,6 +361,7 @@
       return '<label for="f-' + f[0] + '">' + f[1] + '<input class="field' + (f[2] === 'number' ? ' num' : '') + '" id="f-' + f[0] + '" data-f="' + f[0] + '" type="' + f[2] + '"' + (f[2] === 'number' ? ' inputmode="numeric" min="0" max="2000000" step="1"' : '') + ' value="' + esc(v == null ? '' : v) + '" autocomplete="off"></label>';
     }).join('');
     $('#m-notes').value = c.notes || '';
+    renderPrepChips(c);
     $('#m-del').hidden = state.user.role !== 'admin';
     $('#m-body').disabled = readOnly();
     $('#m-qr').hidden = readOnly();
@@ -367,6 +371,20 @@
     renderSheet();
     $('#m-close').focus();
   }
+  function renderPrepChips(c) {
+    var on = c.prep || [];
+    $('#m-prep').innerHTML = PREP.map(function (p) {
+      var yes = on.indexOf(p[0]) >= 0;
+      return '<button type="button" class="pq' + (yes ? ' on' : '') + '" data-k="' + p[0] + '" aria-pressed="' + yes + '">' + p[1] + '</button>';
+    }).join('');
+  }
+  $('#m-prep').addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-k]'); if (!b || !state.open) return;
+    var c = state.cars.get(state.open); if (!c) return;
+    var cur = (c.prep || []).slice(), k = b.dataset.k, i = cur.indexOf(k);
+    if (i >= 0) cur.splice(i, 1); else cur.push(k);
+    upd(state.open, { prep: PREP.map(function (p) { return p[0]; }).filter(function (x) { return cur.indexOf(x) >= 0; }) });
+  });
   function closeCar() {
     $('#ov-car').hidden = true; state.open = null;
     if (location.pathname !== '/') { try { history.replaceState(null, '', '/'); } catch (e) { /* ignore */ } }
@@ -374,6 +392,7 @@
   function renderSheet() {
     var id = state.open, c = id && state.cars.get(id);
     if (!c) { if (id) closeCar(); return; }
+    renderPrepChips(c);
     $('#m-plate').textContent = c.reg || 'No reg';
     $('#m-title').textContent = [c.make, c.model].filter(Boolean).join(' ') || 'Unnamed car';
     var curI = stageIdx(c);
@@ -493,7 +512,11 @@
   });
 
   /* ---------- new car ---------- */
-  function openNew() { $('#n-form').reset(); $('#ov-new').hidden = false; $('#n-reg').focus(); }
+  $('#n-prep').addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('.pq'); if (!b) return;
+    b.classList.toggle('on'); b.setAttribute('aria-pressed', b.classList.contains('on'));
+  });
+  function openNew() { $('#n-form').reset(); Array.prototype.forEach.call($('#n-prep').querySelectorAll('.pq'), function (b) { b.classList.remove('on'); b.setAttribute('aria-pressed', 'false'); }); $('#ov-new').hidden = false; $('#n-reg').focus(); }
   function closeNew() { $('#ov-new').hidden = true; }
   $('#n-close').addEventListener('click', closeNew);
   $('#ov-new').addEventListener('click', function (e) { if (e.target === e.currentTarget) closeNew(); });
@@ -503,7 +526,8 @@
     var miles = $('#n-miles').value;
     var body = {
       reg: $('#n-reg').value, make: $('#n-make').value, model: $('#n-model').value,
-      tag: $('#n-tag').value, colour: $('#n-colour').value, mileage: miles === '' ? null : Number(miles)
+      tag: $('#n-tag').value, mileage: miles === '' ? null : Number(miles),
+      prep: Array.prototype.map.call($('#n-prep').querySelectorAll('.pq.on'), function (b) { return b.dataset.k; })
     };
     api('POST', '/api/cars', body).then(function (car) {
       state.cars.set(car.id, car);

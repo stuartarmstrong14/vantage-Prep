@@ -102,6 +102,7 @@
     <div class="block">
       <h3>Car details</h3>
       <div class="fields" id="m-fields"></div>
+      <div class="prepreq"><span class="lbl">Prep requested</span><div class="pqs big" id="m-prep"></div></div>
     </div>
 
     <div class="block">
@@ -147,8 +148,12 @@
         <label>Model<input class="field" id="n-model" required maxlength="40" placeholder="Focus"></label>
         <label>Tag number<input class="field" id="n-tag" maxlength="12" placeholder="T1042"></label>
         <label>Mileage<input class="field num" id="n-miles" type="number" inputmode="numeric" min="0" max="2000000" placeholder="42000"></label>
-        <label>Colour<input class="field" id="n-colour" maxlength="30" placeholder="Blue"></label>
       </div>
+      <div class="prepreq"><span class="lbl">Prep requested</span><div class="pqs big" id="n-prep">
+        <button type="button" class="pq" data-k="TAC" aria-pressed="false">TAC</button>
+        <button type="button" class="pq" data-k="SERVICE" aria-pressed="false">Service</button>
+        <button type="button" class="pq" data-k="MOT" aria-pressed="false">MOT</button>
+      </div></div>
       <div class="row"><button class="btn primary" type="submit" style="min-height:50px;padding:0 28px">Add to prep</button></div>
     </form>
   </div>

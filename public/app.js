@@ -580,6 +580,7 @@
         + (me ? '' : '<select class="field" data-role aria-label="Role for ' + esc(u.display) + '">' + ['staff', 'advisor', 'admin'].map(function (r) { return '<option value="' + r + '"' + (u.role === r ? ' selected' : '') + '>' + esc(roleLabel(r)) + '</option>'; }).join('') + '</select>')
         + '<button class="btn" type="button" data-resetpw>Set new password</button>'
         + (me ? '' : '<button class="btn ' + (u.active ? 'danger' : '') + '" type="button" data-toggle>' + (u.active ? 'Deactivate' : 'Reactivate') + '</button>')
+        + (me || u.active ? '' : '<button class="btn danger" type="button" data-delete>Delete login</button>')
         + '</div></div>';
     }).join('');
   }
@@ -606,6 +607,17 @@
     if (e.target.closest('[data-toggle]')) {
       var u = users.find(function (x) { return String(x.id) === id; });
       patchUser(id, { active: !u.active }, u.active ? 'Deactivated. They are signed out.' : 'Reactivated.');
+    } else if (e.target.closest('[data-delete]')) {
+      var db = e.target.closest('[data-delete]');
+      if (!db.classList.contains('armed')) {
+        db.classList.add('armed'); db.textContent = 'Tap again to delete for good';
+        setTimeout(function () { if (db.isConnected) { db.classList.remove('armed'); db.textContent = 'Delete login'; } }, 4000);
+        return;
+      }
+      api('DELETE', '/api/users/' + id).then(function () { toast('Login deleted. Their past sign-offs stay on the cars.'); return loadUsers(); }).catch(function (ex) {
+        if (ex && ex.code === 'unauth') return;
+        toast((ex && ex.message) || 'Could not delete that login.'); loadUsers();
+      });
     } else if (e.target.closest('[data-resetpw]')) {
       if (row.querySelector('.pwbox')) { row.querySelector('.pwbox input').focus(); return; }
       var box = document.createElement('div');

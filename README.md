@@ -101,7 +101,7 @@ The endpoint accepts Postmark, Mailgun and SendGrid style posts, or a plain JSON
 
 - **Backup:** `npm run backup` saves a copy to `data/backups`. Do this regularly and keep copies somewhere else too.
 - **Forgotten administrator password:** `npm run reset-password -- username NewPassword123`
-- **Leavers:** deactivate them under Manage staff logins. They are signed out straight away and their past sign-offs stay on record.
+- **Leavers:** deactivate them under Manage staff logins. They are signed out straight away and their past sign-offs stay on record. Once deactivated, **Delete login** removes the login for good (it asks you to tap twice). Past sign-offs keep the person's name, because the name is stored on the car.
 
 ## What is built in
 

@@ -551,6 +551,15 @@ async function handleApi(req, res, url) {
   }
 
   const userMatch = p.match(/^\/api\/users\/(\d+)$/);
+  if (userMatch && method === 'DELETE') {
+    const admin = requireAdmin(req);
+    const target = q.userById.get(Number(userMatch[1]));
+    if (!target) throw new HttpError(404, 'User not found.');
+    if (target.id === admin.id) throw new HttpError(400, 'You cannot delete your own login.');
+    if (target.active) throw new HttpError(400, 'Deactivate this login first, then delete it.');
+    db.prepare('DELETE FROM users WHERE id = ?').run(target.id);
+    return sendJson(res, 200, { ok: true });
+  }
   if (userMatch && method === 'PATCH') {
     const admin = requireAdmin(req);
     const target = q.userById.get(Number(userMatch[1]));

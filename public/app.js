@@ -770,6 +770,8 @@
     $('#ov-reports').hidden = true; openCar(b.dataset.open);
   });
 
+  if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js').catch(function () { /* app still works in the browser */ }); }
+
   /* ---------- start ---------- */
   api('GET', '/api/session').then(function (s) {
     if (s.user) { state.user = s.user; startApp(); }

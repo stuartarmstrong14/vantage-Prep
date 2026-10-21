@@ -1,0 +1,16 @@
+{
+  "name": "Vantage Prep Tracker",
+  "short_name": "Vantage Prep",
+  "description": "Track used cars through preparation.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#7C95AE",
+  "theme_color": "#112D5B",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

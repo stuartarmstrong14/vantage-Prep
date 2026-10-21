@@ -326,7 +326,28 @@ function applyCarPatch(cur, body, user) {
     }
     // any other key is ignored on purpose
   }
+  stampHistory(cur, next, user);
   return next;
+}
+
+// Records when a car entered each stage, who ticked each box and how often it was sent back. Used for reports.
+function stampHistory(cur, next, user) {
+  const now = new Date().toISOString();
+  if (next.stage !== cur.stage) {
+    const hist = cur.history && cur.history.length ? cur.history.slice() : [{ s: cur.stage, at: null }];
+    hist.push({ s: next.stage, at: now, by: user.display });
+    next.history = hist.slice(-40);
+    if (STAGE_KEYS.indexOf(next.stage) < STAGE_KEYS.indexOf(cur.stage)) next.sentBack = (cur.sentBack || 0) + 1;
+  }
+  if (next.done !== cur.done) {
+    const log = Object.assign({}, cur.tickLog);
+    const before = cur.done || {};
+    for (const k of Object.keys(next.done || {})) {
+      if (next.done[k] && !before[k]) log[k] = { at: now, by: user.display };
+      else if (!next.done[k]) delete log[k];
+    }
+    next.tickLog = log;
+  }
 }
 
 function readInbound(req) {
@@ -386,7 +407,8 @@ async function handleApi(req, res, url) {
       if (have.has(key)) { skipped.push(f.reg); continue; }
       have.add(key);
       const car = { reg: f.reg, make: f.make, model: f.model, tag: f.tag, colour: '', mileage: f.mileage, mot: f.mot,
-        notes: 'Added from email. Check the details are right.', stage: 'arrived', added: todayStr(), readyAt: '', done: {} };
+        notes: 'Added from email. Check the details are right.', stage: 'arrived', added: todayStr(), readyAt: '', done: {},
+        history: [{ s: 'arrived', at: new Date().toISOString(), by: 'Email' }] };
       q.insertCar.run(crypto.randomBytes(6).toString('hex'), JSON.stringify(car), new Date().toISOString(), 'Email');
       created.push(f.reg);
     }
@@ -465,6 +487,7 @@ async function handleApi(req, res, url) {
     const car = { reg: '', make: '', model: '', tag: '', colour: '', mileage: null, mot: '', notes: '', stage: 'arrived', added: todayStr(), readyAt: '', done: {} };
     const filled = applyCarPatch(car, { reg: b.reg, make: b.make, model: b.model, tag: b.tag, colour: b.colour, mileage: b.mileage === undefined ? null : b.mileage }, u);
     if (!filled.reg || !filled.make || !filled.model) throw new HttpError(400, 'Registration, make and model are required.');
+    filled.history = [{ s: 'arrived', at: new Date().toISOString(), by: u.display }];
     const id = crypto.randomBytes(6).toString('hex');
     const now = new Date().toISOString();
     q.insertCar.run(id, JSON.stringify(filled), now, u.display);

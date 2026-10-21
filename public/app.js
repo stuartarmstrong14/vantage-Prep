@@ -17,6 +17,7 @@
     { k: 'ready', l: 'Quality Check', t: [['qc', 'Quality check completed', { f: 'finalQcBy', label: 'Initials', type: 'text', sign: 'finalQcOn', name: 'finalQcName' }]] }
   ];
   var TARGET = 7;
+  var TZ = 'Europe/London';
   var TOTAL = STAGES.reduce(function (n, s) { return n + s.t.length; }, 0);
   var FIELDS = [
     ['reg', 'Registration', 'text'], ['make', 'Make', 'text'], ['model', 'Model', 'text'], ['tag', 'Tag number', 'text'],
@@ -113,7 +114,7 @@
   function signedOut(message) {
     stopPolling();
     state.user = null; state.cars = new Map(); state.rev = null; state.loaded = false; state.open = null;
-    ['#ov-car', '#ov-new', '#ov-acct', '#ov-users'].forEach(function (s) { $(s).hidden = true; });
+    ['#ov-car', '#ov-new', '#ov-acct', '#ov-users', '#ov-reports'].forEach(function (s) { $(s).hidden = true; });
     showAuth('login', message || '');
   }
 
@@ -139,6 +140,7 @@
       state.loaded = true;
       render();
       if (state.open) renderSheet();
+      if (!$('#ov-reports').hidden) renderReports();
       if (state.deepLink) {
         var dl = state.deepLink; state.deepLink = null;
         if (state.cars.has(dl)) openCar(dl); else toast('That car is no longer in stock.');
@@ -154,6 +156,7 @@
     $('#app').hidden = false;
     $('#a-user').value = '';
     $('#add-btn').hidden = readOnly();
+    $('#rep-btn').hidden = !state.user || state.user.role !== 'admin';
     render();
     refresh(true);
     startPolling();
@@ -380,6 +383,8 @@
             + ' value="' + esc(xv == null ? '' : xv) + '" placeholder="' + esc(x.label) + '" aria-label="' + esc(x.label) + '">';
           if (x.sign && c[x.sign]) signed = ' <small class="muted-s">signed ' + esc(fmtDate(c[x.sign])) + (c[x.name] ? ' by ' + esc(c[x.name]) : '') + '</small>';
         }
+        var tl = on && c.tickLog && c.tickLog[tid];
+        if (tl && tl.at) signed += ' <small class="muted-s">' + new Date(tl.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: TZ }) + (tl.by ? ' by ' + esc(tl.by) : '') + '</small>';
         return '<div class="chkrow"><label class="chk' + (on ? ' done' : '') + '"><input type="checkbox" data-t="' + tid + '"' + (on ? ' checked' : '') + '><span>' + esc(t[1]) + signed + '</span></label>' + ex + '</div>';
       }).join('');
       var complete = done === s.t.length;
@@ -575,10 +580,105 @@
 
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
-    ['#ov-users', '#ov-acct', '#ov-new', '#ov-car'].some(function (s) {
+    ['#ov-users', '#ov-acct', '#ov-new', '#ov-reports', '#ov-car'].some(function (s) {
       if (!$(s).hidden) { if (s === '#ov-car') closeCar(); else $(s).hidden = true; return true; }
       return false;
     });
+  });
+
+  /* ---------- reports (administrators) ---------- */
+  function wkStart(d) { return d - ((d + 3) % 7); }          // day number of that week's Monday
+  function dayStr(d) { return new Date(d * 864e5).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }); }
+  function one(n) { return (Math.round(n * 10) / 10).toString(); }
+  function renderReports() {
+    var all = []; state.cars.forEach(function (c, id) { all.push(Object.assign({ id: id }, c)); });
+    var done = all.filter(isDone), active = all.filter(function (c) { return !isDone(c); });
+    var avg = done.length ? done.reduce(function (n, c) { return n + carDays(c); }, 0) / done.length : 0;
+    var onT = done.filter(function (c) { return carDays(c) <= TARGET; }).length;
+    var pct = done.length ? Math.round(onT / done.length * 100) : 0;
+    var stuck = active.filter(function (c) { return carDays(c) > TARGET; }).sort(function (a, b) { return carDays(b) - carDays(a); });
+
+    var tiles = '<div class="rp-tiles">'
+      + '<div class="rp-tile"><b class="num">' + done.length + '</b><span>Prep completed</span></div>'
+      + '<div class="rp-tile"><b class="num">' + (done.length ? one(avg) : '–') + '</b><span>Avg days, arrival to completed</span></div>'
+      + '<div class="rp-tile ' + (done.length && pct >= 80 ? 'good' : '') + '"><b class="num">' + (done.length ? pct + '%' : '–') + '</b><span>Done within ' + TARGET + ' days</span></div>'
+      + '<div class="rp-tile ' + (stuck.length ? 'bad' : '') + '"><b class="num">' + stuck.length + '</b><span>In prep over ' + TARGET + ' days</span></div></div>';
+
+    // completed per week, last 8 weeks
+    var thisWk = wkStart(dayNum(todayStr())), weeks = [];
+    for (var i = 7; i >= 0; i--) weeks.push({ d: thisWk - i * 7, n: 0 });
+    done.forEach(function (c) { if (!c.readyAt) return; var w = wkStart(dayNum(c.readyAt)); weeks.forEach(function (x) { if (x.d === w) x.n++; }); });
+    var mx = Math.max.apply(null, weeks.map(function (x) { return x.n; }).concat([1]));
+    var weekly = '<div class="wk" role="img" aria-label="Cars completed per week">' + weeks.map(function (x) {
+      return '<div class="wk-col"><b>' + x.n + '</b><i style="height:' + Math.round(x.n / mx * 100) + '%"></i><span>' + dayStr(x.d) + '</span></div>';
+    }).join('') + '</div>';
+
+    // where the stock is now
+    var stageRows = STAGES.filter(function (s) { return s.k !== 'ready'; }).map(function (s) {
+      return { l: s.l, n: active.filter(function (c) { return c.stage === s.k; }).length };
+    });
+    var smx = Math.max.apply(null, stageRows.map(function (r) { return r.n; }).concat([1]));
+    var byStage = '<div class="hbars">' + stageRows.map(function (r) {
+      return '<div class="hbar"><span class="nm">' + esc(r.l) + '</span><span class="tr"><span class="fl" style="width:' + (r.n ? Math.round(r.n / smx * 100) : 0) + '%"></span></span><span class="vl">' + r.n + '</span></div>';
+    }).join('') + '</div>';
+
+    // time in each stage, from the recorded history
+    var agg = {}, tracked = 0;
+    all.forEach(function (c) {
+      var h = c.history || [], got = false;
+      for (var k = 0; k + 1 < h.length; k++) {
+        if (!h[k].at || !h[k + 1].at) continue;
+        var days = (new Date(h[k + 1].at) - new Date(h[k].at)) / 864e5;
+        var a = agg[h[k].s] || (agg[h[k].s] = { sum: 0, n: 0 }); a.sum += days; a.n++; got = true;
+      }
+      if (got) tracked++;
+    });
+    var trows = STAGES.filter(function (s) { return s.k !== 'ready' && agg[s.k]; }).map(function (s) { return { l: s.l, v: agg[s.k].sum / agg[s.k].n, n: agg[s.k].n }; });
+    var tmx = Math.max.apply(null, trows.map(function (r) { return r.v; }).concat([0.1]));
+    var slow = trows.length > 1 ? trows.reduce(function (a, b) { return b.v > a.v ? b : a; }).l : '';
+    var stageTime = trows.length ? '<div class="hbars">' + trows.map(function (r) {
+      return '<div class="hbar' + (r.l === slow ? ' slow' : '') + '"><span class="nm">' + esc(r.l) + '</span><span class="tr"><span class="fl" style="width:' + Math.round(r.v / tmx * 100) + '%"></span></span><span class="vl">' + one(r.v) + ' d</span></div>';
+    }).join('') + '</div><p class="sub">' + (slow ? esc(slow) + ' is the slowest stage. ' : '') + 'Average days a car spends in each stage, from ' + tracked + (tracked === 1 ? ' car' : ' cars') + ' since stage tracking began.</p>'
+      : '<p class="rp-empty">No stage timings yet. They fill in as cars are moved from one stage to the next.</p>';
+
+    var stuckHtml = stuck.length ? '<div class="rp-list">' + stuck.slice(0, 12).map(function (c) {
+      return '<button type="button" class="rp-row" data-open="' + c.id + '"><span class="l"><b>' + esc(c.reg) + ' ' + esc([c.make, c.model].filter(Boolean).join(' ')) + '</b><small>' + esc((STAGES[stageIdx(c)] || {}).l || '') + '</small></span><span class="r bad">' + carDays(c) + ' days</span></button>';
+    }).join('') + '</div>' : '<p class="rp-empty">No cars are over target.</p>';
+
+    // people
+    var ppl = {};
+    function pp(n) { return ppl[n] || (ppl[n] = { qc: 0, ticks: 0 }); }
+    all.forEach(function (c) {
+      if (c.bodyQcName) pp(c.bodyQcName).qc++;
+      if (c.finalQcName) pp(c.finalQcName).qc++;
+      Object.keys(c.tickLog || {}).forEach(function (k) { if (c.tickLog[k] && c.tickLog[k].by) pp(c.tickLog[k].by).ticks++; });
+    });
+    var names = Object.keys(ppl).sort(function (a, b) { return ppl[b].qc - ppl[a].qc || ppl[b].ticks - ppl[a].ticks; });
+    var people = names.length ? '<table class="rp-tbl"><thead><tr><th>Person</th><th>QC sign-offs</th><th>Boxes ticked</th></tr></thead><tbody>' + names.map(function (n) {
+      return '<tr><td>' + esc(n) + '</td><td>' + ppl[n].qc + '</td><td>' + ppl[n].ticks + '</td></tr>';
+    }).join('') + '</tbody></table>' : '<p class="rp-empty">No sign-offs yet.</p>';
+
+    // sent back
+    var back = all.filter(function (c) { return c.sentBack > 0; }).sort(function (a, b) { return b.sentBack - a.sentBack; });
+    var backTotal = back.reduce(function (n, c) { return n + c.sentBack; }, 0);
+    var sent = back.length ? '<div class="rp-list">' + back.slice(0, 10).map(function (c) {
+      return '<button type="button" class="rp-row" data-open="' + c.id + '"><span class="l"><b>' + esc(c.reg) + ' ' + esc([c.make, c.model].filter(Boolean).join(' ')) + '</b></span><span class="r">' + c.sentBack + (c.sentBack === 1 ? ' time' : ' times') + '</span></button>';
+    }).join('') + '</div>' : '<p class="rp-empty">No car has been moved back to an earlier stage.</p>';
+
+    $('#rp-body').innerHTML = tiles + '<div class="rp-grid" style="margin-top:14px">'
+      + '<section class="rp-card full"><h3>Cars completed per week</h3>' + weekly + '</section>'
+      + '<section class="rp-card"><h3>Where the stock is now</h3>' + byStage + '<p class="sub">' + active.length + ' cars in prep.</p></section>'
+      + '<section class="rp-card"><h3>Time in each stage</h3>' + stageTime + '</section>'
+      + '<section class="rp-card"><h3>Cars over target</h3>' + stuckHtml + '</section>'
+      + '<section class="rp-card"><h3>Sent back to an earlier stage</h3>' + sent + '<p class="sub">' + backTotal + (backTotal === 1 ? ' move back' : ' moves back') + ' in total.</p></section>'
+      + '<section class="rp-card full"><h3>Sign-offs and ticks by person</h3>' + people + '</section></div>';
+  }
+  function openReports() { $('#rp-target').textContent = TARGET; renderReports(); $('#ov-reports').hidden = false; $('#ov-reports .sheet').scrollTop = 0; $('#rp-close').focus(); }
+  $('#rep-btn').addEventListener('click', openReports);
+  $('#rp-close').addEventListener('click', function () { $('#ov-reports').hidden = true; });
+  $('#rp-body').addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-open]'); if (!b) return;
+    $('#ov-reports').hidden = true; openCar(b.dataset.open);
   });
 
   /* ---------- start ---------- */

@@ -40,7 +40,7 @@
 
   var state = {
     user: null, cars: new Map(), rev: null, f: 'all', q: '', open: null,
-    expanded: new Set(), loaded: false, err: '', pending: 0
+    expanded: new Set(), loaded: false, err: '', pending: 0, tab: 'prep'
   };
   var timers = {};
   var pollTimer = null;
@@ -199,11 +199,14 @@
   }
 
   /* ---------- list ---------- */
+  // Prep is completed once the Quality Check is signed off.
+  function isDone(c) { return c.stage === 'ready' && !!c.done && c.done.ready_qc === true; }
   function visible() {
     var q = state.q.trim().toLowerCase();
     var out = [];
     state.cars.forEach(function (c, id) {
-      if (state.f !== 'all' && c.stage !== state.f) return;
+      if (isDone(c) !== (state.tab === 'done')) return;
+      if (state.tab !== 'done' && state.f !== 'all' && c.stage !== state.f) return;
       if (q && ((c.reg || '') + ' ' + (c.tag || '') + ' ' + (c.make || '') + ' ' + (c.model || '') + ' ' + (c.colour || '')).toLowerCase().indexOf(q) < 0) return;
       out.push({ id: id, c: c });
     });
@@ -219,18 +222,23 @@
     var all = [];
     state.cars.forEach(function (c) { all.push(c); });
     var inPrep = all.filter(function (c) { return c.stage !== 'ready'; });
-    var ready = all.length - inPrep.length;
+    var completed = all.filter(isDone);
+    var active = all.filter(function (c) { return !isDone(c); });
+    var ready = active.length - inPrep.length;
     var avg = inPrep.length ? Math.round(inPrep.reduce(function (n, c) { return n + carDays(c); }, 0) / inPrep.length * 10) / 10 : 0;
-    var over = inPrep.filter(function (c) { return carDays(c) > TARGET; }).length;
     $('#s-prep').textContent = inPrep.length;
     $('#s-ready').textContent = ready;
     $('#s-avg').textContent = avg;
-    $('#s-over').textContent = over;
-    $('#s-over-wrap').classList.toggle('alert', over > 0);
+    $('#s-done').textContent = completed.length;
+    $('#tab-prep-n').textContent = active.length;
+    $('#tab-done-n').textContent = completed.length;
+    $('#tab-prep').setAttribute('aria-selected', state.tab === 'prep');
+    $('#tab-done').setAttribute('aria-selected', state.tab === 'done');
+    $('#stage-filter').hidden = state.tab === 'done';
 
     var sel = $('#stage-filter');
-    var opts = '<option value="all">All stages (' + all.length + ')</option>' + STAGES.map(function (s) {
-      var n = all.filter(function (c) { return c.stage === s.k; }).length;
+    var opts = '<option value="all">All stages (' + active.length + ')</option>' + STAGES.map(function (s) {
+      var n = active.filter(function (c) { return c.stage === s.k; }).length;
       return '<option value="' + s.k + '">' + esc(s.l) + ' (' + n + ')</option>';
     }).join('');
     if (sel.dataset.sig !== opts) { sel.innerHTML = opts; sel.dataset.sig = opts; }
@@ -245,7 +253,7 @@
       list.innerHTML = '<div class="empty" style="grid-column:1/-1"><h2>No cars in prep</h2><p>Add the first car as it arrives. Each one gets a checklist from inbound through to quality check.</p>' + (readOnly() ? '' : '<button class="btn primary" type="button" data-act="add" style="min-height:48px;padding:0 26px">Add car</button>') + '</div>';
       return;
     }
-    if (!vis.length) { list.innerHTML = '<div class="empty" style="grid-column:1/-1"><p>No cars match this search.</p></div>'; return; }
+    if (!vis.length) { list.innerHTML = '<div class="empty" style="grid-column:1/-1"><p>' + (state.tab === 'done' && !state.q.trim() ? 'No cars have completed prep yet. A car moves here once its Quality Check is signed off.' : 'No cars match this search.') + '</p></div>'; return; }
     list.innerHTML = vis.map(function (r) { return cardHtml(r.id, r.c); }).join('');
   }
   function cardHtml(id, c) {
@@ -386,6 +394,8 @@
   }
 
   /* ---------- events: list and car sheet ---------- */
+  $('#tab-prep').addEventListener('click', function () { state.tab = 'prep'; render(); });
+  $('#tab-done').addEventListener('click', function () { state.tab = 'done'; render(); });
   $('#stage-filter').addEventListener('change', function (e) { state.f = e.target.value; render(); });
   $('#q').addEventListener('input', function (e) { state.q = e.target.value; render(); });
   function toList() {

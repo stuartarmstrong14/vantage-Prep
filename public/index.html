@@ -60,13 +60,17 @@
       <div class="stat"><b class="num" id="s-prep">0</b><span>In prep</span></div>
       <div class="stat"><b class="num" id="s-ready">0</b><span>At quality check</span></div>
       <div class="stat"><b class="num" id="s-avg">0</b><span>Avg days in prep</span></div>
-      <div class="stat" id="s-over-wrap"><b class="num" id="s-over">0</b><span>Over target</span></div>
+      <div class="stat"><b class="num" id="s-done">0</b><span>Prep completed</span></div>
     </div>
   </section>
 
   <section class="sec" id="stock">
     <div class="sec-head">
       <h2>Our stock</h2>
+      <div class="tabs" role="tablist" aria-label="Stock">
+        <button class="tab" type="button" role="tab" id="tab-prep" aria-selected="true">In prep <span class="num" id="tab-prep-n">0</span></button>
+        <button class="tab" type="button" role="tab" id="tab-done" aria-selected="false">Completed <span class="num" id="tab-done-n">0</span></button>
+      </div>
     </div>
     <main id="list" class="grid" aria-live="polite"></main>
   </section>

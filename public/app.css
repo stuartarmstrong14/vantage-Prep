@@ -90,6 +90,11 @@ select.pillfield{appearance:none;-webkit-appearance:none;background-image:var(--
 .stat b{font-size:40px;font-weight:700;line-height:1;letter-spacing:-.02em}
 .stat span{font-size:15px;color:var(--muted);font-weight:600}
 .stat.alert b{color:var(--bad)}
+.tabs{display:flex;gap:8px;flex-wrap:wrap}
+.tab{border:1px solid var(--glass-line);background:var(--glass);color:var(--on-bg);border-radius:999px;min-height:44px;padding:0 20px;font-weight:700;cursor:pointer}
+.tab span{opacity:.85;font-weight:600;margin-left:4px}
+.tab[aria-selected="true"]{background:var(--navy);color:var(--navy-ink);border-color:var(--navy)}
+.tab[aria-selected="true"] span{opacity:1}
 @media (max-width:640px){.stats{grid-template-columns:repeat(2,1fr)}}
 
 /* cards */

@@ -235,3 +235,6 @@ fieldset:disabled .chk input{opacity:.85}
 .rp-per th:first-child,.rp-per td:first-child{padding-right:18px}
 .rp-per th:last-child,.rp-per td:last-child{padding-right:0}
 .rp-card,.rp-tbl{color:var(--ink)}
+.rp-pick{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:700;color:var(--muted);align-self:flex-start}
+.rp-pick select{min-width:200px}
+.rp-card .rp-tiles .rp-tile{background:var(--surface)}

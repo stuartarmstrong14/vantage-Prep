@@ -639,7 +639,7 @@
       return best ? best.l : '–';
     }
     var pmx = Math.max.apply(null, periods.map(function (p) { return p.cars.length; }).concat([1]));
-    var VIEWS = [['week', 'Weekly'], ['month', 'Monthly'], ['year', 'Annual']];
+    var VIEWS = [['week', 'Weekly'], ['month', 'Monthly'], ['year', 'Annual'], ['pick', 'Pick a month']];
     var tabsHtml = '<div class="tabs rp-tabs" role="tablist" aria-label="Report period">' + VIEWS.map(function (v) {
       return '<button class="tab" type="button" role="tab" data-rpv="' + v[0] + '" aria-selected="' + (view === v[0]) + '">' + v[1] + '</button>';
     }).join('') + '</div>';
@@ -653,9 +653,49 @@
       var back = p.cars.reduce(function (t, c) { return t + (c.sentBack || 0); }, 0);
       return '<tr><td>' + esc(p.long) + '</td><td>' + n + '</td><td>' + (n ? one(av) : '–') + '</td><td>' + (n ? ok + '%' : '–') + '</td><td>' + (n ? back : '–') + '</td><td>' + (n ? esc(slowestOf(p.cars)) : '–') + '</td></tr>';
     }).join('');
+    function pickHtml() {
+      var cur = td.slice(0, 7), have = {}; have[cur] = 1;
+      all.forEach(function (c) { if (c.readyAt) have[c.readyAt.slice(0, 7)] = 1; if (c.added) have[c.added.slice(0, 7)] = 1; });
+      var keys = Object.keys(have).sort().reverse();
+      var sel = state.rpMonth && have[state.rpMonth] ? state.rpMonth : cur;
+      var name = MON[+sel.slice(5) - 1] + ' ' + sel.slice(0, 4);
+      var opts = keys.map(function (k) { return '<option value="' + k + '"' + (k === sel ? ' selected' : '') + '>' + MON[+k.slice(5) - 1] + ' ' + k.slice(0, 4) + '</option>'; }).join('');
+      var cars = done.filter(function (c) { return c.readyAt && c.readyAt.slice(0, 7) === sel; }).sort(function (a, b) { return a.readyAt < b.readyAt ? 1 : -1; });
+      var arrived = all.filter(function (c) { return c.added && c.added.slice(0, 7) === sel; }).length;
+      var n = cars.length;
+      var av = n ? cars.reduce(function (t, c) { return t + carDays(c); }, 0) / n : 0;
+      var ok = n ? Math.round(cars.filter(function (c) { return carDays(c) <= TARGET; }).length / n * 100) : 0;
+      var back = cars.reduce(function (t, c) { return t + (c.sentBack || 0); }, 0);
+      var a = {};
+      cars.forEach(function (c) {
+        var h = c.history || [];
+        for (var k = 0; k + 1 < h.length; k++) {
+          if (!h[k].at || !h[k + 1].at) continue;
+          var x = a[h[k].s] || (a[h[k].s] = { sum: 0, n: 0 }); x.sum += (new Date(h[k + 1].at) - new Date(h[k].at)) / 864e5; x.n++;
+        }
+      });
+      var rows = STAGES.filter(function (st) { return st.k !== 'ready' && a[st.k]; }).map(function (st) { return { l: st.l, v: a[st.k].sum / a[st.k].n }; });
+      var rmx = Math.max.apply(null, rows.map(function (r) { return r.v; }).concat([0.1]));
+      var slowN = rows.length > 1 ? rows.reduce(function (p, q) { return q.v > p.v ? q : p; }).l : '';
+      var st = rows.length ? '<div class="hbars">' + rows.map(function (r) {
+        return '<div class="hbar' + (r.l === slowN ? ' slow' : '') + '"><span class="nm">' + esc(r.l) + '</span><span class="tr"><span class="fl" style="width:' + Math.round(r.v / rmx * 100) + '%"></span></span><span class="vl">' + one(r.v) + ' d</span></div>';
+      }).join('') + '</div>' : '<p class="rp-empty">No stage timings recorded for cars completed this month.</p>';
+      var list = n ? '<div class="rp-list">' + cars.map(function (c) {
+        return '<button type="button" class="rp-row" data-open="' + c.id + '"><span class="l"><b>' + esc(c.reg) + ' ' + esc([c.make, c.model].filter(Boolean).join(' ')) + '</b><small>Completed ' + esc(fmtDate(c.readyAt)) + '</small></span><span class="r' + (carDays(c) > TARGET ? ' bad' : '') + '">' + carDays(c) + ' days</span></button>';
+      }).join('') + '</div>' : '<p class="rp-empty">No cars were completed in ' + esc(name) + '.</p>';
+      return '<label class="rp-pick" for="rp-month">Month <select class="field" id="rp-month" data-rpm="1">' + opts + '</select></label>'
+        + '<div class="rp-tiles"><div class="rp-tile"><b class="num">' + arrived + '</b><span>Arrived in ' + esc(name) + '</span></div>'
+        + '<div class="rp-tile"><b class="num">' + n + '</b><span>Prep completed</span></div>'
+        + '<div class="rp-tile"><b class="num">' + (n ? one(av) : '–') + '</b><span>Avg days, arrival to completed</span></div>'
+        + '<div class="rp-tile ' + (n && ok >= 80 ? 'good' : '') + '"><b class="num">' + (n ? ok + '%' : '–') + '</b><span>Done within ' + TARGET + ' days</span></div></div>'
+        + '<h3 style="font-size:16px">Time in each stage</h3>' + st
+        + '<p class="sub">' + back + (back === 1 ? ' move back' : ' moves back') + ' to an earlier stage among these cars.</p>'
+        + '<h3 style="font-size:16px">Cars completed in ' + esc(name) + '</h3>' + list;
+    }
     var tot = periods.reduce(function (t, p) { return t + p.cars.length; }, 0);
     weekly += '<div style="overflow-x:auto"><table class="rp-tbl rp-per"><thead><tr><th>' + (view === 'week' ? 'Week' : view === 'month' ? 'Month' : 'Year') + '</th><th>Completed</th><th>Avg days</th><th>Within ' + TARGET + ' days</th><th>Sent back</th><th>Slowest stage</th></tr></thead><tbody>' + tbody + '</tbody></table></div>'
       + '<p class="sub">' + tot + (tot === 1 ? ' car' : ' cars') + ' completed in this period. Cars are counted in the period they reached completed. "Slowest stage" uses stage timings recorded since tracking began.</p>';
+    if (view === 'pick') weekly = tabsHtml + pickHtml();
 
     // where the stock is now
     var stageRows = STAGES.filter(function (s) { return s.k !== 'ready'; }).map(function (s) {
@@ -720,6 +760,9 @@
   function openReports() { $('#rp-target').textContent = TARGET; renderReports(); $('#ov-reports').hidden = false; $('#ov-reports .sheet').scrollTop = 0; $('#rp-close').focus(); }
   $('#rep-btn').addEventListener('click', openReports);
   $('#rp-close').addEventListener('click', function () { $('#ov-reports').hidden = true; });
+  $('#rp-body').addEventListener('change', function (e) {
+    if (e.target.dataset && e.target.dataset.rpm) { state.rpMonth = e.target.value; renderReports(); var m = $('#rp-month'); if (m) m.focus(); }
+  });
   $('#rp-body').addEventListener('click', function (e) {
     var v = e.target.closest && e.target.closest('[data-rpv]');
     if (v) { state.rpView = v.dataset.rpv; renderReports(); return; }

@@ -229,3 +229,9 @@ fieldset:disabled .chk input{opacity:.85}
 .rp-tbl th:not(:first-child),.rp-tbl td:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
 .rp-tbl td{padding:8px 0;border-top:1px solid var(--line);font-weight:600}
 .rp-empty{color:var(--muted);font-weight:600;font-size:15px}
+.rp-tabs .tab{background:var(--surface);color:var(--ink);border-color:var(--line);min-height:40px;padding:0 16px}
+.rp-tabs .tab[aria-selected="true"]{background:var(--navy);color:var(--navy-ink);border-color:var(--navy)}
+.rp-per th,.rp-per td{white-space:nowrap;padding-right:14px}
+.rp-per th:first-child,.rp-per td:first-child{padding-right:18px}
+.rp-per th:last-child,.rp-per td:last-child{padding-right:0}
+.rp-card,.rp-tbl{color:var(--ink)}

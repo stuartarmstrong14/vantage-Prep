@@ -80,7 +80,7 @@
     $('#app').hidden = true;
     $('#auth').hidden = false;
     var setup = mode === 'setup';
-    $('#auth-title').textContent = setup ? 'Create the first account' : 'Sign in';
+    $('#auth-title').textContent = setup ? 'Create the first account' : '145 Prepped';
     $('#auth-sub').textContent = setup
       ? 'This account will be the administrator. You can add staff logins afterwards.'
       : 'Use the username and password you were given.';

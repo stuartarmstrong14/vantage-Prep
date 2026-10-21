@@ -3,18 +3,18 @@
 
   /* ---------- checklist definition ---------- */
   var STAGES = [
-    { k: 'arrived', l: 'Inbound', t: [['advert', 'Advertised on Auto Trader'], ['lines', 'Preparation lines requested'], ['qr', 'QR sticker fitted']] },
-    { k: 'valet', l: 'Valet', t: [['done', 'Valet completed']] },
-    { k: 'photos', l: 'Photos', t: [['done', 'Photographs completed']] },
-    { k: 'mech', l: 'Mechanical', t: [['pt145', '145 point mechanical check'], ['service', 'Service'], ['motbook', 'MOT passed'], ['qc', 'Mechanical QC complete']] },
-    { k: 'body', l: 'Bodywork', t: [
+    { k: 'arrived', s: 'Inbound', l: 'Inbound', t: [['advert', 'Advertised on Auto Trader'], ['lines', 'Preparation lines requested'], ['qr', 'QR sticker fitted']] },
+    { k: 'valet', s: 'Valet', l: 'Valet', t: [['done', 'Valet completed']] },
+    { k: 'photos', s: 'Photos', l: 'Photos', t: [['done', 'Photographs completed']] },
+    { k: 'mech', s: 'Mech', l: 'Mechanical', t: [['pt145', '145 point mechanical check'], ['service', 'Service'], ['motbook', 'MOT passed'], ['qc', 'Mechanical QC complete']] },
+    { k: 'body', s: 'Body', l: 'Bodywork', t: [
       ['cosmetic', 'Cosmetic check complete'],
       ['dent', 'Dents completed'],
       ['wheels', 'Alloy wheels completed', { f: 'bodyWheels', label: 'Wheels to refine', type: 'number' }],
       ['paint', 'Paint work completed'],
       ['qc', 'QC complete', { f: 'bodyQcBy', label: 'Initials', type: 'text', sign: 'bodyQcOn', name: 'bodyQcName' }]
     ] },
-    { k: 'ready', l: 'Quality Check', t: [['qc', 'Quality check completed', { f: 'finalQcBy', label: 'Initials', type: 'text', sign: 'finalQcOn', name: 'finalQcName' }]] }
+    { k: 'ready', s: 'QC', l: 'Quality Check', t: [['qc', 'Quality check completed', { f: 'finalQcBy', label: 'Initials', type: 'text', sign: 'finalQcOn', name: 'finalQcName' }]] }
   ];
   var TARGET = 7;
   var TZ = 'Europe/London';
@@ -163,9 +163,19 @@
   }
 
   /* ---------- derived values ---------- */
-  function stageIdx(c) { var i = STAGES.findIndex(function (s) { return s.k === c.stage; }); return i < 0 ? 0 : i; }
+  // The stage is worked out from the ticks: the first area that is not fully ticked. All areas done means Quality Check.
+  function keyFromDone(d) {
+    for (var i = 0; i < STAGES.length - 1; i++) {
+      var s = STAGES[i];
+      if (!s.t.every(function (t) { return d[s.k + '_' + t[0]] === true; })) return s.k;
+    }
+    return 'ready';
+  }
+  function stageKey(c) { return keyFromDone(c.done || {}); }
+  function stageDone(c, s) { var d = c.done || {}; return s.t.every(function (t) { return d[s.k + '_' + t[0]] === true; }); }
+  function stageIdx(c) { var k = stageKey(c), i = STAGES.findIndex(function (s) { return s.k === k; }); return i < 0 ? 0 : i; }
   function carDays(c) {
-    var end = (c.stage === 'ready' && c.readyAt) ? c.readyAt : todayStr();
+    var end = (stageKey(c) === 'ready' && c.readyAt) ? c.readyAt : todayStr();
     return Math.max(0, dayNum(end) - dayNum(c.added || todayStr()));
   }
   function doneCount(c) {
@@ -174,7 +184,7 @@
     return n;
   }
   function daysClass(c) {
-    if (c.stage === 'ready') return 'ok';
+    if (stageKey(c) === 'ready') return 'ok';
     var d = carDays(c);
     return d > TARGET ? 'bad' : (d >= TARGET - 1 ? 'warn' : '');
   }
@@ -187,8 +197,8 @@
   }
   function trackHtml(c) {
     var cur = stageIdx(c), h = '';
-    STAGES.forEach(function (s, i) { h += '<i' + (i <= cur ? ' class="on"' : '') + ' title="' + esc(s.l) + '"></i>'; });
-    return '<div class="track' + (c.stage === 'ready' ? ' done' : '') + '" aria-hidden="true">' + h + '</div>';
+    STAGES.forEach(function (s, i) { h += '<i' + (stageDone(c, s) ? ' class="on"' : (i === cur ? ' class="cur"' : '')) + ' title="' + esc(s.l) + '"></i>'; });
+    return '<div class="track" aria-hidden="true">' + h + '</div>';
   }
   function findItem(tid) {
     var r = null;
@@ -203,7 +213,7 @@
 
   /* ---------- list ---------- */
   // Prep is completed once the car reaches the Quality Check stage.
-  function isDone(c) { return c.stage === 'ready'; }
+  function isDone(c) { return stageKey(c) === 'ready'; }
   // A car is archived automatically once it has been on the system for more than 365 days. Nothing is deleted.
   // A person can also archive a completed car by hand, or restore one (archived: true / false overrides the 365 day rule).
   function isArchived(c) {
@@ -219,13 +229,13 @@
       else {
         if (isArchived(c)) return;
         if (isDone(c) !== (state.tab === 'done')) return;
-        if (state.tab === 'prep' && state.f !== 'all' && c.stage !== state.f) return;
+        if (state.tab === 'prep' && state.f !== 'all' && stageKey(c) !== state.f) return;
       }
       if (q && ((c.reg || '') + ' ' + (c.tag || '') + ' ' + (c.make || '') + ' ' + (c.model || '') + ' ' + (c.colour || '')).toLowerCase().indexOf(q) < 0) return;
       out.push({ id: id, c: c });
     });
     out.sort(function (a, b) {
-      var ra = a.c.stage === 'ready', rb = b.c.stage === 'ready';
+      var ra = stageKey(a.c) === 'ready', rb = stageKey(b.c) === 'ready';
       if (ra !== rb) return ra ? 1 : -1;
       return carDays(b.c) - carDays(a.c);
     });
@@ -237,7 +247,7 @@
     state.cars.forEach(function (c) { every.push(c); });
     var archived = every.filter(isArchived);
     var all = every.filter(function (c) { return !isArchived(c); });
-    var inPrep = all.filter(function (c) { return c.stage !== 'ready'; });
+    var inPrep = all.filter(function (c) { return stageKey(c) !== 'ready'; });
     var completed = all.filter(isDone);
     var active = all.filter(function (c) { return !isDone(c); });
     var avg = inPrep.length ? Math.round(inPrep.reduce(function (n, c) { return n + carDays(c); }, 0) / inPrep.length * 10) / 10 : 0;
@@ -254,7 +264,7 @@
 
     var sel = $('#stage-filter');
     var opts = '<option value="all">All stages (' + active.length + ')</option>' + STAGES.map(function (s) {
-      var n = active.filter(function (c) { return c.stage === s.k; }).length;
+      var n = active.filter(function (c) { return stageKey(c) === s.k; }).length;
       return '<option value="' + s.k + '">' + esc(s.l) + ' (' + n + ')</option>';
     }).join('');
     if (sel.dataset.sig !== opts) { sel.innerHTML = opts; sel.dataset.sig = opts; }
@@ -278,7 +288,7 @@
     var name = [c.make, c.model].filter(Boolean).join(' ');
     var meta = [c.tag ? ('Tag ' + c.tag) : '', miles(c.mileage), c.colour].filter(Boolean).map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('');
     var tags = mi ? '<span class="pill ' + mi.cls + '">' + esc(mi.t) + '</span>' : '';
-    var daysTxt = c.stage === 'ready' ? ('Prepped in ' + d + 'd') : (d + (d === 1 ? ' day' : ' days') + ' in prep');
+    var daysTxt = stageKey(c) === 'ready' ? ('Prepped in ' + d + 'd') : (d + (d === 1 ? ' day' : ' days') + ' in prep');
     return '<button class="car" type="button" data-open="' + esc(id) + '">'
       + '<div class="car-top"><span class="plate">' + esc(c.reg || 'No reg') + '</span><span class="pill num ' + dc + '">' + daysTxt + '</span></div>'
       + '<div class="car-name">' + esc(name || 'Unnamed car') + '</div>'
@@ -338,23 +348,16 @@
       });
     }, 500);
   }
-  function setStage(id, stage) {
-    var c = state.cars.get(id); if (!c || c.stage === stage) return;
-    state.expanded.add(stage);
-    upd(id, { stage: stage }, { readyAt: stage === 'ready' ? todayStr() : '' });
-  }
-
   /* ---------- car sheet ---------- */
   function openCar(id) {
     var c = state.cars.get(id); if (!c) return;
     state.open = id;
-    state.expanded = new Set([c.stage]);
+    state.expanded = new Set([stageKey(c)]);
     $('#m-fields').innerHTML = FIELDS.map(function (f) {
       var v = c[f[0]];
       return '<label for="f-' + f[0] + '">' + f[1] + '<input class="field' + (f[2] === 'number' ? ' num' : '') + '" id="f-' + f[0] + '" data-f="' + f[0] + '" type="' + f[2] + '"' + (f[2] === 'number' ? ' inputmode="numeric" min="0" max="2000000" step="1"' : '') + ' value="' + esc(v == null ? '' : v) + '" autocomplete="off"></label>';
     }).join('');
     $('#m-notes').value = c.notes || '';
-    $('#m-stage').innerHTML = STAGES.map(function (s) { return '<option value="' + s.k + '">' + esc(s.l) + '</option>'; }).join('');
     $('#m-del').hidden = state.user.role !== 'admin';
     $('#m-body').disabled = readOnly();
     $('#m-qr').hidden = readOnly();
@@ -373,15 +376,14 @@
     if (!c) { if (id) closeCar(); return; }
     $('#m-plate').textContent = c.reg || 'No reg';
     $('#m-title').textContent = [c.make, c.model].filter(Boolean).join(' ') || 'Unnamed car';
-    $('#m-track').className = 'track' + (c.stage === 'ready' ? ' done' : '');
-    $('#m-track').innerHTML = STAGES.map(function (s, i) { return '<i' + (i <= stageIdx(c) ? ' class="on"' : '') + '></i>'; }).join('');
-    $('#m-stage').value = c.stage;
-    var i = stageIdx(c), next = STAGES[i + 1];
-    var nb = $('#m-next');
-    nb.textContent = next ? ('Move to ' + next.l) : 'Final stage';
-    nb.disabled = !next; nb.dataset.next = next ? next.k : '';
+    var curI = stageIdx(c);
+    $('#m-track').className = 'segs';
+    $('#m-track').innerHTML = STAGES.map(function (st, i) {
+      var cls = stageDone(c, st) ? ' on' : (i === curI ? ' cur' : '');
+      return '<div class="seg' + cls + '"><i></i><span>' + esc(st.s || st.l) + (cls === ' on' ? ' &#10003;' : '') + '</span></div>';
+    }).join('');
     var d = carDays(c);
-    $('#m-days').innerHTML = '<span><b class="num">' + d + '</b> ' + (c.stage === 'ready' ? 'days from arrival to quality check' : 'days in prep, target ' + TARGET) + '</span><span>Arrived <b>' + esc(fmtDate(c.added)) + '</b></span><span><b class="num">' + doneCount(c) + '</b> of ' + TOTAL + ' tasks done</span>';
+    $('#m-days').innerHTML = '<span>Now at <b>' + esc(STAGES[stageIdx(c)].l) + '</b></span><span><b class="num">' + d + '</b> ' + (stageKey(c) === 'ready' ? 'days from arrival to quality check' : 'days in prep, target ' + TARGET) + '</span><span>Arrived <b>' + esc(fmtDate(c.added)) + '</b></span><span><b class="num">' + doneCount(c) + '</b> of ' + TOTAL + ' tasks done</span>';
     $('#m-upd').textContent = c.updatedBy ? ('Last updated by ' + c.updatedBy + ', ' + new Date(c.updatedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })) : '';
 
     var ab = $('#m-arch'), arch = isArchived(c);
@@ -407,7 +409,7 @@
         return '<div class="chkrow"><label class="chk' + (on ? ' done' : '') + '"><input type="checkbox" data-t="' + tid + '"' + (on ? ' checked' : '') + '><span>' + esc(t[1]) + signed + '</span></label>' + ex + '</div>';
       }).join('');
       var complete = done === s.t.length;
-      return '<details class="grp' + (s.k === c.stage ? ' current' : '') + (complete ? ' complete' : '') + '" data-s="' + s.k + '"' + (state.expanded.has(s.k) ? ' open' : '') + '><summary><span>' + esc(s.l) + '</span><small class="num">' + (complete ? 'Complete &#10003;' : done + ' of ' + s.t.length) + '</small></summary><div class="checks">' + items + '</div></details>';
+      return '<details class="grp' + (s.k === stageKey(c) ? ' current' : '') + (complete ? ' complete' : '') + '" data-s="' + s.k + '"' + (state.expanded.has(s.k) ? ' open' : '') + '><summary><span>' + esc(s.l) + '</span><small class="num">' + (complete ? 'Complete &#10003;' : done + ' of ' + s.t.length) + '</small></summary><div class="checks">' + items + '</div></details>';
     }).join('');
     if (ax) {
       var ni = $('#m-checks [data-x="' + ax + '"]');
@@ -433,8 +435,6 @@
   $('#add-btn').addEventListener('click', openNew);
   $('#m-close').addEventListener('click', closeCar);
   $('#ov-car').addEventListener('click', function (e) { if (e.target === e.currentTarget) closeCar(); });
-  $('#m-stage').addEventListener('change', function (e) { if (state.open) setStage(state.open, e.target.value); });
-  $('#m-next').addEventListener('click', function (e) { var n = e.currentTarget.dataset.next; if (n && state.open) setStage(state.open, n); });
   $('#m-fields').addEventListener('input', function (e) {
     var f = e.target.dataset.f; if (!f || !state.open) return;
     var v = e.target.value;
@@ -449,11 +449,13 @@
     var o = { done: {} }; o.done[t] = e.target.checked;
     var item = findItem(t), spec = item && item[2];
     if (spec && spec.sign && e.target.checked && !c[spec.f]) o[spec.f] = state.user.initials;   // sign with the logged-in person's initials
-    // Everything ticked: the car is prepped, so move it to Completed.
-    var after = Object.assign({}, c.done, o.done);
-    var all = STAGES.every(function (s) { return s.t.every(function (t) { return after[s.k + '_' + t[0]] === true; }); });
-    if (all && c.stage !== 'ready') { o.stage = 'ready'; toast('All prep complete. Moved to Completed.'); }
-    upd(state.open, o);
+    // The stage follows the ticks. Reaching Quality Check means prep is complete.
+    var after = Object.assign({}, c.done, o.done), want = keyFromDone(after), extra = null;
+    if (want !== c.stage) {
+      o.stage = want; extra = { readyAt: want === 'ready' ? todayStr() : '' };
+      if (want === 'ready' && stageKey(c) !== 'ready') toast('All areas complete. Moved to Completed.');
+    }
+    upd(state.open, o, extra);
   });
   $('#m-checks').addEventListener('input', function (e) {
     var f = e.target.dataset && e.target.dataset.x; if (!f || !state.open) return;
@@ -726,7 +728,7 @@
 
     // where the stock is now
     var stageRows = STAGES.filter(function (s) { return s.k !== 'ready'; }).map(function (s) {
-      return { l: s.l, n: active.filter(function (c) { return c.stage === s.k; }).length };
+      return { l: s.l, n: active.filter(function (c) { return stageKey(c) === s.k; }).length };
     });
     var smx = Math.max.apply(null, stageRows.map(function (r) { return r.n; }).concat([1]));
     var byStage = '<div class="hbars">' + stageRows.map(function (r) {

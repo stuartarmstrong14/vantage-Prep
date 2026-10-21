@@ -114,6 +114,10 @@ The endpoint accepts Postmark, Mailgun and SendGrid style posts, or a plain JSON
 
 A car is archived automatically once it has been on the system for more than 365 days (counted from the day it arrived). Archived cars leave the In prep and Completed tabs and appear under **Archived**. Nothing is deleted, and archived cars are still included in every report. Staff can also archive a completed car at any time with the **Archive car** button in its sheet, and bring any archived car back with **Restore from archive**. Only an administrator can delete a car, using Delete car in its sheet.
 
+## How the stage works
+
+There is no stage dropdown. A car's stage follows its ticks: it is "at" the first area that is not fully ticked, and a green tick appears on each area as it is completed. Once Inbound, Valet, Photos, Mechanical and Bodywork are all ticked the car is at Quality Check, which counts as completed.
+
 ## Changing the checklist
 
 The stages and tick boxes are listed at the top of `public/app.js` (`STAGES`). Edit the names there. Ticks are stored against the stage and item ids, so renaming a label keeps existing ticks, while removing an item hides its old ticks.

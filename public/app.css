@@ -238,3 +238,13 @@ fieldset:disabled .chk input{opacity:.85}
 .rp-pick{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:700;color:var(--muted);align-self:flex-start}
 .rp-pick select{min-width:200px}
 .rp-card .rp-tiles .rp-tile{background:var(--surface)}
+
+/* progress bar: green = area complete, navy = where the car is now */
+.track i.cur{background:var(--navy)}
+.track i.on{background:var(--ok)}
+.segs{display:flex;gap:4px}
+.seg{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;align-items:center;text-align:center}
+.seg i{display:block;width:100%;height:9px;border-radius:999px;background:var(--line)}
+.seg span{font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap}
+.seg.on i{background:var(--ok)}.seg.on span{color:var(--ok)}
+.seg.cur i{background:var(--navy)}.seg.cur span{color:var(--ink)}

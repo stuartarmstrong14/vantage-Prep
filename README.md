@@ -115,7 +115,7 @@ The endpoint accepts Postmark, Mailgun and SendGrid style posts, or a plain JSON
 
 On the Mechanical stage, the **145 point mechanical check** row is an upload box instead of a tick box. Staff upload the completed check (a PDF or a photo: JPEG, PNG, WebP or HEIC, up to 15 MB each, up to 10 files per car). The row then shows **Completed ✓** with the file name, and the stage progress updates automatically. Staff can add more files or remove one (tap Remove twice to confirm); removing the last file puts the row back to "Needs upload". Advisors can view the files but not upload or remove them. Cars ticked before this feature existed show "Ticked before uploads were added".
 
-Administrators can find any check from **Reports -> 145 point checks** by typing a registration (spaces and capitals don't matter).
+Administrators can find any check from the **145 point checks** search at the bottom of **Reports** by typing a registration (spaces and capitals don't matter). Nothing is listed until you type.
 
 Files are stored inside the database, so they live on the Render disk (`/data`), are included in `npm run backup`, and use disk space. Keep an eye on the 1 GB disk if you upload a lot of large PDFs. Deleting a car deletes its check files.
 
@@ -125,7 +125,7 @@ Under **Cosmetic check complete** on the Bodywork stage there is a box for what 
 
 ## Cosmetic prep report
 
-**Reports** (administrators) has an **Outstanding bodywork** card with two tabs, **Alloys** and **Cosmetics**, each showing how many cars are waiting. It is closed until you tap a tab, so it doesn't push the report figures down. Each list is for cars still in prep and shows the tag number, registration and model; tapping a car opens it:
+**Reports** (administrators) has an **Outstanding bodywork** card with two tabs, **Alloys** and **Cosmetics**, each showing how many cars are waiting. It sits at the bottom of Reports and is closed until you tap a tab. Each list is for cars still in prep and shows the tag number, registration and model; tapping a car opens it:
 
 - **Alloy wheels to refine:** cars whose "Wheels to refine" number is above zero and whose alloy wheels aren't ticked yet, with a total number of wheels.
 - **Paint and cosmetic work:** cars that have text in the cosmetic notes box and whose paint work isn't ticked yet, showing those notes. Cars whose notes mention paint, respray, spray, refinish or lacquer are listed first and marked "Paint".

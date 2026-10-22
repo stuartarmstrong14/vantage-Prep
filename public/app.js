@@ -925,14 +925,14 @@
       + '<div id="rp-checks">' + checksHtml() + '</div></section>';
     var hadFocus = document.activeElement && document.activeElement.id === 'rp-q', selEnd = hadFocus ? document.activeElement.selectionEnd : 0;
     $('#rp-body').innerHTML = tiles + '<div class="rp-grid" style="margin-top:14px">'
-      + cosmCards()
-      + checksCard
       + '<section class="rp-card full"><h3>Cars completed</h3>' + weekly + '</section>'
       + '<section class="rp-card"><h3>Where the stock is now</h3>' + byStage + '<p class="sub">' + active.length + ' cars in prep.</p></section>'
       + '<section class="rp-card"><h3>Time in each stage</h3>' + stageTime + '</section>'
       + '<section class="rp-card"><h3>Cars over target</h3>' + stuckHtml + '</section>'
       + '<section class="rp-card"><h3>Sent back to an earlier stage</h3>' + sent + '<p class="sub">' + backTotal + (backTotal === 1 ? ' move back' : ' moves back') + ' in total.</p></section>'
-      + '<section class="rp-card full"><h3>Sign-offs and ticks by person</h3>' + people + '</section></div>';
+      + '<section class="rp-card full"><h3>Sign-offs and ticks by person</h3>' + people + '</section>'
+      + cosmCards()
+      + checksCard + '</div>';
     if (hadFocus) { var qi = $('#rp-q'); if (qi) { qi.focus(); try { qi.setSelectionRange(selEnd, selEnd); } catch (er) { /* ignore */ } } }
   }
   function normReg(x) { return String(x || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
@@ -951,6 +951,7 @@
       return '<div class="rp-row plain"><button type="button" class="rplink" data-open="' + esc(c.id) + '"><span class="l"><b>' + esc(c.reg) + ' ' + esc([c.make, c.model].filter(Boolean).join(' ')) + '</b><small>'
         + (has ? 'Uploaded ' + esc(fmtDate(last.at.slice(0, 10))) + ' by ' + esc(last.by) : 'No 145 point check uploaded') + '</small></span></button><span class="flinks">' + links + '</span></div>';
     }
+    if (!qn) return '<p class="sub">Type a registration to find its 145 point check.</p>';
     var out = shown.map(function (c) { return row(c, true); }).concat(without.map(function (c) { return row(c, false); })).join('');
     if (!out) return '<p class="rp-empty">' + (qn ? 'No car matches that registration.' : 'No 145 point checks have been uploaded yet.') + '</p>';
     return '<div class="rp-list">' + out + '</div>' + (!qn && withF.length > 20 ? '<p class="sub">Showing the latest 20. Search by registration to find an older one.</p>' : '');

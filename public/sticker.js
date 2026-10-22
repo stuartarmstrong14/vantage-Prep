@@ -27,10 +27,11 @@
     var url = base + '/c/' + c.id;
     var name = [c.make, c.model].filter(Boolean).join(' ');
     return '<article class="sticker notice">'
-      + '<header class="n-head"><img class="n-logo" src="/logo-navy.png" alt="Vantage Motor Group"><span class="n-kicker">Vehicle preparation</span></header>'
+      + '<header class="n-head"><img class="n-logo" src="/logo-navy.png" alt="Vantage Motor Group"></header>'
       + '<div class="n-status"><span class="n-rule"></span><h2 class="n-title">Awaiting prep</h2><span class="n-rule"></span></div>'
       + '<div class="n-body">'
       + '<figure class="n-qr"><div class="s-qr">' + QR.svg(url, { label: 'QR code for ' + (c.reg || 'this car') }) + '</div><figcaption>Staff: scan for prep progress</figcaption></figure>'
+      + '<span class="n-div"></span>'
       + '<div class="n-info">'
       + '<div class="s-plate">' + esc(c.reg || 'No reg') + '</div>'
       + '<div class="n-car">' + esc(name) + '</div>'

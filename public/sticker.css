@@ -62,20 +62,20 @@ button:hover{filter:brightness(1.15)}
 /* A4 landscape "Awaiting prep" notice: one car per page */
 .page.notice{width:297mm;height:209mm;overflow:hidden}
 .sticker.notice{width:297mm;height:209mm;padding:0;gap:0;justify-content:flex-start;position:relative}
-.n-head{display:flex;align-items:center;justify-content:space-between;padding:10mm 16mm 0}
-.n-logo{height:15mm;width:auto;display:block}
-.n-kicker{font-size:4.6mm;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:#566B84}
-.n-status{display:flex;align-items:center;gap:8mm;padding:9mm 16mm 0}
+.n-head{display:flex;justify-content:center;padding:9mm 16mm 0}
+.n-logo{height:26mm;width:auto;display:block}
+.n-status{display:flex;align-items:center;gap:8mm;padding:6mm 16mm 0}
 .n-rule{flex:1;height:.7mm;background:var(--navy);-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .n-title{margin:0;font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-weight:600;font-size:23mm;line-height:1.08;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;color:var(--navy)}
-.n-body{flex:1;display:flex;align-items:stretch;gap:16mm;padding:10mm 16mm 9mm;min-height:0}
-.n-qr{margin:0;display:flex;flex-direction:column;align-items:center;gap:3mm;flex:none}
-.n-qr .s-qr{width:96mm;height:96mm;padding:4mm;border:.6mm solid #C9D1D9;border-radius:4mm}
+.n-body{flex:1;display:grid;grid-template-columns:1fr .5mm 1fr;align-items:center;gap:0;padding:7mm 16mm 8mm;min-height:0}
+.n-qr{margin:0;display:flex;flex-direction:column;align-items:center;gap:3mm}
+.n-qr .s-qr{width:88mm;height:88mm;padding:4mm;border:.6mm solid #C9D1D9;border-radius:4mm}
 .n-qr figcaption{font-size:4.6mm;font-weight:700;color:#566B84}
-.n-info{flex:1;display:flex;flex-direction:column;justify-content:center;gap:8mm;min-width:0;border-left:.5mm solid #C9D1D9;padding-left:16mm}
-.sticker.notice .s-plate{font-size:19mm;padding:3mm 6mm 2mm;border-width:.8mm;border-radius:2.5mm}
+.n-div{align-self:stretch;background:#C9D1D9;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.n-info{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7mm;min-width:0;text-align:center;padding:0 8mm}
+.sticker.notice .s-plate{align-self:center;font-size:19mm;padding:3mm 6mm 2mm;border-width:.8mm;border-radius:2.5mm}
 .n-car{font-size:11mm;font-weight:700;line-height:1.12;overflow-wrap:anywhere;max-height:25mm;overflow:hidden}
-.n-tag{display:flex;align-items:baseline;gap:4mm}
+.n-tag{display:flex;align-items:baseline;justify-content:center;gap:4mm}
 .n-tag span{font-size:5mm;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#566B84}
 .n-tag b{font-size:13mm;font-weight:700;line-height:1}
 .n-foot{flex:none;margin-top:auto;height:7mm;background:var(--navy);-webkit-print-color-adjust:exact;print-color-adjust:exact}

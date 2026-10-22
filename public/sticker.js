@@ -27,15 +27,16 @@
     var url = base + '/c/' + c.id;
     var name = [c.make, c.model].filter(Boolean).join(' ');
     return '<article class="sticker notice">'
-      + '<div class="n-banner">AWAITING PREP</div>'
+      + '<header class="n-head"><img class="n-logo" src="/logo-navy.png" alt="Vantage Motor Group"><span class="n-kicker">Vehicle preparation</span></header>'
+      + '<div class="n-status"><span class="n-rule"></span><h2 class="n-title">Awaiting prep</h2><span class="n-rule"></span></div>'
       + '<div class="n-body">'
-      + '<div class="s-qr">' + QR.svg(url, { label: 'QR code for ' + (c.reg || 'this car') }) + '</div>'
-      + '<div class="s-info"><div class="s-plate">' + esc(c.reg || 'No reg') + '</div>'
-      + '<div class="s-car">' + esc(name) + '</div>'
-      + (c.tag ? '<div class="s-tag">Tag ' + esc(c.tag) + '</div>' : '')
-      + '<p class="n-scan">Scan to see preparation progress</p>'
-      + '<img class="s-logo" src="/logo-navy.png" alt="Vantage Motor Group">'
+      + '<figure class="n-qr"><div class="s-qr">' + QR.svg(url, { label: 'QR code for ' + (c.reg || 'this car') }) + '</div><figcaption>Staff: scan for prep progress</figcaption></figure>'
+      + '<div class="n-info">'
+      + '<div class="s-plate">' + esc(c.reg || 'No reg') + '</div>'
+      + '<div class="n-car">' + esc(name) + '</div>'
+      + (c.tag ? '<div class="n-tag"><span>Tag</span><b>' + esc(c.tag) + '</b></div>' : '')
       + '</div></div>'
+      + '<footer class="n-foot"></footer>'
       + '</article>';
   }
 

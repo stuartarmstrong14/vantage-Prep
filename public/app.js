@@ -977,7 +977,13 @@
         var isP = PAINT.test(c.cosmeticNotes);
         return '<button type="button" class="rp-row cmrow" data-open="' + c.id + '"><span class="l"><b>' + tagOf(c) + (isP ? ' <span class="pill">Paint</span>' : '') + '</b><small>' + name(c) + '</small><span class="cmnote">' + esc(c.cosmeticNotes) + '</span></span></button>';
       }).join('') + '</div>';
-    return wh + pt;
+    var open = state.rpBody, chip = function (k, label, n) {
+      return '<button type="button" class="tab" data-rpb="' + k + '" aria-pressed="' + (open === k) + '" aria-selected="' + (open === k) + '">' + label + ' <span class="num">' + n + '</span></button>';
+    };
+    return '<section class="rp-card full"><h3>Outstanding bodywork</h3>'
+      + '<div class="tabs rp-tabs" role="group" aria-label="Outstanding bodywork">' + chip('alloys', 'Alloys', wheels.length) + chip('cosmetics', 'Cosmetics', paint.length) + '</div>'
+      + (open === 'alloys' ? wh.replace('rp-card full', 'rp-inner') : open === 'cosmetics' ? pt.replace('rp-card full', 'rp-inner') : '<p class="sub">Tap Alloys or Cosmetics to see what is outstanding on cars in prep.</p>')
+      + '</section>';
   }
   function openReports() { $('#rp-target').textContent = TARGET; renderReports(); $('#ov-reports').hidden = false; $('#ov-reports .sheet').scrollTop = 0; $('#rp-close').focus(); }
   $('#rep-btn').addEventListener('click', openReports);
@@ -992,6 +998,8 @@
   $('#rp-body').addEventListener('click', function (e) {
     var v = e.target.closest && e.target.closest('[data-rpv]');
     if (v) { state.rpView = v.dataset.rpv; renderReports(); return; }
+    var rb = e.target.closest && e.target.closest('[data-rpb]');
+    if (rb) { state.rpBody = state.rpBody === rb.dataset.rpb ? null : rb.dataset.rpb; renderReports(); return; }
     var b = e.target.closest && e.target.closest('[data-open]'); if (!b) return;
     $('#ov-reports').hidden = true; openCar(b.dataset.open);
   });

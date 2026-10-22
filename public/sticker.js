@@ -22,8 +22,26 @@
       + '</article>';
   }
 
+  // A4 landscape window notice: AWAITING PREP banner, a large QR and the car details.
+  function noticeHtml(c) {
+    var url = base + '/c/' + c.id;
+    var name = [c.make, c.model].filter(Boolean).join(' ');
+    return '<article class="sticker notice">'
+      + '<div class="n-banner">AWAITING PREP</div>'
+      + '<div class="n-body">'
+      + '<div class="s-qr">' + QR.svg(url, { label: 'QR code for ' + (c.reg || 'this car') }) + '</div>'
+      + '<div class="s-info"><div class="s-plate">' + esc(c.reg || 'No reg') + '</div>'
+      + '<div class="s-car">' + esc(name) + '</div>'
+      + (c.tag ? '<div class="s-tag">Tag ' + esc(c.tag) + '</div>' : '')
+      + '<p class="n-scan">Scan to see preparation progress</p>'
+      + '<img class="s-logo" src="/logo-navy.png" alt="Vantage Motor Group">'
+      + '</div></div>'
+      + '</article>';
+  }
+
   function stickerHtml(c) {
     if ($('#layout').value === 'small') return smallHtml(c);
+    if ($('#layout').value === 'notice') return noticeHtml(c);
     var url = base + '/c/' + c.id;
     var name = [c.make, c.model].filter(Boolean).join(' ');
     return '<article class="sticker">'
@@ -48,7 +66,7 @@
     $('#pages').innerHTML = html;
     var pg = document.getElementById('pagestyle');
     if (!pg) { pg = document.createElement('style'); pg.id = 'pagestyle'; document.head.appendChild(pg); }
-    pg.textContent = layout === 'sheet' ? '@page{size:A4;margin:8mm 5mm}' : layout === 'small' ? '@page{size:50mm 30mm;margin:0}' : '@page{size:100mm 70mm;margin:0}';
+    pg.textContent = layout === 'sheet' ? '@page{size:A4;margin:8mm 5mm}' : layout === 'notice' ? '@page{size:A4 landscape;margin:0}' : layout === 'small' ? '@page{size:50mm 30mm;margin:0}' : '@page{size:100mm 70mm;margin:0}';
     try { localStorage.setItem('stickerLayout', layout); } catch (e) { /* ignore */ }
   }
 
@@ -84,7 +102,7 @@
       $('#ctl').hidden = false; $('#hint').hidden = false;
       var saved = null;
       try { saved = localStorage.getItem('stickerLayout'); } catch (e) { /* ignore */ }
-      if (saved === 'sheet' || saved === 'label' || saved === 'small') $('#layout').value = saved;
+      if (saved === 'sheet' || saved === 'label' || saved === 'small' || saved === 'notice') $('#layout').value = saved;
       draw();
     });
   }).catch(function () { message('Could not reach the server. Check your connection and reload.'); });

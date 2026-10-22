@@ -58,3 +58,17 @@ button:hover{filter:brightness(1.15)}
 .sticker.small .s-plate{font-size:3.7mm;letter-spacing:.02em;padding:.6mm .8mm .4mm;max-width:100%;border-width:.25mm;border-radius:.7mm}
 .sticker.small .s-tag{font-size:3.2mm;font-weight:700;color:#112D5B}
 .sticker.small .s-car{font-size:2.6mm;line-height:1.15;font-weight:600;overflow-wrap:anywhere;max-height:6.2mm;overflow:hidden}
+
+/* A4 landscape "Awaiting prep" notice: one car per page */
+.page.notice{width:297mm;height:209mm;overflow:hidden}
+.sticker.notice{width:297mm;height:209mm;padding:12mm 14mm;gap:9mm;justify-content:flex-start}
+.n-banner{background:var(--navy);color:#fff;font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-weight:600;font-size:26mm;line-height:1;letter-spacing:.04em;white-space:nowrap;text-align:center;padding:8mm 4mm 7mm;border-radius:5mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.n-body{flex:1;display:flex;gap:14mm;align-items:center;min-height:0}
+.sticker.notice .s-qr{width:118mm;height:118mm}
+.sticker.notice .s-info{gap:6mm;flex:1}
+.sticker.notice .s-plate{font-size:20mm;padding:3mm 6mm 2mm;border-width:.8mm;border-radius:2.5mm}
+.sticker.notice .s-car{font-size:12mm}
+.sticker.notice .s-tag{font-size:11mm;font-weight:700;color:var(--navy)}
+.n-scan{margin:0;font-size:6mm;font-weight:700;color:#33507a}
+.sticker.notice .s-logo{height:13mm;margin-top:2mm}
+@media screen and (max-width:1100px){.page.notice{zoom:.45}}

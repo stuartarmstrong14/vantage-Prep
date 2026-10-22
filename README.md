@@ -12,7 +12,7 @@ A web app for tracking used cars through preparation, with a username and passwo
 Every car can have a QR sticker for the dashboard.
 
 1. Add the car. In its sheet, press **Print QR sticker**. To print several, use **Print QR stickers** above the stock list; it prints whatever cars the current filter shows.
-2. Choose **Single label** (100 × 70 mm), **A4 sheet** (8 per page, with cutting lines) or **Small label** (50 × 30 mm, QR code, registration and tag only), then Print.
+2. Choose **Single label** (100 × 70 mm), **A4 sheet** (8 per page, with cutting lines) **Small label** (50 × 30 mm, QR code, registration and tag only) or **A4 landscape notice** (one car per page with a large AWAITING PREP banner, big QR code, registration, model and tag, for the windscreen; set the print window to Landscape), then Print.
 3. Stick it on the dashboard and tick **QR sticker fitted** on the car's Inbound checklist.
 4. An advisor scans it with their phone camera. They sign in (their login is remembered on their phone) and the car opens showing its stage and every completed step.
 

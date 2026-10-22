@@ -84,6 +84,17 @@ db.exec(`
     updated_at TEXT NOT NULL,
     updated_by TEXT NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS files (
+    id TEXT PRIMARY KEY,
+    car_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    data BLOB NOT NULL,
+    created_at TEXT NOT NULL,
+    created_by TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS files_car ON files (car_id);
 `);
 
 const q = {
@@ -98,6 +109,10 @@ const q = {
   insertCar: db.prepare('INSERT INTO cars (id, data, updated_at, updated_by) VALUES (?, ?, ?, ?)'),
   updateCar: db.prepare('UPDATE cars SET data = ?, updated_at = ?, updated_by = ? WHERE id = ?'),
   deleteCar: db.prepare('DELETE FROM cars WHERE id = ?'),
+  insertFile: db.prepare('INSERT INTO files (id, car_id, name, type, size, data, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'),
+  fileById: db.prepare('SELECT * FROM files WHERE id = ?'),
+  deleteFile: db.prepare('DELETE FROM files WHERE id = ?'),
+  deleteFilesForCar: db.prepare('DELETE FROM files WHERE car_id = ?'),
 };
 
 /* ---------- helpers ---------- */
@@ -357,6 +372,43 @@ function stampHistory(cur, next, user) {
   }
 }
 
+/* ---------- uploaded 145 point checks ---------- */
+const MAX_UPLOAD = 15 * 1024 * 1024;
+const MAX_FILES_PER_CAR = 10;
+function readRaw(req, limit) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    let failed = false;
+    req.on('data', (c) => {
+      if (failed) return;
+      size += c.length;
+      if (size > limit) { failed = true; reject(new HttpError(413, 'That file is over 15 MB. Use a smaller file or a lower photo quality.')); return; }
+      chunks.push(c);
+    });
+    req.on('end', () => { if (!failed) resolve(Buffer.concat(chunks)); });
+    req.on('error', reject);
+  });
+}
+// Decide the file type from its first bytes, never from what the browser says.
+function sniffType(b) {
+  if (b.length < 12) return null;
+  if (b.subarray(0, 5).toString('latin1') === '%PDF-') return 'application/pdf';
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg';
+  if (b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'image/png';
+  if (b.subarray(0, 4).toString('latin1') === 'RIFF' && b.subarray(8, 12).toString('latin1') === 'WEBP') return 'image/webp';
+  if (b.subarray(4, 8).toString('latin1') === 'ftyp' && /^(heic|heix|hevc|heim|mif1|msf1)/.test(b.subarray(8, 12).toString('latin1'))) return 'image/heic';
+  return null;
+}
+function cleanFileName(raw, type) {
+  let n = '';
+  try { n = decodeURIComponent(String(raw || '')); } catch (e) { n = String(raw || ''); }
+  n = n.split(/[\\/]/).pop().replace(/[\u0000-\u001f\u007f"<>:|?*]/g, '').trim().slice(0, 120);
+  const ext = { 'application/pdf': '.pdf', 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/heic': '.heic' }[type];
+  return n || ('145-point-check' + ext);
+}
+const CHECK_KEY = 'mech_pt145';
+
 function readInbound(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -502,6 +554,72 @@ async function handleApi(req, res, url) {
     return sendJson(res, 201, carOut(q.carById.get(id)));
   }
 
+  const upMatch = p.match(/^\/api\/cars\/([a-f0-9]{12})\/checks$/);
+  if (upMatch && method === 'POST') {
+    const u = requireStaff(req);
+    const carId = upMatch[1];
+    const row = q.carById.get(carId);
+    if (!row) throw new HttpError(404, 'That car no longer exists.');
+    const buf = await readRaw(req, MAX_UPLOAD);
+    const type = sniffType(buf);
+    if (!type) throw new HttpError(400, 'Upload a PDF or a photo (JPEG, PNG, WebP or HEIC).');
+    const cur = JSON.parse(row.data);
+    const list = cur.checks || [];
+    if (list.length >= MAX_FILES_PER_CAR) throw new HttpError(400, 'This car already has ' + MAX_FILES_PER_CAR + ' files. Remove one first.');
+    const fid = crypto.randomBytes(8).toString('hex');
+    const now = new Date().toISOString();
+    const name = cleanFileName(req.headers['x-filename'], type);
+    const next = Object.assign({}, cur, {
+      checks: list.concat([{ id: fid, name, type, size: buf.length, at: now, by: u.display }]),
+      done: Object.assign({}, cur.done, { [CHECK_KEY]: true }),
+    });
+    stampHistory(cur, next, u);
+    db.exec('BEGIN');
+    try {
+      q.insertFile.run(fid, carId, name, type, buf.length, buf, now, u.display);
+      q.updateCar.run(JSON.stringify(next), now, u.display, carId);
+      db.exec('COMMIT');
+    } catch (e) { db.exec('ROLLBACK'); throw e; }
+    bump();
+    return sendJson(res, 201, carOut(q.carById.get(carId)));
+  }
+
+  const fileMatch = p.match(/^\/api\/files\/([a-f0-9]{16})$/);
+  if (fileMatch && method === 'GET') {
+    requireUser(req);
+    const f = q.fileById.get(fileMatch[1]);
+    if (!f) throw new HttpError(404, 'That file no longer exists.');
+    const ascii = f.name.replace(/[^A-Za-z0-9._ -]/g, '_');
+    res.writeHead(200, {
+      'Content-Type': f.type,
+      'Content-Length': f.size,
+      'Content-Disposition': (f.type === 'image/heic' ? 'attachment' : 'inline') + '; filename="' + ascii + '"; filename*=UTF-8\'\'' + encodeURIComponent(f.name),
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'SAMEORIGIN',
+      'Content-Security-Policy': "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'",
+    });
+    return res.end(Buffer.from(f.data));
+  }
+  if (fileMatch && method === 'DELETE') {
+    const u = requireStaff(req);
+    const f = q.fileById.get(fileMatch[1]);
+    if (!f) throw new HttpError(404, 'That file no longer exists.');
+    const row = q.carById.get(f.car_id);
+    const now = new Date().toISOString();
+    if (row) {
+      const cur = JSON.parse(row.data);
+      const left = (cur.checks || []).filter((x) => x.id !== f.id);
+      const next = Object.assign({}, cur, { checks: left });
+      if (!left.length) next.done = Object.assign({}, cur.done, { [CHECK_KEY]: false });
+      stampHistory(cur, next, u);
+      q.updateCar.run(JSON.stringify(next), now, u.display, row.id);
+    }
+    q.deleteFile.run(f.id);
+    bump();
+    return sendJson(res, 200, row ? carOut(q.carById.get(row.id)) : { ok: true });
+  }
+
   const carMatch = p.match(/^\/api\/cars\/([a-f0-9]{12})$/);
   if (carMatch) {
     const id = carMatch[1];
@@ -517,6 +635,7 @@ async function handleApi(req, res, url) {
     }
     if (method === 'DELETE') {
       requireAdmin(req);
+      q.deleteFilesForCar.run(id);
       q.deleteCar.run(id);
       bump();
       return sendJson(res, 200, { ok: true });

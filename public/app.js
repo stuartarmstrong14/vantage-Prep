@@ -6,7 +6,7 @@
     { k: 'arrived', s: 'Inbound', l: 'Inbound', t: [['advert', 'Advertised on Auto Trader'], ['lines', 'Preparation lines requested'], ['qr', 'QR sticker fitted']] },
     { k: 'valet', s: 'Valet', l: 'Valet', t: [['done', 'Valet completed']] },
     { k: 'photos', s: 'Photos', l: 'Photos', t: [['done', 'Photographs completed']] },
-    { k: 'mech', s: 'Mech', l: 'Mechanical', t: [['pt145', '145 point mechanical check'], ['service', 'Service'], ['motbook', 'MOT passed'], ['qc', 'Mechanical QC complete']] },
+    { k: 'mech', s: 'Mech', l: 'Mechanical', t: [['pt145', '145 point mechanical check', null, 'upload'], ['service', 'Service'], ['motbook', 'MOT passed'], ['qc', 'Mechanical QC complete']] },
     { k: 'body', s: 'Body', l: 'Bodywork', t: [
       ['cosmetic', 'Cosmetic check complete'],
       ['dent', 'Dents completed'],
@@ -389,6 +389,40 @@
     $('#ov-car').hidden = true; state.open = null;
     if (location.pathname !== '/') { try { history.replaceState(null, '', '/'); } catch (e) { /* ignore */ } }
   }
+  function fmtSize(n) { return n >= 1048576 ? (Math.round(n / 104857.6) / 10) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
+  // The 145 point check is completed by uploading the paperwork, not by a tick box.
+  function uploadRowHtml(c, tid, label, on) {
+    var files = c.checks || [], ro = readOnly();
+    var list = files.map(function (f) {
+      return '<div class="ufile"><a href="/api/files/' + esc(f.id) + '" target="_blank" rel="noopener">' + esc(f.name) + '</a><small class="muted-s">' + fmtSize(f.size) + '</small>'
+        + (ro ? '' : '<button type="button" class="linkbtn" data-rmfile="' + esc(f.id) + '">Remove</button>') + '</div>';
+    }).join('');
+    var note = on && !files.length ? '<p class="muted-s">Ticked before uploads were added.</p>' : '';
+    var act = ro ? '' : '<div class="uplact"><label class="btn" for="up-' + tid + '">' + (files.length ? 'Add another file' : 'Upload check') + '</label>'
+      + '<input class="vh" id="up-' + tid + '" type="file" accept="application/pdf,image/*" data-upload="' + tid + '"><span class="muted-s" data-upstatus>PDF or photo, up to 15 MB</span></div>';
+    return '<div class="chkrow upl' + (on ? ' done' : '') + '"><div class="uplin"><div class="uplhead"><span class="uplname">' + esc(label) + '</span>'
+      + (on ? '<span class="pill ok">Completed &#10003;</span>' : '<span class="pill">Needs upload</span>') + '</div>' + list + note + act + '</div></div>';
+  }
+  function syncStage(id) {
+    var c = state.cars.get(id); if (!c) return;
+    var want = keyFromDone(c.done || {});
+    if (want !== c.stage) upd(id, { stage: want }, { readyAt: want === 'ready' ? todayStr() : '' });
+  }
+  function doUpload(id, file, inp) {
+    if (file.size > 15 * 1024 * 1024) { toast('That file is over 15 MB. Use a smaller file or a lower photo quality.'); inp.value = ''; return; }
+    var st = inp.parentNode.querySelector('[data-upstatus]'); if (st) st.textContent = 'Uploading ' + file.name + '…';
+    inp.disabled = true;
+    state.pending++;
+    fetch('/api/cars/' + id + '/checks', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/octet-stream', 'X-Filename': encodeURIComponent(file.name) }, body: file })
+      .then(function (r) { return r.json().catch(function () { return null; }).then(function (d) { return { status: r.status, data: d }; }); })
+      .then(function (res) {
+        if (res.status === 401) { signedOut('You were signed out. Please sign in again.'); throw { code: 'unauth' }; }
+        if (res.status >= 300) throw { message: (res.data && res.data.error) || 'The upload failed. Try again.' };
+        state.cars.set(id, res.data); toast('145 point check uploaded.'); syncStage(id);
+      })
+      .catch(function (ex) { if (!ex || ex.code !== 'unauth') toast((ex && ex.message) || 'The upload failed. Check your connection and try again.'); })
+      .then(function () { state.pending--; render(); if (state.open === id) renderSheet(); });
+  }
   function renderSheet() {
     var id = state.open, c = id && state.cars.get(id);
     if (!c) { if (id) closeCar(); return; }
@@ -415,6 +449,7 @@
       var done = s.t.filter(function (t) { return (c.done || {})[s.k + '_' + t[0]] === true; }).length;
       var items = s.t.map(function (t) {
         var tid = s.k + '_' + t[0], on = (c.done || {})[tid] === true;
+        if (t[3] === 'upload') return uploadRowHtml(c, tid, t[1], on);
         var x = t[2], ex = '', signed = '';
         if (x) {
           var xv = c[x.f];
@@ -463,6 +498,8 @@
   });
   $('#m-notes').addEventListener('input', function (e) { if (state.open) debounced(state.open, 'notes', e.target.value); });
   $('#m-checks').addEventListener('change', function (e) {
+    var up = e.target.dataset && e.target.dataset.upload;
+    if (up) { var f = e.target.files && e.target.files[0]; if (f && state.open) doUpload(state.open, f, e.target); return; }
     var t = e.target.dataset && e.target.dataset.t; if (!t || !state.open) return;
     var c = state.cars.get(state.open); if (!c) return;
     var o = { done: {} }; o.done[t] = e.target.checked;
@@ -475,6 +512,20 @@
       if (want === 'ready' && stageKey(c) !== 'ready') toast('All areas complete. Moved to Completed.');
     }
     upd(state.open, o, extra);
+  });
+  $('#m-checks').addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-rmfile]'); if (!b || !state.open) return;
+    if (!b.classList.contains('armed')) {
+      b.classList.add('armed'); b.textContent = 'Tap again to remove';
+      setTimeout(function () { if (b.isConnected) { b.classList.remove('armed'); b.textContent = 'Remove'; } }, 4000);
+      return;
+    }
+    var id = state.open; state.pending++;
+    api('DELETE', '/api/files/' + b.dataset.rmfile).then(function (car) {
+      if (car && car.id) { state.cars.set(id, car); syncStage(id); }
+      toast('File removed.');
+    }).catch(function (ex) { if (!ex || ex.code !== 'unauth') toast((ex && ex.message) || 'Could not remove that file.'); })
+      .then(function () { state.pending--; render(); if (state.open === id) renderSheet(); });
   });
   $('#m-checks').addEventListener('input', function (e) {
     var f = e.target.dataset && e.target.dataset.x; if (!f || !state.open) return;
@@ -814,17 +865,47 @@
       return '<button type="button" class="rp-row" data-open="' + c.id + '"><span class="l"><b>' + esc(c.reg) + ' ' + esc([c.make, c.model].filter(Boolean).join(' ')) + '</b></span><span class="r">' + c.sentBack + (c.sentBack === 1 ? ' time' : ' times') + '</span></button>';
     }).join('') + '</div>' : '<p class="rp-empty">No car has been moved back to an earlier stage.</p>';
 
+    var checksCard = '<section class="rp-card full"><h3>145 point checks</h3>'
+      + '<label class="rp-pick" for="rp-q">Search by registration<input class="field" id="rp-q" type="search" placeholder="For example YB19 CYZ" autocomplete="off" value="' + esc(state.rpQ || '') + '"></label>'
+      + '<div id="rp-checks">' + checksHtml() + '</div></section>';
+    var hadFocus = document.activeElement && document.activeElement.id === 'rp-q', selEnd = hadFocus ? document.activeElement.selectionEnd : 0;
     $('#rp-body').innerHTML = tiles + '<div class="rp-grid" style="margin-top:14px">'
+      + checksCard
       + '<section class="rp-card full"><h3>Cars completed</h3>' + weekly + '</section>'
       + '<section class="rp-card"><h3>Where the stock is now</h3>' + byStage + '<p class="sub">' + active.length + ' cars in prep.</p></section>'
       + '<section class="rp-card"><h3>Time in each stage</h3>' + stageTime + '</section>'
       + '<section class="rp-card"><h3>Cars over target</h3>' + stuckHtml + '</section>'
       + '<section class="rp-card"><h3>Sent back to an earlier stage</h3>' + sent + '<p class="sub">' + backTotal + (backTotal === 1 ? ' move back' : ' moves back') + ' in total.</p></section>'
       + '<section class="rp-card full"><h3>Sign-offs and ticks by person</h3>' + people + '</section></div>';
+    if (hadFocus) { var qi = $('#rp-q'); if (qi) { qi.focus(); try { qi.setSelectionRange(selEnd, selEnd); } catch (er) { /* ignore */ } } }
+  }
+  function normReg(x) { return String(x || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+  function checksHtml() {
+    var qn = normReg(state.rpQ), cars = [];
+    state.cars.forEach(function (c, id) { cars.push(Object.assign({ id: id }, c)); });
+    var hits = cars.filter(function (c) { return !qn || normReg(c.reg).indexOf(qn) >= 0; });
+    var withF = hits.filter(function (c) { return (c.checks || []).length; }).sort(function (a, b) {
+      var la = a.checks[a.checks.length - 1].at, lb = b.checks[b.checks.length - 1].at; return la < lb ? 1 : -1;
+    });
+    var without = qn ? hits.filter(function (c) { return !(c.checks || []).length; }) : [];
+    var shown = qn ? withF : withF.slice(0, 20);
+    function row(c, has) {
+      var last = has ? c.checks[c.checks.length - 1] : null;
+      var links = has ? c.checks.map(function (f, i) { return '<a class="flink" href="/api/files/' + esc(f.id) + '" target="_blank" rel="noopener" title="' + esc(f.name) + '">' + (c.checks.length > 1 ? 'File ' + (i + 1) : 'View check') + '</a>'; }).join('') : '';
+      return '<div class="rp-row plain"><button type="button" class="rplink" data-open="' + esc(c.id) + '"><span class="l"><b>' + esc(c.reg) + ' ' + esc([c.make, c.model].filter(Boolean).join(' ')) + '</b><small>'
+        + (has ? 'Uploaded ' + esc(fmtDate(last.at.slice(0, 10))) + ' by ' + esc(last.by) : 'No 145 point check uploaded') + '</small></span></button><span class="flinks">' + links + '</span></div>';
+    }
+    var out = shown.map(function (c) { return row(c, true); }).concat(without.map(function (c) { return row(c, false); })).join('');
+    if (!out) return '<p class="rp-empty">' + (qn ? 'No car matches that registration.' : 'No 145 point checks have been uploaded yet.') + '</p>';
+    return '<div class="rp-list">' + out + '</div>' + (!qn && withF.length > 20 ? '<p class="sub">Showing the latest 20. Search by registration to find an older one.</p>' : '');
   }
   function openReports() { $('#rp-target').textContent = TARGET; renderReports(); $('#ov-reports').hidden = false; $('#ov-reports .sheet').scrollTop = 0; $('#rp-close').focus(); }
   $('#rep-btn').addEventListener('click', openReports);
   $('#rp-close').addEventListener('click', function () { $('#ov-reports').hidden = true; });
+  $('#rp-body').addEventListener('input', function (e) {
+    if (e.target.id !== 'rp-q') return;
+    state.rpQ = e.target.value; $('#rp-checks').innerHTML = checksHtml();
+  });
   $('#rp-body').addEventListener('change', function (e) {
     if (e.target.dataset && e.target.dataset.rpm) { state.rpMonth = e.target.value; renderReports(); var m = $('#rp-month'); if (m) m.focus(); }
   });

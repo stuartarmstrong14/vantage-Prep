@@ -258,3 +258,22 @@ fieldset:disabled .chk input{opacity:.85}
 .pq.on[data-k="TAC"]{background:var(--navy);color:var(--navy-ink);border:1.5px solid var(--navy)}
 .pq.on[data-k="SERVICE"]{background:var(--warn-bg);color:var(--warn);border:1.5px solid var(--warn)}
 .pq.on[data-k="MOT"]{background:var(--ok-bg);color:var(--ok);border:1.5px solid var(--ok)}
+
+/* 145 point check upload */
+.vh{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);border:0;white-space:nowrap}
+.chkrow.upl{padding:12px 0}
+.uplin{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.uplhead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.uplname{font-weight:600}
+.chkrow.upl.done .uplname{color:var(--muted)}
+.ufile{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:15px}
+.ufile a{color:var(--navy);font-weight:600;overflow-wrap:anywhere;min-width:0}
+.linkbtn{background:none;border:0;color:var(--bad);font-weight:700;cursor:pointer;padding:6px 4px;font-size:14px;min-height:36px}
+.linkbtn.armed{text-decoration:underline}
+.uplact{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.uplact label.btn{display:inline-flex;align-items:center;cursor:pointer}
+.vh:focus-visible + .muted-s,.uplact:focus-within label.btn{outline:3px solid var(--navy);outline-offset:2px}
+.rp-row .rplink{background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer;padding:0;flex:1;min-width:0}
+.flinks{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.flink{display:inline-flex;align-items:center;min-height:40px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--navy);font-weight:700;font-size:14px;text-decoration:none}
+.rp-pick .field{min-width:240px;max-width:100%}

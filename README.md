@@ -111,6 +111,14 @@ The endpoint accepts Postmark, Mailgun and SendGrid style posts, or a plain JSON
 - Changing or resetting a password, or deactivating someone, signs them out everywhere.
 - QC sign-offs record the initials, the date and the logged-in person's name, taken by the server.
 
+## 145 point mechanical checks
+
+On the Mechanical stage, the **145 point mechanical check** row is an upload box instead of a tick box. Staff upload the completed check (a PDF or a photo: JPEG, PNG, WebP or HEIC, up to 15 MB each, up to 10 files per car). The row then shows **Completed ✓** with the file name, and the stage progress updates automatically. Staff can add more files or remove one (tap Remove twice to confirm); removing the last file puts the row back to "Needs upload". Advisors can view the files but not upload or remove them. Cars ticked before this feature existed show "Ticked before uploads were added".
+
+Administrators can find any check from **Reports -> 145 point checks** by typing a registration (spaces and capitals don't matter).
+
+Files are stored inside the database, so they live on the Render disk (`/data`), are included in `npm run backup`, and use disk space. Keep an eye on the 1 GB disk if you upload a lot of large PDFs. Deleting a car deletes its check files.
+
 ## Archiving
 
 A car is archived automatically once it has been on the system for more than 365 days (counted from the day it arrived). Archived cars leave the In prep and Completed tabs and appear under **Archived**. Nothing is deleted, and archived cars are still included in every report. Staff can also archive a completed car at any time with the **Archive car** button in its sheet, and bring any archived car back with **Restore from archive**. Only an administrator can delete a car, using Delete car in its sheet.

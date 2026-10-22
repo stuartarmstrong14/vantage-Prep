@@ -292,3 +292,6 @@ fieldset:disabled .chk input{opacity:.85}
 
 .rp-inner{display:flex;flex-direction:column;gap:12px;min-width:0;border-top:1px solid var(--line);padding-top:12px}
 .rp-inner h3{font-size:16px}
+
+/* iPhones zoom into any text box smaller than 16px; keep every box at 16px so tapping one never zooms the page. */
+input.field,select.field,textarea.field,input[type="search"],input[type="text"],input[type="number"],input[type="password"]{font-size:16px}

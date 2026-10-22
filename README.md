@@ -119,6 +119,10 @@ Administrators can find any check from **Reports -> 145 point checks** by typing
 
 Files are stored inside the database, so they live on the Render disk (`/data`), are included in `npm run backup`, and use disk space. Keep an eye on the 1 GB disk if you upload a lot of large PDFs. Deleting a car deletes its check files.
 
+## Update pop-ups
+
+When someone else ticks off a prep item or adds a car, everyone else who has the app open sees a short pop-up at the top, for example "Paul updated Bodywork: Cosmetic check complete (AB21 CDE)". It appears within about 8 seconds, disappears after 7 seconds, and can be tapped away. You never get a pop-up for your own changes.
+
 ## Archiving
 
 A car is archived automatically once it has been on the system for more than 365 days (counted from the day it arrived). Archived cars leave the In prep and Completed tabs and appear under **Archived**. Nothing is deleted, and archived cars are still included in every report. Staff can also archive a completed car at any time with the **Archive car** button in its sheet, and bring any archived car back with **Restore from archive**. Only an administrator can delete a car, using Delete car in its sheet.

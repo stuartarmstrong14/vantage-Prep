@@ -138,6 +138,7 @@
       if (r.unchanged && state.loaded) return;
       var m = new Map();
       r.cars.forEach(function (c) { m.set(c.id, c); });
+      if (state.loaded) announce(state.cars, m);
       state.cars = m;
       state.loaded = true;
       render();
@@ -152,6 +153,37 @@
       if (!state.loaded) { state.err = 'Could not load the stock. Check your connection; this page will keep trying.'; render(); }
     });
   }
+
+  /* ---------- "someone else updated" pop-ups ---------- */
+  var ITEM_LABEL = {};
+  STAGES.forEach(function (st) { st.t.forEach(function (t) { ITEM_LABEL[st.k + '_' + t[0]] = st.l + ': ' + t[1]; }); });
+  var firstName = function (n) { return String(n || 'Someone').split(' ')[0]; };
+  var noticeTimer = null;
+  function announce(oldCars, newCars) {
+    var me = state.user && state.user.display, notes = [];
+    newCars.forEach(function (c, id) {
+      var o = oldCars.get(id), reg = c.reg || 'a car';
+      if (!o) {
+        var by = c.history && c.history[0] && c.history[0].by;
+        if (by && by !== me) notes.push((by === 'Email' ? 'New car from email: ' : firstName(by) + ' added ') + reg);
+        return;
+      }
+      var log = c.tickLog || {}, was = o.tickLog || {};
+      Object.keys(log).forEach(function (k) {
+        var e = log[k];
+        if (!e || e.by === me || !ITEM_LABEL[k] || (was[k] && was[k].at === e.at)) return;
+        notes.push(firstName(e.by) + ' updated ' + ITEM_LABEL[k] + ' (' + reg + ')');
+      });
+    });
+    if (!notes.length) return;
+    var shown = notes.slice(0, 3);
+    if (notes.length > 3) shown.push('and ' + (notes.length - 3) + ' more updates');
+    var box = $('#notice');
+    box.innerHTML = shown.map(function (n) { return '<div>' + esc(n) + '</div>'; }).join('');
+    box.hidden = false;
+    clearTimeout(noticeTimer); noticeTimer = setTimeout(function () { box.hidden = true; }, 7000);
+  }
+  document.addEventListener('click', function (e) { var b = $('#notice'); if (b && !b.hidden && b.contains(e.target)) b.hidden = true; });
 
   function startApp() {
     $('#auth').hidden = true;

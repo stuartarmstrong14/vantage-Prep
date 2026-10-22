@@ -67,7 +67,7 @@
     $('#pages').innerHTML = html;
     var pg = document.getElementById('pagestyle');
     if (!pg) { pg = document.createElement('style'); pg.id = 'pagestyle'; document.head.appendChild(pg); }
-    pg.textContent = layout === 'sheet' ? '@page{size:A4;margin:8mm 5mm}' : layout === 'notice' ? '@page{size:A4 landscape;margin:0}' : layout === 'small' ? '@page{size:50mm 30mm;margin:0}' : '@page{size:100mm 70mm;margin:0}';
+    pg.textContent = layout === 'sheet' ? '@page{size:A4;margin:8mm 5mm}' : layout === 'notice' ? '@page{size:A4 landscape;margin:10mm}' : layout === 'small' ? '@page{size:50mm 30mm;margin:0}' : '@page{size:100mm 70mm;margin:0}';
     try { localStorage.setItem('stickerLayout', layout); } catch (e) { /* ignore */ }
   }
 

@@ -68,7 +68,7 @@ button:hover{filter:brightness(1.15)}
 .n-status{display:flex;align-items:center;gap:8mm;padding:9mm 16mm 0}
 .n-rule{flex:1;height:.7mm;background:var(--navy);-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .n-title{margin:0;font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-weight:600;font-size:23mm;line-height:1.08;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;color:var(--navy)}
-.n-body{flex:1;display:flex;align-items:stretch;gap:16mm;padding:10mm 16mm 0;min-height:0}
+.n-body{flex:1;display:flex;align-items:stretch;gap:16mm;padding:10mm 16mm 9mm;min-height:0}
 .n-qr{margin:0;display:flex;flex-direction:column;align-items:center;gap:3mm;flex:none}
 .n-qr .s-qr{width:96mm;height:96mm;padding:4mm;border:.6mm solid #C9D1D9;border-radius:4mm}
 .n-qr figcaption{font-size:4.6mm;font-weight:700;color:#566B84}
@@ -78,5 +78,10 @@ button:hover{filter:brightness(1.15)}
 .n-tag{display:flex;align-items:baseline;gap:4mm}
 .n-tag span{font-size:5mm;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#566B84}
 .n-tag b{font-size:13mm;font-weight:700;line-height:1}
-.n-foot{position:absolute;left:0;right:0;bottom:0;height:7mm;background:var(--navy);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.n-foot{flex:none;margin-top:auto;height:7mm;background:var(--navy);-webkit-print-color-adjust:exact;print-color-adjust:exact}
 @media screen and (max-width:1100px){.page.notice{zoom:.45}}
+
+/* Printing the notice: shrink it to 86% so it fits on one landscape page even with the printer's normal margins. */
+@media print{
+  .page.notice{width:297mm;height:209mm;zoom:.86;margin:0 auto}
+}

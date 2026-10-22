@@ -119,6 +119,10 @@ Administrators can find any check from **Reports -> 145 point checks** by typing
 
 Files are stored inside the database, so they live on the Render disk (`/data`), are included in `npm run backup`, and use disk space. Keep an eye on the 1 GB disk if you upload a lot of large PDFs. Deleting a car deletes its check files.
 
+## Cosmetic notes
+
+Under **Cosmetic check complete** on the Bodywork stage there is a box for what cosmetic work needs doing (up to 1,000 characters). It saves as you type and everyone can see it; advisors see it read-only. The tick box still marks the cosmetic check as done.
+
 ## Update pop-ups
 
 When someone else ticks off a prep item or adds a car, everyone else who has the app open sees a short pop-up at the top, for example "Paul updated Bodywork: Cosmetic check complete (AB21 CDE)". It appears within about 8 seconds, disappears after 7 seconds, and can be tapped away. You never get a pop-up for your own changes.

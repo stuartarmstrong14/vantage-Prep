@@ -8,7 +8,7 @@
     { k: 'photos', s: 'Photos', l: 'Photos', t: [['done', 'Photographs completed']] },
     { k: 'mech', s: 'Mech', l: 'Mechanical', t: [['pt145', '145 point mechanical check', null, 'upload'], ['service', 'Service'], ['motbook', 'MOT passed'], ['qc', 'Mechanical QC complete']] },
     { k: 'body', s: 'Body', l: 'Bodywork', t: [
-      ['cosmetic', 'Cosmetic check complete'],
+      ['cosmetic', 'Cosmetic check complete', { f: 'cosmeticNotes', label: 'Cosmetics to do', type: 'note' }],
       ['dent', 'Dents completed'],
       ['wheels', 'Alloy wheels completed', { f: 'bodyWheels', label: 'Wheels to refine', type: 'number' }],
       ['paint', 'Paint work completed'],
@@ -484,6 +484,10 @@
         var tid = s.k + '_' + t[0], on = (c.done || {})[tid] === true;
         if (t[3] === 'upload') return uploadRowHtml(c, tid, t[1], on);
         var x = t[2], ex = '', signed = '';
+        if (x && x.type === 'note') {
+          return '<div class="chkrow colrow"><label class="chk' + (on ? ' done' : '') + '"><input type="checkbox" data-t="' + tid + '"' + (on ? ' checked' : '') + '><span>' + esc(t[1]) + '</span></label>'
+            + '<textarea class="field cosn" data-x="' + x.f + '" maxlength="1000" rows="3" placeholder="What cosmetic work is needed? e.g. scuffed rear bumper, door ding, wheel refurb" aria-label="' + esc(x.label) + '">' + esc(c[x.f] || '') + '</textarea></div>';
+        }
         if (x) {
           var xv = c[x.f];
           ex = '<input class="field xin' + (x.type === 'number' ? ' num' : '') + '" data-x="' + x.f + '" type="' + x.type + '"'
@@ -581,6 +585,7 @@
     var f = e.target.dataset && e.target.dataset.x; if (!f || !state.open) return;
     var spec = findExtra(f); if (!spec) return;
     var v = e.target.value;
+    if (spec.type === 'note') { debounced(state.open, f, v.slice(0, 1000)); return; }
     if (spec.type === 'number') v = (v === '' ? null : Number(v));
     else { v = v.toUpperCase().replace(/[^A-Z0-9]/g, ''); if (e.target.value !== v) e.target.value = v; }
     debounced(state.open, f, v);

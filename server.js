@@ -304,6 +304,8 @@ function applyCarPatch(cur, body, user) {
       next[key] = s;
     } else if (key === 'notes') {
       next.notes = str(v).slice(0, 5000);
+    } else if (key === 'cosmeticNotes') {
+      next.cosmeticNotes = str(v).slice(0, 1000);
     } else if (key === 'mileage') {
       if (v === null || v === '') next.mileage = null;
       else if (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 2000000) next.mileage = Math.round(v);

@@ -21,7 +21,7 @@
   var TOTAL = STAGES.reduce(function (n, s) { return n + s.t.length; }, 0);
   var FIELDS = [
     ['reg', 'Registration', 'text'], ['make', 'Make', 'text'], ['model', 'Model', 'text'], ['tag', 'Tag number', 'text'],
-    ['mileage', 'Mileage', 'number'], ['mot', 'MOT expiry', 'date']
+    ['mileage', 'Mileage', 'number'], ['mot', 'MOT expiry', 'shortdate']
   ];
   var NUMERIC = { mileage: 1 };
   // Prep requested on the car (from the email, or set by hand). Order and labels are fixed.
@@ -390,6 +390,7 @@
     state.expanded = new Set([stageKey(c)]);
     $('#m-fields').innerHTML = FIELDS.map(function (f) {
       var v = c[f[0]];
+      if (f[2] === 'shortdate') return '<label for="f-' + f[0] + '">' + f[1] + '<input class="field" id="f-' + f[0] + '" data-f="' + f[0] + '" data-sd="1" type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/yy" value="' + esc(isoToShort(v)) + '" autocomplete="off"></label>';
       return '<label for="f-' + f[0] + '">' + f[1] + '<input class="field' + (f[2] === 'number' ? ' num' : '') + '" id="f-' + f[0] + '" data-f="' + f[0] + '" type="' + f[2] + '"' + (f[2] === 'number' ? ' inputmode="numeric" min="0" max="2000000" step="1"' : '') + ' value="' + esc(v == null ? '' : v) + '" autocomplete="off"></label>';
     }).join('');
     $('#m-notes').value = c.notes || '';
@@ -521,8 +522,25 @@
   $('#add-btn').addEventListener('click', openNew);
   $('#m-close').addEventListener('click', closeCar);
   $('#ov-car').addEventListener('click', function (e) { if (e.target === e.currentTarget) closeCar(); });
+  // Short dates: show dd/mm/yy, store yyyy-mm-dd.
+  function isoToShort(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? m[3] + '/' + m[2] + '/' + m[1].slice(2) : ''; }
+  function shortToIso(d) {
+    if (d.length !== 6 && d.length !== 8) return null;
+    var dd = +d.slice(0, 2), mm = +d.slice(2, 4), yy = d.length === 6 ? 2000 + +d.slice(4) : +d.slice(4);
+    var t = new Date(Date.UTC(yy, mm - 1, dd));
+    if (t.getUTCFullYear() !== yy || t.getUTCMonth() !== mm - 1 || t.getUTCDate() !== dd) return null;
+    return yy + '-' + pad(mm) + '-' + pad(dd);
+  }
   $('#m-fields').addEventListener('input', function (e) {
     var f = e.target.dataset.f; if (!f || !state.open) return;
+    if (e.target.dataset.sd) {
+      var dg = e.target.value.replace(/\D/g, '').slice(0, 8), fm = dg.slice(0, 2) + (dg.length > 2 ? '/' + dg.slice(2, 4) : '') + (dg.length > 4 ? '/' + dg.slice(4) : '');
+      if (e.target.value !== fm) e.target.value = fm;
+      e.target.setCustomValidity('');
+      if (!dg) debounced(state.open, f, '');
+      else { var iso = shortToIso(dg); if (iso) debounced(state.open, f, iso); }
+      return;
+    }
     var v = e.target.value;
     if (f === 'reg') { v = v.toUpperCase(); if (e.target.value !== v) e.target.value = v; }
     if (NUMERIC[f]) v = (v === '' ? null : Number(v));

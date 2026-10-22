@@ -123,6 +123,24 @@
   </div>
 </div>
 
+<!-- Cosmetic appraisal -->
+<div class="overlay" id="ov-ap" hidden>
+  <div class="sheet wide" role="dialog" aria-modal="true" aria-labelledby="ap-h">
+    <div class="sheet-head">
+      <div><span class="plate" id="ap-plate"></span><div class="m-title" id="ap-h">Cosmetic appraisal</div><div class="muted-s" id="ap-sub"></div></div>
+      <button class="icon-btn" id="ap-close" type="button" aria-label="Close appraisal">&times;</button>
+    </div>
+    <div class="block">
+      <div class="aptabs" id="ap-tabs" role="tablist" aria-label="View of the car"></div>
+      <div class="apbar"><button class="btn" id="ap-add" type="button" aria-pressed="false">Add damage</button><span class="muted-s" id="ap-hint"></span></div>
+      <div class="apcar" id="ap-car"></div>
+    </div>
+    <div class="block" id="ap-detail" hidden></div>
+    <div class="block" id="ap-list"></div>
+    <div class="block" id="ap-foot"></div>
+  </div>
+</div>
+
 <!-- Reports (administrators) -->
 <div class="overlay" id="ov-reports" hidden>
   <div class="sheet wide" role="dialog" aria-modal="true" aria-labelledby="rp-h">

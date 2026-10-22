@@ -8,7 +8,7 @@
     { k: 'photos', s: 'Photos', l: 'Photos', t: [['done', 'Photographs completed']] },
     { k: 'mech', s: 'Mech', l: 'Mechanical', t: [['pt145', '145 point mechanical check', null, 'upload'], ['service', 'Service'], ['motbook', 'MOT passed'], ['qc', 'Mechanical QC complete']] },
     { k: 'body', s: 'Body', l: 'Bodywork', t: [
-      ['cosmetic', 'Cosmetic check complete'],
+      ['cosmetic', 'Cosmetic appraisal', null, 'appraisal'],
       ['dent', 'Dents completed'],
       ['wheels', 'Alloy wheels completed', { f: 'bodyWheels', label: 'Wheels to refine', type: 'number' }],
       ['paint', 'Paint work completed'],
@@ -143,6 +143,7 @@
       state.loaded = true;
       render();
       if (state.open) renderSheet();
+      if (!$('#ov-ap').hidden) renderAppraisal();
       if (!$('#ov-reports').hidden) renderReports();
       if (state.deepLink) {
         var dl = state.deepLink; state.deepLink = null;
@@ -418,7 +419,7 @@
     upd(state.open, { prep: PREP.map(function (p) { return p[0]; }).filter(function (x) { return cur.indexOf(x) >= 0; }) });
   });
   function closeCar() {
-    $('#ov-car').hidden = true; state.open = null;
+    $('#ov-ap').hidden = true; $('#ov-car').hidden = true; state.open = null;
     if (location.pathname !== '/') { try { history.replaceState(null, '', '/'); } catch (e) { /* ignore */ } }
   }
   function fmtSize(n) { return n >= 1048576 ? (Math.round(n / 104857.6) / 10) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
@@ -455,6 +456,181 @@
       .catch(function (ex) { if (!ex || ex.code !== 'unauth') toast((ex && ex.message) || 'The upload failed. Check your connection and try again.'); })
       .then(function () { state.pending--; render(); if (state.open === id) renderSheet(); });
   }
+  /* ---------- cosmetic appraisal: mark damage on the car, one photo per marker ---------- */
+  var AP_VIEWS = [['top', 'Top'], ['left', 'Left side'], ['right', 'Right side'], ['front', 'Front'], ['rear', 'Rear']];
+  var apState = { view: 'top', sel: null, add: false };
+  function apOf(c) { return (c && c.appraisal) || { marks: [], complete: false }; }
+  function appraisalRowHtml(c, label, on) {
+    var ap = apOf(c), n = (ap.marks || []).length, ph = (ap.marks || []).filter(function (m) { return m.photo; }).length;
+    var sum = n ? n + ' damage marker' + (n === 1 ? '' : 's') + (ph ? ', ' + ph + ' with photo' + (ph === 1 ? '' : 's') : '') : (on && c.appraisal ? 'No damage found.' : 'No damage marked yet.');
+    var legacy = on && !c.appraisal ? '<p class="muted-s">Ticked before appraisals were added.</p>' : '';
+    return '<div class="chkrow upl' + (on ? ' done' : '') + '"><div class="uplin"><div class="uplhead"><span class="uplname">' + esc(label) + '</span>'
+      + (on ? '<span class="pill ok">Completed &#10003;</span>' : '<span class="pill">Not completed</span>') + '</div>'
+      + '<p class="muted-s">' + esc(sum) + '</p>' + legacy
+      // An anchor, not a button, so advisors (whose sheet is a disabled fieldset) can still open it.
+      + '<div class="uplact"><a href="#" role="button" class="btn" data-openap="1">' + (readOnly() ? 'View appraisal' : (on ? 'Open appraisal' : 'Start appraisal')) + '</a></div></div></div>';
+  }
+  var AP_SVG = {
+    top: '<path class="ca-b" d="M60 75Q50 120 60 165Q60 185 90 185L300 185Q345 180 352 150Q358 120 352 90Q345 55 300 55L90 55Q60 55 60 75Z"/>'
+      + '<path class="ca-g" d="M235 70L262 78Q268 120 262 162L235 170Z"/><path class="ca-g" d="M120 78L148 70L148 170L120 162Q115 120 120 78Z"/><path class="ca-r" d="M148 72H235V168H148Z"/>'
+      + '<rect class="ca-w" x="95" y="43" width="50" height="14" rx="4"/><rect class="ca-w" x="95" y="183" width="50" height="14" rx="4"/><rect class="ca-w" x="270" y="43" width="50" height="14" rx="4"/><rect class="ca-w" x="270" y="183" width="50" height="14" rx="4"/>'
+      + '<ellipse class="ca-b" cx="240" cy="50" rx="10" ry="6"/><ellipse class="ca-b" cx="240" cy="190" rx="10" ry="6"/>'
+      + '<text class="ca-t" x="6" y="124">REAR</text><text class="ca-t" x="396" y="124" text-anchor="end">FRONT</text>',
+    side: '<path class="ca-b" d="M40 172L40 140Q42 120 70 116L120 112Q150 70 200 66L262 66Q300 70 322 112L352 122Q368 128 368 150L368 172Z"/>'
+      + '<path class="ca-g" d="M138 112Q160 80 198 78L198 112Z"/><path class="ca-g" d="M210 78L258 78Q285 82 300 112L210 112Z"/><path class="ca-l" d="M205 112V160"/>'
+      + '<circle class="ca-w" cx="110" cy="172" r="30"/><circle class="ca-h" cx="110" cy="172" r="13"/><circle class="ca-w" cx="300" cy="172" r="30"/><circle class="ca-h" cx="300" cy="172" r="13"/>',
+    front: '<path class="ca-b" d="M110 62Q200 42 290 62L312 100L320 130Q324 150 320 172L80 172Q76 150 80 130L88 100Z"/>'
+      + '<path class="ca-g" d="M122 64Q200 50 278 64L294 100L106 100Z"/>'
+      + '<rect class="ca-w" x="80" y="160" width="36" height="50" rx="6"/><rect class="ca-w" x="284" y="160" width="36" height="50" rx="6"/>'
+      + '<rect class="ca-h" x="96" y="116" width="44" height="16" rx="4"/><rect class="ca-h" x="260" y="116" width="44" height="16" rx="4"/><rect class="ca-h" x="168" y="142" width="64" height="22" rx="3"/>',
+    rear: '<path class="ca-b" d="M110 62Q200 42 290 62L312 100L320 130Q324 150 320 172L80 172Q76 150 80 130L88 100Z"/>'
+      + '<path class="ca-g" d="M126 66Q200 54 274 66L288 100L112 100Z"/>'
+      + '<rect class="ca-w" x="80" y="160" width="36" height="50" rx="6"/><rect class="ca-w" x="284" y="160" width="36" height="50" rx="6"/>'
+      + '<rect class="ca-tl" x="92" y="112" width="40" height="18" rx="4"/><rect class="ca-tl" x="268" y="112" width="40" height="18" rx="4"/><rect class="ca-h" x="168" y="142" width="64" height="22" rx="3"/>'
+  };
+  function apSvg(view) {
+    var inner = AP_SVG[view === 'left' || view === 'right' ? 'side' : view];
+    if (view === 'left') inner = '<g transform="translate(400,0) scale(-1,1)">' + inner + '</g><text class="ca-t" x="8" y="214">FRONT</text><text class="ca-t" x="340" y="214">REAR</text>';
+    else if (view === 'right') inner = inner + '<text class="ca-t" x="8" y="214">REAR</text><text class="ca-t" x="338" y="214">FRONT</text>';
+    return '<svg viewBox="0 0 400 240" role="img" aria-label="' + esc(view) + ' view of the car" preserveAspectRatio="none">' + inner + '</svg>';
+  }
+  function apCar() { return state.open && state.cars.get(state.open); }
+  function renderAppraisal(force) {
+    var c = apCar(); if (!c) { $('#ov-ap').hidden = true; return; }
+    var ap = apOf(c), marks = ap.marks || [], ro = readOnly();
+    $('#ap-plate').textContent = c.reg || 'No reg';
+    $('#ap-sub').textContent = [c.make, c.model].filter(Boolean).join(' ');
+    $('#ap-tabs').innerHTML = AP_VIEWS.map(function (v) {
+      var n = marks.filter(function (m) { return m.view === v[0]; }).length;
+      return '<button type="button" class="aptab" role="tab" data-view="' + v[0] + '" aria-selected="' + (apState.view === v[0]) + '">' + v[1] + (n ? ' <span class="apn">' + n + '</span>' : '') + '</button>';
+    }).join('');
+    var add = $('#ap-add');
+    add.hidden = ro;
+    add.setAttribute('aria-pressed', apState.add);
+    add.textContent = apState.add ? 'Tap the damage on the car…' : 'Add damage';
+    add.classList.toggle('primary', apState.add);
+    $('#ap-hint').textContent = ro ? 'Tap a numbered marker to see its photo.' : (apState.add ? 'Tap the car where the damage is.' : 'Tap a marker to see its photo, or Add damage to mark a new spot.');
+    var pins = marks.map(function (m, i) {
+      if (m.view !== apState.view) return '';
+      return '<button type="button" class="pin' + (m.photo ? ' ph' : '') + (apState.sel === m.id ? ' sel' : '') + '" data-mark="' + m.id + '" style="left:' + m.x + '%;top:' + m.y + '%" aria-label="Damage marker ' + (i + 1) + '">' + (i + 1) + '</button>';
+    }).join('');
+    $('#ap-car').className = 'apcar' + (apState.add ? ' adding' : '');
+    $('#ap-car').innerHTML = apSvg(apState.view) + pins;
+    var ae = document.activeElement;
+    if (force || !(ae && ae.id === 'ap-note')) renderApDetail(c);
+    $('#ap-list').innerHTML = marks.length ? '<h3>All damage (' + marks.length + ')</h3>' + marks.map(function (m, i) {
+      var vn = AP_VIEWS.filter(function (v) { return v[0] === m.view; })[0][1];
+      return '<button type="button" class="aprow' + (apState.sel === m.id ? ' sel' : '') + '" data-mark="' + m.id + '" data-v="' + m.view + '"><span class="pin sm' + (m.photo ? ' ph' : '') + '">' + (i + 1) + '</span><span class="l"><b>' + esc(m.note || 'No description') + '</b><small>' + esc(vn) + (m.photo ? ' &middot; photo' : '') + '</small></span></button>';
+    }).join('') : '<p class="muted-s">No damage marked.</p>';
+    var on = ap.complete;
+    $('#ap-foot').innerHTML = ro ? (on ? '<span class="pill ok">Appraisal completed &#10003;</span>' : '<span class="pill">Appraisal not completed</span>')
+      : '<button type="button" class="btn' + (on ? '' : ' primary') + '" id="ap-done" style="min-height:48px;padding:0 24px">' + (on ? 'Completed &#10003; Tap to reopen' : (marks.length ? 'Mark appraisal complete' : 'Complete: no damage found')) + '</button>'
+      + (on && ap.completeBy ? '<p class="muted-s" style="margin-top:8px">Completed by ' + esc(ap.completeBy) + (ap.completeAt ? ' on ' + esc(new Date(ap.completeAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: TZ })) : '') + '</p>' : '');
+  }
+  function renderApDetail(c) {
+    var ap = apOf(c), ro = readOnly(), box = $('#ap-detail');
+    var i = -1, m = null;
+    (ap.marks || []).forEach(function (x, k) { if (x.id === apState.sel) { m = x; i = k; } });
+    if (!m) { apState.sel = null; box.hidden = true; box.innerHTML = ''; return; }
+    box.hidden = false;
+    box.innerHTML = '<h3>Damage ' + (i + 1) + '</h3>'
+      + (m.photo ? '<a class="apphoto" href="/api/files/' + esc(m.photo) + '" target="_blank" rel="noopener"><img src="/api/files/' + esc(m.photo) + '" alt="Photo of damage ' + (i + 1) + '"></a>' : '<p class="muted-s">' + (ro ? 'No photo was taken.' : 'No photo yet.') + '</p>')
+      + (ro ? (m.note ? '<p>' + esc(m.note) + '</p>' : '')
+        : '<label class="aplbl" for="ap-note">What is the damage?</label><textarea class="field" id="ap-note" maxlength="300" placeholder="e.g. Scratch on rear bumper, about 10 cm">' + esc(m.note || '') + '</textarea>'
+          + '<div class="uplact"><label class="btn" for="ap-photo">' + (m.photo ? 'Retake photo' : 'Take photo') + '</label><input class="vh" id="ap-photo" type="file" accept="image/*" capture="environment" data-photo="' + m.id + '"><span class="muted-s" id="ap-photostat"></span>'
+          + '<button type="button" class="linkbtn" data-rmmark="' + m.id + '">Remove marker</button></div>')
+      + '<p class="muted-s" style="margin-top:8px">Marked by ' + esc(m.by || 'unknown') + '</p>';
+  }
+  function apCall(method, path, body, raw) {
+    var id = state.open; if (!id) return Promise.resolve();
+    state.pending++;
+    var opts = { method: method, credentials: 'same-origin', headers: {} };
+    if (raw) { opts.headers['Content-Type'] = 'application/octet-stream'; opts.body = raw; }
+    else if (body !== undefined) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+    return fetch('/api/cars/' + id + path, opts)
+      .then(function (r) { return r.json().catch(function () { return null; }).then(function (d) { return { status: r.status, data: d }; }); })
+      .then(function (res) {
+        if (res.status === 401) { signedOut('You were signed out. Please sign in again.'); throw { code: 'unauth' }; }
+        if (res.status >= 300) throw { message: (res.data && res.data.error) || 'Could not save that. Try again.' };
+        var before = apOf(state.cars.get(id)).marks || [];
+        state.cars.set(id, res.data);
+        syncStage(id);
+        return { car: res.data, before: before };
+      })
+      .catch(function (ex) { if (!ex || ex.code !== 'unauth') toast((ex && ex.message) || 'Could not save that. Check your connection and try again.'); return null; })
+      .then(function (out) { state.pending--; render(); if (state.open === id) { renderSheet(); renderAppraisal(true); } return out; });
+  }
+  // Phone photos are large; shrink to 1600 px before sending (falls back to the original if the browser cannot).
+  function shrinkPhoto(file) {
+    if (!window.createImageBitmap) return Promise.resolve(file);
+    return createImageBitmap(file).then(function (bmp) {
+      var sc = Math.min(1, 1600 / Math.max(bmp.width, bmp.height)), cv = document.createElement('canvas');
+      cv.width = Math.round(bmp.width * sc); cv.height = Math.round(bmp.height * sc);
+      cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
+      return new Promise(function (ok) { cv.toBlob(function (b) { ok(b || file); }, 'image/jpeg', 0.82); });
+    }).catch(function () { return file; });
+  }
+  function openAppraisal() { apState = { view: apState.view || 'top', sel: null, add: false }; $('#ov-ap').hidden = false; renderAppraisal(); }
+  function closeAppraisal() {
+    var n = $('#ap-note'); if (n && n.value !== undefined) n.blur();
+    $('#ov-ap').hidden = true; apState.add = false;
+  }
+  $('#m-checks').addEventListener('click', function (e) { if (e.target.closest && e.target.closest('[data-openap]')) { e.preventDefault(); openAppraisal(); } });
+  $('#ap-close').addEventListener('click', closeAppraisal);
+  $('#ov-ap').addEventListener('click', function (e) { if (e.target === e.currentTarget) closeAppraisal(); });
+  $('#ap-tabs').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-view]'); if (!b) return;
+    apState.view = b.dataset.view; renderAppraisal();
+  });
+  $('#ap-add').addEventListener('click', function () { apState.add = !apState.add; apState.sel = null; renderAppraisal(); });
+  $('#ap-car').addEventListener('click', function (e) {
+    var pin = e.target.closest('[data-mark]');
+    if (pin) { apState.sel = pin.dataset.mark; apState.add = false; renderAppraisal(); return; }
+    if (!apState.add || readOnly()) return;
+    var r = $('#ap-car').getBoundingClientRect();
+    var x = Math.round((e.clientX - r.left) / r.width * 1000) / 10, y = Math.round((e.clientY - r.top) / r.height * 1000) / 10;
+    apState.add = false;
+    apCall('POST', '/marks', { view: apState.view, x: x, y: y, note: '' }).then(function (out) {
+      if (!out) return;
+      var had = {}; out.before.forEach(function (m) { had[m.id] = 1; });
+      (apOf(out.car).marks || []).forEach(function (m) { if (!had[m.id]) apState.sel = m.id; });
+      renderAppraisal();
+      var n = $('#ap-note'); if (n) { try { n.scrollIntoView({ block: 'center' }); n.focus(); } catch (er) { /* ignore */ } }
+    });
+    renderAppraisal();
+  });
+  $('#ap-list').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-mark]'); if (!b) return;
+    apState.sel = b.dataset.mark; apState.view = b.dataset.v; apState.add = false; renderAppraisal();
+  });
+  $('#ap-detail').addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.id === 'ap-note' && apState.sel) { apCall('PATCH', '/marks/' + apState.sel, { note: t.value }); return; }
+    if (t.dataset && t.dataset.photo) {
+      var f = t.files && t.files[0]; if (!f) return;
+      var mid = t.dataset.photo, st = $('#ap-photostat'); if (st) st.textContent = 'Saving photo…';
+      var nt = $('#ap-note'), cm = apCar() && (apOf(apCar()).marks || []).filter(function (x) { return x.id === mid; })[0];
+      var saveNote = nt && cm && nt.value !== (cm.note || '') ? apCall('PATCH', '/marks/' + mid, { note: nt.value }) : Promise.resolve();
+      saveNote.then(function () { return shrinkPhoto(f); }).then(function (blob) { return apCall('POST', '/marks/' + mid + '/photo', undefined, blob); }).then(function () { toast('Photo saved.'); });
+    }
+  });
+  $('#ap-detail').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-rmmark]'); if (!b) return;
+    if (!b.classList.contains('armed')) {
+      b.classList.add('armed'); b.textContent = 'Tap again to remove';
+      setTimeout(function () { if (b.isConnected) { b.classList.remove('armed'); b.textContent = 'Remove marker'; } }, 4000);
+      return;
+    }
+    var mid = b.dataset.rmmark; apState.sel = null;
+    apCall('DELETE', '/marks/' + mid);
+  });
+  $('#ap-foot').addEventListener('click', function (e) {
+    if (!e.target.closest('#ap-done')) return;
+    var c = apCar(); if (!c) return;
+    var wasDone = apOf(c).complete;
+    apCall('POST', '/appraisal', { complete: !wasDone }).then(function () { if (!wasDone) toast('Appraisal completed.'); });
+  });
+
   function renderSheet() {
     var id = state.open, c = id && state.cars.get(id);
     if (!c) { if (id) closeCar(); return; }
@@ -482,6 +658,7 @@
       var items = s.t.map(function (t) {
         var tid = s.k + '_' + t[0], on = (c.done || {})[tid] === true;
         if (t[3] === 'upload') return uploadRowHtml(c, tid, t[1], on);
+        if (t[3] === 'appraisal') return appraisalRowHtml(c, t[1], on);
         var x = t[2], ex = '', signed = '';
         if (x) {
           var xv = c[x.f];

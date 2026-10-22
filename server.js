@@ -408,6 +408,8 @@ function cleanFileName(raw, type) {
   return n || ('145-point-check' + ext);
 }
 const CHECK_KEY = 'mech_pt145';
+const MARK_VIEWS = ['top', 'left', 'right', 'front', 'rear'];
+const MAX_MARKS = 40;
 
 function readInbound(req) {
   return new Promise((resolve, reject) => {
@@ -584,6 +586,70 @@ async function handleApi(req, res, url) {
     return sendJson(res, 201, carOut(q.carById.get(carId)));
   }
 
+  /* ---------- body appraisal: damage markers with a photo each ---------- */
+  const apMatch = p.match(/^\/api\/cars\/([a-f0-9]{12})\/(appraisal|marks)(?:\/([a-f0-9]{16}))?(?:\/(photo))?$/);
+  if (apMatch) {
+    const [, carId, what, markId, photo] = apMatch;
+    const u = requireStaff(req);
+    const row = q.carById.get(carId);
+    if (!row) throw new HttpError(404, 'That car no longer exists.');
+    const cur = JSON.parse(row.data);
+    const ap = Object.assign({ marks: [], complete: false }, cur.appraisal);
+    ap.marks = (ap.marks || []).slice();
+    const now = new Date().toISOString();
+    let dropFile = null;
+    let addFile = null;
+    const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(100, Math.max(0, Math.round(v * 10) / 10)) : null);
+    if (what === 'appraisal' && method === 'POST' && !markId) {
+      const b = await readJson(req);
+      ap.complete = b.complete === true;
+      ap.completeAt = ap.complete ? now : '';
+      ap.completeBy = ap.complete ? u.display : '';
+    } else if (what === 'marks' && !markId && method === 'POST') {
+      const b = await readJson(req);
+      const view = str(b.view);
+      if (!MARK_VIEWS.includes(view)) throw new HttpError(400, 'Unknown view of the car.');
+      const x = num(b.x), y = num(b.y);
+      if (x === null || y === null) throw new HttpError(400, 'Tap a spot on the car.');
+      if (ap.marks.length >= MAX_MARKS) throw new HttpError(400, 'That car already has ' + MAX_MARKS + ' markers.');
+      ap.marks.push({ id: crypto.randomBytes(8).toString('hex'), view, x, y, note: str(b.note).slice(0, 300), photo: null, at: now, by: u.display });
+    } else if (what === 'marks' && markId && !photo && method === 'PATCH') {
+      const b = await readJson(req);
+      const m = ap.marks.find((x) => x.id === markId);
+      if (!m) throw new HttpError(404, 'That marker no longer exists.');
+      const i = ap.marks.indexOf(m);
+      ap.marks[i] = Object.assign({}, m, { note: str(b.note).slice(0, 300) });
+    } else if (what === 'marks' && markId && !photo && method === 'DELETE') {
+      const m = ap.marks.find((x) => x.id === markId);
+      if (!m) throw new HttpError(404, 'That marker no longer exists.');
+      dropFile = m.photo;
+      ap.marks = ap.marks.filter((x) => x.id !== markId);
+    } else if (what === 'marks' && markId && photo && method === 'POST') {
+      const buf = await readRaw(req, MAX_UPLOAD);
+      const type = sniffType(buf);
+      if (!type || type === 'application/pdf') throw new HttpError(400, 'Add a photo (JPEG, PNG, WebP or HEIC).');
+      const m = ap.marks.find((x) => x.id === markId);
+      if (!m) throw new HttpError(404, 'That marker no longer exists.');
+      const fid = crypto.randomBytes(8).toString('hex');
+      dropFile = m.photo;
+      addFile = { fid, type, buf };
+      ap.marks[ap.marks.indexOf(m)] = Object.assign({}, m, { photo: fid, photoType: type });
+    } else {
+      throw new HttpError(405, 'Not allowed.');
+    }
+    const next = Object.assign({}, cur, { appraisal: ap, done: Object.assign({}, cur.done, { body_cosmetic: ap.complete }) });
+    stampHistory(cur, next, u);
+    db.exec('BEGIN');
+    try {
+      if (dropFile) q.deleteFile.run(dropFile);
+      if (addFile) q.insertFile.run(addFile.fid, carId, 'damage-photo' + ({ 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/heic': '.heic' }[addFile.type]), addFile.type, addFile.buf.length, addFile.buf, now, u.display);
+      q.updateCar.run(JSON.stringify(next), now, u.display, carId);
+      db.exec('COMMIT');
+    } catch (e) { db.exec('ROLLBACK'); throw e; }
+    bump();
+    return sendJson(res, 200, carOut(q.carById.get(carId)));
+  }
+
   const fileMatch = p.match(/^\/api\/files\/([a-f0-9]{16})$/);
   if (fileMatch && method === 'GET') {
     requireUser(req);
@@ -611,7 +677,8 @@ async function handleApi(req, res, url) {
       const cur = JSON.parse(row.data);
       const left = (cur.checks || []).filter((x) => x.id !== f.id);
       const next = Object.assign({}, cur, { checks: left });
-      if (!left.length) next.done = Object.assign({}, cur.done, { [CHECK_KEY]: false });
+      if (cur.appraisal && (cur.appraisal.marks || []).some((m) => m.photo === f.id)) next.appraisal = Object.assign({}, cur.appraisal, { marks: cur.appraisal.marks.map((m) => (m.photo === f.id ? Object.assign({}, m, { photo: null }) : m)) });
+      else if (!left.length) next.done = Object.assign({}, cur.done, { [CHECK_KEY]: false });
       stampHistory(cur, next, u);
       q.updateCar.run(JSON.stringify(next), now, u.display, row.id);
     }

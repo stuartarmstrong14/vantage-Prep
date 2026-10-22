@@ -144,6 +144,7 @@
       render();
       if (state.open) renderSheet();
       if (!$('#ov-reports').hidden) renderReports();
+      if (!$('#ov-cosm').hidden) renderCosm();
       if (state.deepLink) {
         var dl = state.deepLink; state.deepLink = null;
         if (state.cars.has(dl)) openCar(dl); else toast('That car is no longer in stock.');
@@ -954,6 +955,40 @@
     if (!out) return '<p class="rp-empty">' + (qn ? 'No car matches that registration.' : 'No 145 point checks have been uploaded yet.') + '</p>';
     return '<div class="rp-list">' + out + '</div>' + (!qn && withF.length > 20 ? '<p class="sub">Showing the latest 20. Search by registration to find an older one.</p>' : '');
   }
+  /* ---------- cosmetic prep report ---------- */
+  function renderCosm() {
+    var cars = []; state.cars.forEach(function (c, id) { if (!isDone(c) && !isArchived(c)) cars.push(Object.assign({ id: id }, c)); });
+    var tagOf = function (c) { return c.tag ? esc(c.tag) : '<span class="muted-s">No tag</span>'; };
+    var byTag = function (a, b) { return String(a.tag || '~').localeCompare(String(b.tag || '~'), 'en', { numeric: true }); };
+    var done = function (c, k) { return (c.done || {})[k] === true; };
+    var name = function (c) { return esc(c.reg || 'No reg') + ' ' + esc([c.make, c.model].filter(Boolean).join(' ')); };
+    var wheels = cars.filter(function (c) { return !done(c, 'body_wheels') && Number(c.bodyWheels) > 0; }).sort(byTag);
+    var wtotal = wheels.reduce(function (n, c) { return n + Number(c.bodyWheels); }, 0);
+    var PAINT = /paint|respray|spray|refinish|lacquer|colour match/i;
+    var paint = cars.filter(function (c) { return !done(c, 'body_paint') && String(c.cosmeticNotes || '').trim(); })
+      .sort(function (a, b) { return (PAINT.test(b.cosmeticNotes) - PAINT.test(a.cosmeticNotes)) || byTag(a, b); });
+    var wh = '<div class="rp-card full"><h3>Alloy wheels to refine</h3><p class="sub">' + (wheels.length ? wtotal + ' wheel' + (wtotal === 1 ? '' : 's') + ' on ' + wheels.length + ' car' + (wheels.length === 1 ? '' : 's') : 'Nothing to do') + '</p>'
+      + wheels.map(function (c) {
+        var n = Number(c.bodyWheels);
+        return '<button type="button" class="rp-row" data-open="' + c.id + '"><span class="l"><b>' + tagOf(c) + '</b><small>' + name(c) + '</small></span><span class="r">' + n + (n === 1 ? ' wheel' : ' wheels') + '</span></button>';
+      }).join('') + '</div>';
+    var pt = '<div class="rp-card full"><h3>Paint and cosmetic work</h3><p class="sub">' + (paint.length ? paint.length + ' car' + (paint.length === 1 ? '' : 's') + ' with notes and paint work not yet done. Cars whose notes mention paint are listed first.' : 'No cosmetic notes to show.') + '</p>'
+      + paint.map(function (c) {
+        var isP = PAINT.test(c.cosmeticNotes);
+        return '<button type="button" class="rp-row cmrow" data-open="' + c.id + '"><span class="l"><b>' + tagOf(c) + (isP ? ' <span class="pill">Paint</span>' : '') + '</b><small>' + name(c) + '</small><span class="cmnote">' + esc(c.cosmeticNotes) + '</span></span></button>';
+      }).join('') + '</div>';
+    $('#cm-body').innerHTML = '<div class="rp-grid" style="display:grid;gap:14px">' + wh + pt + '</div>';
+  }
+  function openCosm() { renderCosm(); $('#ov-cosm').hidden = false; $('#ov-cosm .sheet').scrollTop = 0; }
+  $('#cosm-btn').addEventListener('click', openCosm);
+  $('#cm-close').addEventListener('click', function () { $('#ov-cosm').hidden = true; });
+  $('#ov-cosm').addEventListener('click', function (e) { if (e.target === e.currentTarget) $('#ov-cosm').hidden = true; });
+  $('#cm-print').addEventListener('click', function () { window.print(); });
+  $('#cm-body').addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-open]'); if (!b) return;
+    $('#ov-cosm').hidden = true; openCar(b.dataset.open);
+  });
+
   function openReports() { $('#rp-target').textContent = TARGET; renderReports(); $('#ov-reports').hidden = false; $('#ov-reports .sheet').scrollTop = 0; $('#rp-close').focus(); }
   $('#rep-btn').addEventListener('click', openReports);
   $('#rp-close').addEventListener('click', function () { $('#ov-reports').hidden = true; });

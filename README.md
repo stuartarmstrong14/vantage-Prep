@@ -123,6 +123,15 @@ Files are stored inside the database, so they live on the Render disk (`/data`),
 
 Under **Cosmetic check complete** on the Bodywork stage there is a box for what cosmetic work needs doing (up to 1,000 characters). It saves as you type and everyone can see it; advisors see it read-only. The tick box still marks the cosmetic check as done.
 
+## Cosmetic prep report
+
+The **Cosmetic report** button next to the stock tabs opens a report everyone can see, covering cars still in prep. It has two lists, each showing the tag number, registration and model, and a tap opens the car:
+
+- **Alloy wheels to refine:** cars whose "Wheels to refine" number is above zero and whose alloy wheels aren't ticked yet, with a total number of wheels.
+- **Paint and cosmetic work:** cars that have text in the cosmetic notes box and whose paint work isn't ticked yet, showing those notes. Cars whose notes mention paint, respray, spray, refinish or lacquer are listed first and marked "Paint".
+
+There is a Print button for a paper copy. The lists update as people tick things off.
+
 ## Update pop-ups
 
 When someone else ticks off a prep item or adds a car, everyone else who has the app open sees a short pop-up at the top, for example "Paul updated Bodywork: Cosmetic check complete (AB21 CDE)". It appears within about 8 seconds, disappears after 7 seconds, and can be tapped away. You never get a pop-up for your own changes.

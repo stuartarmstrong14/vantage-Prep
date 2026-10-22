@@ -125,12 +125,12 @@ Under **Cosmetic check complete** on the Bodywork stage there is a box for what 
 
 ## Cosmetic prep report
 
-The **Cosmetic report** button next to the stock tabs opens a report everyone can see, covering cars still in prep. It has two lists, each showing the tag number, registration and model, and a tap opens the car:
+The top of **Reports** (administrators) has two separate lists for cars still in prep, each showing the tag number, registration and model; tapping a car opens it:
 
 - **Alloy wheels to refine:** cars whose "Wheels to refine" number is above zero and whose alloy wheels aren't ticked yet, with a total number of wheels.
 - **Paint and cosmetic work:** cars that have text in the cosmetic notes box and whose paint work isn't ticked yet, showing those notes. Cars whose notes mention paint, respray, spray, refinish or lacquer are listed first and marked "Paint".
 
-There is a Print button for a paper copy. The lists update as people tick things off.
+The lists update as people tick things off.
 
 ## Update pop-ups
 

@@ -289,11 +289,3 @@ fieldset:disabled .chk input{opacity:.85}
 /* Cosmetic prep report */
 .cmrow{align-items:flex-start}
 .cmnote{margin-top:4px;white-space:pre-wrap;overflow-wrap:anywhere;font-weight:500}
-.sec-head #cosm-btn{min-height:40px}
-@media print{
-  body>*:not(#ov-cosm){display:none!important}
-  #ov-cosm{position:static;background:none;display:block}
-  #ov-cosm .sheet{box-shadow:none;max-height:none;overflow:visible;border-radius:0;width:100%;max-width:none}
-  #cm-print,#cm-close{display:none}
-  .rp-row{break-inside:avoid}
-}

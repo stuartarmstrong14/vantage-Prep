@@ -144,7 +144,6 @@
       render();
       if (state.open) renderSheet();
       if (!$('#ov-reports').hidden) renderReports();
-      if (!$('#ov-cosm').hidden) renderCosm();
       if (state.deepLink) {
         var dl = state.deepLink; state.deepLink = null;
         if (state.cars.has(dl)) openCar(dl); else toast('That car is no longer in stock.');
@@ -926,6 +925,7 @@
       + '<div id="rp-checks">' + checksHtml() + '</div></section>';
     var hadFocus = document.activeElement && document.activeElement.id === 'rp-q', selEnd = hadFocus ? document.activeElement.selectionEnd : 0;
     $('#rp-body').innerHTML = tiles + '<div class="rp-grid" style="margin-top:14px">'
+      + cosmCards()
       + checksCard
       + '<section class="rp-card full"><h3>Cars completed</h3>' + weekly + '</section>'
       + '<section class="rp-card"><h3>Where the stock is now</h3>' + byStage + '<p class="sub">' + active.length + ' cars in prep.</p></section>'
@@ -955,8 +955,8 @@
     if (!out) return '<p class="rp-empty">' + (qn ? 'No car matches that registration.' : 'No 145 point checks have been uploaded yet.') + '</p>';
     return '<div class="rp-list">' + out + '</div>' + (!qn && withF.length > 20 ? '<p class="sub">Showing the latest 20. Search by registration to find an older one.</p>' : '');
   }
-  /* ---------- cosmetic prep report ---------- */
-  function renderCosm() {
+  /* ---------- cosmetic prep lists (shown in Reports) ---------- */
+  function cosmCards() {
     var cars = []; state.cars.forEach(function (c, id) { if (!isDone(c) && !isArchived(c)) cars.push(Object.assign({ id: id }, c)); });
     var tagOf = function (c) { return c.tag ? esc(c.tag) : '<span class="muted-s">No tag</span>'; };
     var byTag = function (a, b) { return String(a.tag || '~').localeCompare(String(b.tag || '~'), 'en', { numeric: true }); };
@@ -977,18 +977,8 @@
         var isP = PAINT.test(c.cosmeticNotes);
         return '<button type="button" class="rp-row cmrow" data-open="' + c.id + '"><span class="l"><b>' + tagOf(c) + (isP ? ' <span class="pill">Paint</span>' : '') + '</b><small>' + name(c) + '</small><span class="cmnote">' + esc(c.cosmeticNotes) + '</span></span></button>';
       }).join('') + '</div>';
-    $('#cm-body').innerHTML = '<div class="rp-grid" style="display:grid;gap:14px">' + wh + pt + '</div>';
+    return wh + pt;
   }
-  function openCosm() { renderCosm(); $('#ov-cosm').hidden = false; $('#ov-cosm .sheet').scrollTop = 0; }
-  $('#cosm-btn').addEventListener('click', openCosm);
-  $('#cm-close').addEventListener('click', function () { $('#ov-cosm').hidden = true; });
-  $('#ov-cosm').addEventListener('click', function (e) { if (e.target === e.currentTarget) $('#ov-cosm').hidden = true; });
-  $('#cm-print').addEventListener('click', function () { window.print(); });
-  $('#cm-body').addEventListener('click', function (e) {
-    var b = e.target.closest && e.target.closest('[data-open]'); if (!b) return;
-    $('#ov-cosm').hidden = true; openCar(b.dataset.open);
-  });
-
   function openReports() { $('#rp-target').textContent = TARGET; renderReports(); $('#ov-reports').hidden = false; $('#ov-reports .sheet').scrollTop = 0; $('#rp-close').focus(); }
   $('#rep-btn').addEventListener('click', openReports);
   $('#rp-close').addEventListener('click', function () { $('#ov-reports').hidden = true; });

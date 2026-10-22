@@ -119,12 +119,6 @@ Administrators can find any check from **Reports -> 145 point checks** by typing
 
 Files are stored inside the database, so they live on the Render disk (`/data`), are included in `npm run backup`, and use disk space. Keep an eye on the 1 GB disk if you upload a lot of large PDFs. Deleting a car deletes its check files.
 
-## Cosmetic appraisal
-
-On the Bodywork stage, the cosmetic tick box is replaced by a **Cosmetic appraisal**. Staff tap **Start appraisal** and get a drawing of the car with five views (Top, Left side, Right side, Front, Rear). Tap **Add damage**, then tap the spot on the car to drop a numbered marker, describe the damage, and take a photo (on a phone this opens the camera; the photo is shrunk to 1600 px before it is saved). Tap any marker later to see its description and photo. Green markers have a photo, red ones don't. A car with no damage is finished with **Complete: no damage found**; otherwise use **Mark appraisal complete**. The cosmetic item then counts as done and the stage bar moves on as before. Tap Complete again to reopen it.
-
-Up to 40 markers per car. Advisors can view the appraisal and photos but not change them. Photos are stored in the database like the 145 point checks, so they use Render disk space and are included in `npm run backup`. Cars that were ticked before this change show "Ticked before appraisals were added" until someone opens and completes an appraisal.
-
 ## Update pop-ups
 
 When someone else ticks off a prep item or adds a car, everyone else who has the app open sees a short pop-up at the top, for example "Paul updated Bodywork: Cosmetic check complete (AB21 CDE)". It appears within about 8 seconds, disappears after 7 seconds, and can be tapped away. You never get a pop-up for your own changes.

@@ -59,29 +59,30 @@ button:hover{filter:brightness(1.15)}
 .sticker.small .s-tag{font-size:3.2mm;font-weight:700;color:#112D5B}
 .sticker.small .s-car{font-size:2.6mm;line-height:1.15;font-weight:600;overflow-wrap:anywhere;max-height:6.2mm;overflow:hidden}
 
-/* A4 landscape "Awaiting prep" notice: one car per page */
-.page.notice{width:297mm;height:209mm;overflow:hidden}
-.sticker.notice{width:297mm;height:209mm;padding:0;gap:0;justify-content:flex-start;position:relative}
-.n-head{display:flex;justify-content:center;padding:9mm 16mm 0}
-.n-logo{height:26mm;width:auto;display:block}
-.n-status{display:flex;align-items:center;gap:8mm;padding:6mm 16mm 0}
-.n-rule{flex:1;height:.7mm;background:var(--navy);-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.n-title{margin:0;font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-weight:600;font-size:23mm;line-height:1.08;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;color:var(--navy)}
-.n-body{flex:1;display:grid;grid-template-columns:1fr .5mm 1fr;align-items:center;gap:0;padding:7mm 16mm 8mm;min-height:0}
-.n-qr{margin:0;display:flex;flex-direction:column;align-items:center;gap:3mm}
-.n-qr .s-qr{width:88mm;height:88mm;padding:4mm;border:.6mm solid #C9D1D9;border-radius:4mm}
-.n-qr figcaption{font-size:4.6mm;font-weight:700;color:#566B84}
+/* A4 landscape "Awaiting prep" notice for an A4 price board.
+   The board shows a 280 x 170 mm window, so everything sits inside 276 x 166 mm in the middle of the sheet. */
+.page.notice{width:297mm;height:210mm;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.sticker.notice{width:276mm;height:166mm;padding:0;gap:0;justify-content:flex-start;position:relative;outline:.4mm dashed #B9C4CF;outline-offset:1.5mm}
+.n-head{display:flex;justify-content:center;padding:5mm 12mm 0}
+.n-logo{height:19mm;width:auto;display:block}
+.n-status{display:flex;align-items:center;gap:7mm;padding:3mm 12mm 0}
+.n-rule{flex:1;height:.6mm;background:var(--navy);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.n-title{margin:0;font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-weight:600;font-size:19mm;line-height:1.08;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;color:var(--navy)}
+.n-body{flex:1;display:grid;grid-template-columns:1fr .5mm 1fr;align-items:center;gap:0;padding:5mm 12mm 5mm;min-height:0}
+.n-qr{margin:0;display:flex;flex-direction:column;align-items:center;gap:2.5mm}
+.n-qr .s-qr{width:76mm;height:76mm;padding:3.5mm;border:.6mm solid #C9D1D9;border-radius:4mm}
+.n-qr figcaption{font-size:4.2mm;font-weight:700;color:#566B84}
 .n-div{align-self:stretch;background:#C9D1D9;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.n-info{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7mm;min-width:0;text-align:center;padding:0 8mm}
-.sticker.notice .s-plate{align-self:center;font-size:19mm;padding:3mm 6mm 2mm;border-width:.8mm;border-radius:2.5mm}
-.n-car{font-size:11mm;font-weight:700;line-height:1.12;overflow-wrap:anywhere;max-height:25mm;overflow:hidden}
+.n-info{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6mm;min-width:0;text-align:center;padding:0 6mm}
+.sticker.notice .s-plate{align-self:center;font-size:17mm;padding:2.5mm 5mm 1.8mm;border-width:.7mm;border-radius:2.2mm}
+.n-car{font-size:9.5mm;font-weight:700;line-height:1.12;overflow-wrap:anywhere;max-height:22mm;overflow:hidden}
 .n-tag{display:flex;align-items:baseline;justify-content:center;gap:4mm}
-.n-tag span{font-size:5mm;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#566B84}
-.n-tag b{font-size:13mm;font-weight:700;line-height:1}
-.n-foot{flex:none;margin-top:auto;height:7mm;background:var(--navy);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.n-tag span{font-size:4.6mm;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#566B84}
+.n-tag b{font-size:11.5mm;font-weight:700;line-height:1}
 @media screen and (max-width:1100px){.page.notice{zoom:.45}}
 
-/* Printing the notice: shrink it to 86% so it fits on one landscape page even with the printer's normal margins. */
+/* Printing: the page margins centre the sign on the A4 sheet, at full size. */
 @media print{
-  .page.notice{width:297mm;height:209mm;zoom:.86;margin:0 auto}
+  .page.notice{width:276mm;height:166mm;margin:0;display:block}
+  .sticker.notice{outline:0}
 }

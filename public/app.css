@@ -319,3 +319,8 @@ input.field,select.field,textarea.field,input[type="search"],input[type="text"],
 .flabel .linkbtn{color:var(--on-bg);text-decoration:underline;margin-left:6px}
 @media (max-width:900px){.dboxes{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (max-width:420px){.dbox{padding:12px}.dbox b{font-size:28px}}
+
+/* Status pill on cards in search results */
+.pill.stat-prep{background:var(--surface-2);color:var(--ink)}
+.pill.stat-done{background:var(--ok-bg);color:var(--ok)}
+.pill.stat-arch{background:var(--warn-bg);color:var(--warn)}

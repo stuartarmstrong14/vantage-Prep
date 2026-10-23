@@ -269,20 +269,28 @@
     var st = STAGES.filter(function (x) { return x.k === m[2]; })[0];
     return st ? !stageDone(c, st) : true;
   }
+  // Typing in the search box looks through every car: in prep, completed and archived.
+  function matches(c, q) {
+    var hay = ((c.reg || '') + ' ' + (c.tag || '') + ' ' + (c.make || '') + ' ' + (c.model || '') + ' ' + (c.prep || []).join(' ')).toLowerCase();
+    return hay.indexOf(q) >= 0 || hay.replace(/[\s-]/g, '').indexOf(q.replace(/[\s-]/g, '')) >= 0;
+  }
+  function searching() { return !!state.q.trim(); }
+  function statusOf(c) { return isArchived(c) ? 2 : isDone(c) ? 1 : 0; }
   function visible() {
     var q = state.q.trim().toLowerCase();
     var out = [];
     state.cars.forEach(function (c, id) {
+      if (q) { if (matches(c, q)) out.push({ id: id, c: c }); return; }
       if (state.tab === 'arch') { if (!isArchived(c)) return; }
       else {
         if (isArchived(c)) return;
         if (isDone(c) !== (state.tab === 'done')) return;
         if (state.tab === 'prep' && !needsWork(c, state.f)) return;
       }
-      if (q && ((c.reg || '') + ' ' + (c.tag || '') + ' ' + (c.make || '') + ' ' + (c.model || '') + ' ' + (c.prep || []).join(' ')).toLowerCase().indexOf(q) < 0) return;
       out.push({ id: id, c: c });
     });
     out.sort(function (a, b) {
+      if (q) { var sa = statusOf(a.c), sb = statusOf(b.c); if (sa !== sb) return sa - sb; }
       var ra = stageKey(a.c) === 'ready', rb = stageKey(b.c) === 'ready';
       if (ra !== rb) return ra ? 1 : -1;
       return carDays(b.c) - carDays(a.c);
@@ -305,9 +313,10 @@
     $('#tab-prep-n').textContent = active.length;
     $('#tab-done-n').textContent = completed.length;
     $('#tab-arch-n').textContent = archived.length;
-    $('#tab-arch').setAttribute('aria-selected', state.tab === 'arch');
-    $('#tab-prep').setAttribute('aria-selected', state.tab === 'prep');
-    $('#tab-done').setAttribute('aria-selected', state.tab === 'done');
+    var srch = searching();
+    $('#tab-arch').setAttribute('aria-selected', !srch && state.tab === 'arch');
+    $('#tab-prep').setAttribute('aria-selected', !srch && state.tab === 'prep');
+    $('#tab-done').setAttribute('aria-selected', !srch && state.tab === 'done');
     // department boxes: how many cars still need each department (tap to filter the stock list)
     if (!/^(all|need:\w+|job:\w+)$/.test(state.f)) state.f = 'all';
     var cnt = function (f) { return active.filter(function (c) { return needsWork(c, f); }).length; };
@@ -324,14 +333,16 @@
     // the bodywork job buttons only show once Bodywork (or one of its jobs) is picked
     $('#dept-jobs').hidden = !(state.f === 'need:body' || state.f.indexOf('job:') === 0);
     var fl = $('#f-label');
-    if (state.f !== 'all' && state.tab === 'prep') {
+    if (srch) {
+      fl.innerHTML = 'Search results for <b>' + esc(state.q.trim()) + '</b> across all cars, including completed and archived <button type="button" class="linkbtn" id="q-clear">Clear search</button>';
+      fl.hidden = false;
+    } else if (state.f !== 'all' && state.tab === 'prep') {
       var lbl = state.f.indexOf('need:') === 0 ? STAGES.filter(function (x) { return 'need:' + x.k === state.f; })[0].l : JOBS.filter(function (x) { return 'job:' + x[0] === state.f; })[0][1];
       fl.innerHTML = 'Showing cars that still need <b>' + esc(lbl) + '</b> <button type="button" class="linkbtn" id="f-clear">Show all</button>';
       fl.hidden = false;
     } else fl.hidden = true;
 
     var vis = state.loaded ? visible() : [];
-    $('#go').textContent = 'Show ' + vis.length + (vis.length === 1 ? ' car' : ' cars');
     var list = $('#list');
     if (state.err) { list.innerHTML = '<div class="empty" style="grid-column:1/-1"><h2>Stock is not available</h2><p>' + esc(state.err) + '</p></div>'; return; }
     if (!state.loaded) { list.innerHTML = '<div class="empty" style="grid-column:1/-1"><p>Loading stock…</p></div>'; return; }
@@ -340,14 +351,15 @@
       return;
     }
     if (!vis.length) { list.innerHTML = '<div class="empty" style="grid-column:1/-1"><p>' + (state.tab === 'done' && !state.q.trim() ? 'No cars have completed prep yet. A car moves here when it reaches Quality Check.' : state.tab === 'arch' && !state.q.trim() ? 'Nothing archived yet. A car moves here automatically 30 days after it is completed, or 365 days after it arrived. It is still counted in the reports.' : 'No cars match this search.') + '</p></div>'; return; }
-    list.innerHTML = vis.map(function (r) { return cardHtml(r.id, r.c); }).join('');
+    list.innerHTML = vis.map(function (r) { return cardHtml(r.id, r.c, srch); }).join('');
   }
-  function cardHtml(id, c) {
+  function cardHtml(id, c, showStatus) {
     var d = carDays(c), dc = daysClass(c), mi = motInfo(c);
     var st = STAGES[stageIdx(c)];
     var name = [c.make, c.model].filter(Boolean).join(' ');
     var meta = [c.tag ? (/^tag/i.test(c.tag) ? c.tag : 'Tag ' + c.tag) : '', miles(c.mileage)].filter(Boolean).map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('');
-    var tags = mi ? '<span class="pill ' + mi.cls + '">' + esc(mi.t) + '</span>' : '';
+    var tags = (showStatus ? '<span class="pill stat-' + ['prep', 'done', 'arch'][statusOf(c)] + '">' + ['In prep', 'Completed', 'Archived'][statusOf(c)] + '</span>' : '')
+      + (mi ? '<span class="pill ' + mi.cls + '">' + esc(mi.t) + '</span>' : '');
     var daysTxt = stageKey(c) === 'ready' ? ('Prepped in ' + d + 'd') : (d + (d === 1 ? ' day' : ' days') + ' in prep');
     return '<button class="car" type="button" data-open="' + esc(id) + '">'
       + '<div class="car-top"><span class="plate">' + esc(c.reg || 'No reg') + '</span><span class="pill num ' + dc + '">' + daysTxt + '</span></div>'
@@ -535,22 +547,27 @@
   }
 
   /* ---------- events: list and car sheet ---------- */
-  $('#tab-prep').addEventListener('click', function () { state.tab = 'prep'; render(); });
-  $('#tab-done').addEventListener('click', function () { state.tab = 'done'; render(); });
-  $('#tab-arch').addEventListener('click', function () { state.tab = 'arch'; render(); });
+  $('#tab-prep').addEventListener('click', function () { clearSearch(); state.tab = 'prep'; render(); });
+  $('#tab-done').addEventListener('click', function () { clearSearch(); state.tab = 'done'; render(); });
+  $('#tab-arch').addEventListener('click', function () { clearSearch(); state.tab = 'arch'; render(); });
   $('#dept').addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('[data-f]'); if (!b) return;
     var f = b.dataset.f;
     if (state.f === f) { state.f = f.indexOf('job:') === 0 ? 'need:body' : 'all'; render(); return; }
-    state.f = f; state.tab = 'prep'; render(); toList();
+    clearSearch(); state.f = f; state.tab = 'prep'; render(); toList();
   });
-  $('#stock').addEventListener('click', function (e) { if (e.target.id === 'f-clear') { state.f = 'all'; render(); } });
-  $('#q').addEventListener('input', function (e) { state.q = e.target.value; render(); });
+  $('#stock').addEventListener('click', function (e) {
+    if (e.target.id === 'f-clear') { state.f = 'all'; render(); }
+    if (e.target.id === 'q-clear') { clearSearch(); render(); }
+  });
+  $('#q').addEventListener('input', function (e) { state.q = e.target.value; if (state.q.trim()) state.f = 'all'; render(); });
   function toList() {
     var el = $('#stock');
     try { el.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); } catch (e) { el.scrollIntoView(); }
   }
-  $('#go').addEventListener('click', toList);
+  function clearSearch() { state.q = ''; $('#q').value = ''; }
+  $('#go').addEventListener('click', function () { state.q = $('#q').value; render(); toList(); });
+  $('#q').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); state.q = e.target.value; render(); toList(); try { e.target.blur(); } catch (er) { /* ignore */ } } });
   $('#list').addEventListener('click', function (e) {
     if (e.target.closest('[data-act="add"]')) { openNew(); return; }
     var b = e.target.closest('[data-open]'); if (b) openCar(b.dataset.open);

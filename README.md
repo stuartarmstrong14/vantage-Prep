@@ -119,6 +119,10 @@ Administrators can find any check from the **145 point checks** search at the bo
 
 Files are stored inside the database, so they live on the Render disk (`/data`), are included in `npm run backup`, and use disk space. Keep an eye on the 1 GB disk if you upload a lot of large PDFs. Deleting a car deletes its check files.
 
+## Searching
+
+The **Search** box on the home screen looks through every car: in prep, completed and archived. Type a registration (spaces don't matter), tag number, make or model and tap **Search** or press Enter. Each result is labelled In prep, Completed or Archived. Tap **Clear search**, a tab or a department box to go back.
+
 ## Department boxes
 
 Under **How prep is going**, **Still to do, by department** shows a box for each department (Inbound, Valet, Photos, Mechanical, Bodywork, Quality Check). Each box shows how many cars in prep still need work from that department, whatever stage the car has reached: a car waiting at Valet with its mechanical boxes unticked counts under Mechanical too. Tapping **Bodywork** also opens **Bodywork jobs**, which counts cars still needing Cosmetic, Dents, Alloy wheels and Paint; they stay hidden otherwise. Tapping an open job again goes back to the Bodywork list.

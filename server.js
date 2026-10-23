@@ -6,6 +6,7 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 const crypto = require('node:crypto');
 const { DatabaseSync } = require('node:sqlite');
 const { hashPassword, verifyPassword } = require('./lib/passwords');
@@ -476,6 +477,28 @@ async function handleApi(req, res, url) {
     if (created.length) bump();
     console.log('inbound email from', sender || '(unknown)', '- added:', created.join(', ') || 'none', '- already in stock:', skipped.join(', ') || 'none');
     return sendJson(res, 200, { created, skipped });
+  }
+
+  // Administrators: download a full copy of the database (cars, logins, history and uploaded files).
+  if (method === 'GET' && p === '/api/backup') {
+    const u = requireAdmin(req);
+    const d = new Date();
+    const pad2 = (n) => String(n).padStart(2, '0');
+    const stamp = d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + '-' + pad2(d.getHours()) + pad2(d.getMinutes());
+    const tmp = path.join(os.tmpdir(), '145prepped-backup-' + crypto.randomBytes(6).toString('hex') + '.db');
+    db.exec("VACUUM INTO '" + tmp.replace(/'/g, "''") + "'");
+    const size = fs.statSync(tmp).size;
+    console.log('backup downloaded by ' + u.display + ' (' + size + ' bytes)');
+    res.writeHead(200, {
+      'Content-Type': 'application/octet-stream',
+      'Content-Length': size,
+      'Content-Disposition': 'attachment; filename="145prepped-backup-' + stamp + '.db"',
+      'Cache-Control': 'no-store',
+    });
+    const rs = fs.createReadStream(tmp);
+    const done = () => fs.unlink(tmp, () => {});
+    rs.on('close', done); rs.on('error', done);
+    return rs.pipe(res);
   }
 
   if (method === 'GET' && p === '/api/session') {

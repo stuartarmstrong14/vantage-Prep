@@ -99,7 +99,7 @@ The endpoint accepts Postmark, Mailgun and SendGrid style posts, or a plain JSON
 
 ## Looking after it
 
-- **Backup:** `npm run backup` saves a copy to `data/backups`. Do this regularly and keep copies somewhere else too.
+- **Backup:** an administrator taps **Account -> Download backup** to save a full copy of the database (cars, history, logins and uploaded 145 point checks) as `145prepped-backup-<date>.db`. Do this weekly and keep copies off the server, for example on a work drive. The file contains staff password hashes, so store it somewhere private. On the server, `npm run backup` also saves a copy to `data/backups`. To restore, replace `prep.db` in the data folder with a backup file while the app is stopped.
 - **Forgotten administrator password:** `npm run reset-password -- username NewPassword123`
 - **Leavers:** deactivate them under Manage staff logins. They are signed out straight away and their past sign-offs stay on record. Once deactivated, **Delete login** removes the login for good (it asks you to tap twice). Past sign-offs keep the person's name, because the name is stored on the car.
 

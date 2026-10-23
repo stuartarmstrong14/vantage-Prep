@@ -255,6 +255,16 @@
     if (c.archived === false) return false;
     return !!c.added && dayNum(todayStr()) - dayNum(c.added) > 365;
   }
+  // The drop-down filters by work still outstanding, not by the stage a car has reached:
+  // a car waiting at Valet with its mechanical work unticked counts under Mechanical too.
+  var JOBS = [['body_cosmetic', 'Cosmetic'], ['body_dent', 'Dents'], ['body_wheels', 'Alloy wheels'], ['body_paint', 'Paint']];
+  function needsWork(c, f) {
+    if (!f || f === 'all') return true;
+    var m = /^(need|job):(.+)$/.exec(f); if (!m) return true;
+    if (m[1] === 'job') return (c.done || {})[m[2]] !== true;
+    var st = STAGES.filter(function (x) { return x.k === m[2]; })[0];
+    return st ? !stageDone(c, st) : true;
+  }
   function visible() {
     var q = state.q.trim().toLowerCase();
     var out = [];
@@ -263,7 +273,7 @@
       else {
         if (isArchived(c)) return;
         if (isDone(c) !== (state.tab === 'done')) return;
-        if (state.tab === 'prep' && state.f !== 'all' && stageKey(c) !== state.f) return;
+        if (state.tab === 'prep' && !needsWork(c, state.f)) return;
       }
       if (q && ((c.reg || '') + ' ' + (c.tag || '') + ' ' + (c.make || '') + ' ' + (c.model || '') + ' ' + (c.prep || []).join(' ')).toLowerCase().indexOf(q) < 0) return;
       out.push({ id: id, c: c });
@@ -297,10 +307,15 @@
     $('#stage-filter').hidden = state.tab !== 'prep';
 
     var sel = $('#stage-filter');
-    var opts = '<option value="all">All stages (' + active.length + ')</option>' + STAGES.map(function (s) {
-      var n = active.filter(function (c) { return stageKey(c) === s.k; }).length;
-      return '<option value="' + s.k + '">' + esc(s.l) + ' (' + n + ')</option>';
-    }).join('');
+    var cnt = function (f) { return active.filter(function (c) { return needsWork(c, f); }).length; };
+    var opts = '<option value="all">All cars in prep (' + active.length + ')</option>'
+      + '<optgroup label="Still needs">' + STAGES.map(function (s) {
+        return '<option value="need:' + s.k + '">' + esc(s.l) + ' (' + cnt('need:' + s.k) + ')</option>';
+      }).join('') + '</optgroup>'
+      + '<optgroup label="Bodywork jobs still to do">' + JOBS.map(function (j) {
+        return '<option value="job:' + j[0] + '">' + esc(j[1]) + ' (' + cnt('job:' + j[0]) + ')</option>';
+      }).join('') + '</optgroup>';
+    if (!/^(all|need:\w+|job:\w+)$/.test(state.f)) state.f = 'all';
     if (sel.dataset.sig !== opts) { sel.innerHTML = opts; sel.dataset.sig = opts; }
     sel.value = state.f;
 

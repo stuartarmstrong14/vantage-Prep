@@ -4,6 +4,9 @@
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
 
   var cars = [], base = '';
+  // Tags from email are stored as TAG-1042, so only add the word Tag when the number doesn't already start with it.
+  var hasTagWord = function (t) { return /^tag/i.test(String(t || '')); };
+  var tagLine = function (t) { return hasTagWord(t) ? esc(t) : 'Tag ' + esc(t); };
 
   function message(html) { $('#msg').innerHTML = html; }
 
@@ -35,7 +38,7 @@
       + '<div class="n-info">'
       + '<div class="s-plate">' + esc(c.reg || 'No reg') + '</div>'
       + '<div class="n-car">' + esc(name) + '</div>'
-      + (c.tag ? '<div class="n-tag"><span>Tag</span><b>' + esc(c.tag) + '</b></div>' : '')
+      + (c.tag ? '<div class="n-tag">' + (hasTagWord(c.tag) ? '' : '<span>Tag</span>') + '<b>' + esc(c.tag) + '</b></div>' : '')
       + '</div></div>'
       + '<footer class="n-foot"></footer>'
       + '</article>';
@@ -52,7 +55,7 @@
       + '<div class="s-qr">' + QR.svg(url, { label: 'QR code for ' + (c.reg || 'this car') }) + '</div>'
       + '<div class="s-info"><div class="s-plate">' + esc(c.reg || 'No reg') + '</div>'
       + '<div class="s-car">' + esc(name) + '</div>'
-      + (c.tag ? '<div class="s-tag">Tag ' + esc(c.tag) + '</div>' : '')
+      + (c.tag ? '<div class="s-tag">' + tagLine(c.tag) + '</div>' : '')
       + '</div></div>'
       + '<p class="s-foot">Scan to see preparation progress</p>'
       + '</article>';

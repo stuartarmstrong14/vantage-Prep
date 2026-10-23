@@ -320,7 +320,7 @@
     var d = carDays(c), dc = daysClass(c), mi = motInfo(c);
     var st = STAGES[stageIdx(c)];
     var name = [c.make, c.model].filter(Boolean).join(' ');
-    var meta = [c.tag ? ('Tag ' + c.tag) : '', miles(c.mileage)].filter(Boolean).map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('');
+    var meta = [c.tag ? (/^tag/i.test(c.tag) ? c.tag : 'Tag ' + c.tag) : '', miles(c.mileage)].filter(Boolean).map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('');
     var tags = mi ? '<span class="pill ' + mi.cls + '">' + esc(mi.t) + '</span>' : '';
     var daysTxt = stageKey(c) === 'ready' ? ('Prepped in ' + d + 'd') : (d + (d === 1 ? ' day' : ' days') + ' in prep');
     return '<button class="car" type="button" data-open="' + esc(id) + '">'

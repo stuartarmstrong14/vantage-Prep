@@ -248,12 +248,16 @@
   /* ---------- list ---------- */
   // Prep is completed once the car reaches the Quality Check stage.
   function isDone(c) { return stageKey(c) === 'ready'; }
-  // A car is archived automatically once it has been on the system for more than 365 days. Nothing is deleted.
-  // A person can also archive a completed car by hand, or restore one (archived: true / false overrides the 365 day rule).
+  // A car is archived automatically 30 days after it was completed (passed Quality Check),
+  // or once it has been on the system for more than 365 days. Nothing is deleted.
+  // A person can also archive a completed car by hand, or restore one (archived: true / false overrides both rules).
+  var ARCHIVE_AFTER_DONE = 30, ARCHIVE_AFTER_ADDED = 365;
   function isArchived(c) {
     if (c.archived === true) return true;
     if (c.archived === false) return false;
-    return !!c.added && dayNum(todayStr()) - dayNum(c.added) > 365;
+    var today = dayNum(todayStr());
+    if (c.readyAt && stageKey(c) === 'ready' && today - dayNum(c.readyAt) > ARCHIVE_AFTER_DONE) return true;
+    return !!c.added && today - dayNum(c.added) > ARCHIVE_AFTER_ADDED;
   }
   // The drop-down filters by work still outstanding, not by the stage a car has reached:
   // a car waiting at Valet with its mechanical work unticked counts under Mechanical too.
@@ -335,7 +339,7 @@
       list.innerHTML = '<div class="empty" style="grid-column:1/-1"><h2>No cars in prep</h2><p>Add the first car as it arrives. Each one gets a checklist from inbound through to quality check.</p>' + (readOnly() ? '' : '<button class="btn primary" type="button" data-act="add" style="min-height:48px;padding:0 26px">Add car</button>') + '</div>';
       return;
     }
-    if (!vis.length) { list.innerHTML = '<div class="empty" style="grid-column:1/-1"><p>' + (state.tab === 'done' && !state.q.trim() ? 'No cars have completed prep yet. A car moves here when it reaches Quality Check.' : state.tab === 'arch' && !state.q.trim() ? 'Nothing archived yet. A car moves here automatically 365 days after it arrived. It is still counted in the reports.' : 'No cars match this search.') + '</p></div>'; return; }
+    if (!vis.length) { list.innerHTML = '<div class="empty" style="grid-column:1/-1"><p>' + (state.tab === 'done' && !state.q.trim() ? 'No cars have completed prep yet. A car moves here when it reaches Quality Check.' : state.tab === 'arch' && !state.q.trim() ? 'Nothing archived yet. A car moves here automatically 30 days after it is completed, or 365 days after it arrived. It is still counted in the reports.' : 'No cars match this search.') + '</p></div>'; return; }
     list.innerHTML = vis.map(function (r) { return cardHtml(r.id, r.c); }).join('');
   }
   function cardHtml(id, c) {

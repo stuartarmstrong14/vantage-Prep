@@ -752,6 +752,28 @@ function serveStatic(req, res, pathname) {
   fs.createReadStream(file).pipe(res);
 }
 
+/* ---------- user guide (signed-in people only) ---------- */
+const GUIDE_DIR = path.join(__dirname, 'guide');
+function serveGuide(req, res, pathname) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'Method not allowed.');
+  if (!currentUser(req)) {
+    res.writeHead(302, { Location: '/?next=guide', 'Cache-Control': 'no-store' });
+    return res.end();
+  }
+  const pdf = pathname === '/guide.pdf';
+  const file = path.join(GUIDE_DIR, pdf ? 'guide.pdf' : 'guide.html');
+  let stat;
+  try { stat = fs.statSync(file); } catch (e) { throw new HttpError(404, 'The user guide is not available yet.'); }
+  res.writeHead(200, {
+    'Content-Type': pdf ? 'application/pdf' : 'text/html; charset=utf-8',
+    'Content-Length': stat.size,
+    'Cache-Control': 'private, no-cache',
+    ...(pdf ? { 'Content-Disposition': 'attachment; filename="145-Prepped-User-Guide.pdf"' } : {}),
+  });
+  if (req.method === 'HEAD') return res.end();
+  fs.createReadStream(file).pipe(res);
+}
+
 /* ---------- server ---------- */
 const server = http.createServer(async (req, res) => {
   securityHeaders(res);
@@ -762,6 +784,7 @@ const server = http.createServer(async (req, res) => {
       return res.end('ok');
     }
     if (url.pathname.startsWith('/api/')) return await handleApi(req, res, url);
+    if (url.pathname === '/guide' || url.pathname === '/guide.pdf') return serveGuide(req, res, url.pathname);
     return serveStatic(req, res, url.pathname);
   } catch (e) {
     if (res.headersSent) return res.end();

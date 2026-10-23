@@ -186,6 +186,8 @@
   document.addEventListener('click', function (e) { var b = $('#notice'); if (b && !b.hidden && b.contains(e.target)) b.hidden = true; });
 
   function startApp() {
+    // signed in after following a link to the user guide: go there now
+    if (/[?&]next=guide\b/.test(location.search)) { location.replace('/guide'); return; }
     $('#auth').hidden = true;
     $('#app').hidden = false;
     $('#a-user').value = '';
@@ -1059,7 +1061,10 @@
   /* ---------- start ---------- */
   api('GET', '/api/session').then(function (s) {
     if (s.user) { state.user = s.user; startApp(); }
-    else showAuth(s.setup ? 'setup' : 'login');
+    else {
+      showAuth(s.setup ? 'setup' : 'login');
+      if (!s.setup && /[?&]next=guide\b/.test(location.search)) $('#auth-sub').textContent = 'Sign in to read the user guide.';
+    }
   }).catch(function () {
     showAuth('login', 'Could not reach the server. Check your connection and reload.');
   });

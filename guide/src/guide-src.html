@@ -1,0 +1,432 @@
+<title>145 Prepped User Guide</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=Urbanist:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: the app's own world. A steel-blue band like the app's home screen opens the page, then a light working page
+   of white panels; every section pairs short steps with a real phone screenshot. Plates and stage bars borrowed from the app. */
+:root{
+  --band:#7C95AE; --band-ink:#FFFFFF; --band-soft:rgba(255,255,255,.88); --band-line:rgba(255,255,255,.55);
+  --page:#EEF2F6; --panel:#FFFFFF; --ink:#0F2A55; --muted:#566B84; --line:#D5DDE6;
+  --navy:#112D5B; --navy-ink:#FFFFFF; --soft:#E3EAF2;
+  --ok:#1E7A46; --ok-bg:#DDF1E4; --warn:#8F5A00; --warn-bg:#FBEBC8;
+  --plate:#F7D117; --plate-ink:#141414; --shot-edge:#C9D3DE;
+  --font:'Urbanist','Nunito Sans','Segoe UI',system-ui,-apple-system,sans-serif;
+  --font-plate:'Barlow Condensed','Arial Narrow',sans-serif;
+  --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --band:#243447; --band-ink:#F2F6FA; --band-soft:rgba(242,246,250,.85); --band-line:rgba(255,255,255,.22);
+    --page:#131C27; --panel:#1B2736; --ink:#E7EEF6; --muted:#9BAEC4; --line:#2E3F52;
+    --navy:#7FB2EA; --navy-ink:#0C2038; --soft:#22344A;
+    --ok:#5CC98A; --ok-bg:#173826; --warn:#E8B14A; --warn-bg:#3B2D10; --shot-edge:#2E3F52;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --band:#243447; --band-ink:#F2F6FA; --band-soft:rgba(242,246,250,.85); --band-line:rgba(255,255,255,.22);
+  --page:#131C27; --panel:#1B2736; --ink:#E7EEF6; --muted:#9BAEC4; --line:#2E3F52;
+  --navy:#7FB2EA; --navy-ink:#0C2038; --soft:#22344A;
+  --ok:#5CC98A; --ok-bg:#173826; --warn:#E8B14A; --warn-bg:#3B2D10; --shot-edge:#2E3F52;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--page);color:var(--ink);font-family:var(--font);font-size:17px;line-height:1.55;font-weight:500;-webkit-text-size-adjust:100%}
+h1,h2,h3{margin:0;line-height:1.12;text-wrap:balance;font-weight:700}
+p{margin:0}
+a{color:var(--navy);text-underline-offset:3px}
+a:focus-visible,summary:focus-visible{outline:3px solid #5BA8E8;outline-offset:3px;border-radius:6px}
+b,strong{font-weight:700}
+.in{max-width:1080px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* opening band, like the app home screen */
+.band{background:var(--band);color:var(--band-ink)}
+.band .in{padding-block:22px 40px;display:flex;flex-direction:column;gap:28px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--band-line);padding-bottom:18px}
+.top img{height:44px;width:auto;display:block}
+.top .url{font-weight:700;font-size:15px;letter-spacing:.02em;color:var(--band-soft)}
+.hero{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:36px;align-items:center}
+.kicker{font-size:14px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--band-soft)}
+.hero h1{font-size:clamp(38px,6vw,64px);font-weight:700;letter-spacing:-.01em;margin-top:8px}
+.hero .lead{font-size:19px;color:var(--band-soft);max-width:34em;margin-top:14px}
+.jump{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px;padding:0;list-style:none}
+.jump a{display:inline-flex;align-items:center;min-height:40px;padding:0 16px;border-radius:999px;border:1.5px solid var(--band-line);color:var(--band-ink);text-decoration:none;font-weight:600;font-size:15px;background:rgba(255,255,255,.12)}
+.jump a:hover{background:rgba(255,255,255,.24)}
+.hero .phone{justify-self:center}
+
+/* phone screenshot frame */
+.phone{margin:0;width:min(100%,300px);border-radius:28px;padding:8px;background:var(--panel);border:1px solid var(--shot-edge);box-shadow:0 14px 34px rgba(15,42,85,.18)}
+.phone img{display:block;width:100%;height:auto;border-radius:21px}
+.shot{margin:0;border-radius:18px;overflow:hidden;border:1px solid var(--shot-edge);background:var(--panel);box-shadow:0 8px 22px rgba(15,42,85,.10)}
+.shot img{display:block;width:100%;height:auto}
+figcaption{font-size:14px;color:var(--muted);margin-top:10px;text-align:center}
+
+/* page sections */
+main .in{display:flex;flex-direction:column;gap:22px;padding-block:34px 56px}
+.sec{background:var(--panel);border:1px solid var(--line);border-radius:24px;padding:clamp(20px,4vw,36px);display:flex;flex-direction:column;gap:20px;scroll-margin-top:16px}
+.sec-h{display:flex;flex-direction:column;gap:6px}
+.sec-h .eyebrow{font-size:13px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.sec h2{font-size:clamp(26px,3.4vw,34px)}
+.sec h3{font-size:20px}
+.sec .intro{font-size:18px;max-width:40em}
+.split{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:32px;align-items:start}
+.split.wide-shot{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.stack{display:flex;flex-direction:column;gap:16px;min-width:0}
+.steps{margin:0;padding:0;list-style:none;counter-reset:s;display:flex;flex-direction:column;gap:12px}
+.steps li{counter-increment:s;display:grid;grid-template-columns:34px minmax(0,1fr);gap:12px;align-items:start}
+.steps li::before{content:counter(s);width:34px;height:34px;border-radius:50%;background:var(--navy);color:var(--navy-ink);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;font-variant-numeric:tabular-nums}
+.points{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+.points li{position:relative;padding-left:22px}
+.points li::before{content:"";position:absolute;left:4px;top:.6em;width:8px;height:8px;border-radius:50%;background:var(--navy)}
+.note{background:var(--soft);border-radius:16px;padding:14px 18px;font-size:16px}
+.note.warn{background:var(--warn-bg);color:var(--warn)}
+.btnlike{display:inline-block;font-weight:700;color:var(--navy);background:var(--soft);border-radius:999px;padding:0 10px;white-space:nowrap}
+.plate{display:inline-block;background:var(--plate);color:var(--plate-ink);font-family:var(--font-plate);font-weight:600;letter-spacing:.06em;border:1.5px solid #141414;border-radius:5px;padding:0 7px;line-height:1.35;white-space:nowrap}
+.chip{display:inline-block;font-size:13px;font-weight:700;padding:2px 10px;border-radius:999px;background:var(--navy);color:var(--navy-ink);letter-spacing:.02em;white-space:nowrap}
+.chip.ghost{background:var(--soft);color:var(--ink)}
+
+/* who does what */
+.roles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px}
+.role{border:1px solid var(--line);border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:10px;background:var(--page)}
+.role-h{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.role h3{font-size:19px}
+.role .login{font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.04em}
+.role p{font-size:16px}
+
+/* the prep line */
+.line{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;counter-reset:st}
+.line>li{counter-increment:st;display:flex;flex-direction:column;gap:10px;min-width:0}
+.line .seg{height:10px;border-radius:999px;background:var(--navy)}
+.line>li:nth-child(1) .seg{opacity:.55}.line>li:nth-child(2) .seg{opacity:.63}.line>li:nth-child(3) .seg{opacity:.71}
+.line>li:nth-child(4) .seg{opacity:.8}.line>li:nth-child(5) .seg{opacity:.9}
+.line .st{display:flex;align-items:baseline;gap:8px}
+.line .st::before{content:counter(st);font-weight:800;font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
+.line .st b{font-size:17px}
+.line .who{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.line ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+.line ul li{font-size:14.5px;line-height:1.35;display:block;padding:8px 10px;border-radius:10px;background:var(--page);border:1px solid var(--line)}
+.line ul li.up{border-color:var(--navy);border-style:dashed}
+
+/* email sample */
+.mail{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--page)}
+.mail-h{display:flex;flex-wrap:wrap;gap:4px 16px;padding:10px 16px;border-bottom:1px solid var(--line);font-size:14px;color:var(--muted)}
+.mail pre{margin:0;padding:14px 16px;font-family:var(--mono);font-size:15px;line-height:1.6;color:var(--ink);overflow-x:auto}
+
+/* tables */
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:16px}
+table{border-collapse:collapse;width:100%;font-size:16px;min-width:520px}
+th,td{text-align:left;padding:12px 14px;border-top:1px solid var(--line);vertical-align:top}
+thead th{border-top:0;background:var(--page);font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+td:first-child{font-weight:700}
+
+.pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.trio{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;align-items:start}
+.foot{color:var(--muted);font-size:14px;text-align:center}
+
+@media (max-width:900px){
+  .line{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:22px}
+  .trio{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:760px){
+  .hero{grid-template-columns:1fr}
+  .hero .phone{display:none}
+  .split,.split.wide-shot,.pair{grid-template-columns:1fr}
+  .split .phone{justify-self:center}
+}
+@media (max-width:520px){
+  body{font-size:16px}
+  .line{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .trio{grid-template-columns:1fr}
+  .top img{height:36px}
+  .top .url{font-size:13px}
+}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+html{scroll-behavior:smooth}
+</style>
+
+<header class="band">
+  <div class="in">
+    <div class="top">
+      <img src="{{logo}}" alt="Vantage Motor Group" width="560" height="156">
+      <span class="url">www.145prepped.co.uk</span>
+    </div>
+    <div class="hero">
+      <div>
+        <p class="kicker">User guide</p>
+        <h1>145 Prepped</h1>
+        <p class="lead">How we take every used car from arrival to forecourt-ready. Tick each job as you finish it, and everyone can see where every car is.</p>
+        <ul class="jump" aria-label="Sections">
+          <li><a href="#start">Getting started</a></li>
+          <li><a href="#teams">Who does what</a></li>
+          <li><a href="#line">The six stages</a></li>
+          <li><a href="#find">Finding a car</a></li>
+          <li><a href="#dept">Department boxes</a></li>
+          <li><a href="#work">Working on a car</a></li>
+          <li><a href="#checks">145 checks</a></li>
+          <li><a href="#add">Adding cars</a></li>
+          <li><a href="#qr">QR and notices</a></li>
+          <li><a href="#done">Completed</a></li>
+          <li><a href="#admin">Administrators</a></li>
+          <li><a href="#help">Help</a></li>
+        </ul>
+      </div>
+      <figure class="phone"><img src="{{home}}" alt="The 145 Prepped home screen with the stock search and prep figures" width="780" height="1688"></figure>
+    </div>
+  </div>
+</header>
+
+<main>
+<div class="in">
+
+<section class="sec" id="start">
+  <div class="sec-h"><span class="eyebrow">Day one</span><h2>Getting started</h2></div>
+  <div class="pair">
+    <ol class="steps">
+      <li><span>Go to <b>www.145prepped.co.uk</b> on your phone, tablet or computer.</span></li>
+      <li><span>Sign in with the username and starting password your manager gave you.</span></li>
+      <li><span>Change your password straight away: tap <span class="btnlike">Account</span>, fill in <b>Change password</b>, then <b>Save new password</b>.</span></li>
+      <li><span>Add it to your phone's home screen so it opens like an app. On iPhone (Safari) tap Share, then <b>Add to Home Screen</b>. On Android (Chrome) tap the three-dot menu, then <b>Install app</b>.</span></li>
+    </ol>
+    <div class="stack">
+      <h3>Three kinds of login</h3>
+      <ul class="points">
+        <li><b>Staff</b> add cars, tick off prep, upload 145 point checks, write notes, print QR stickers and archive completed cars.</li>
+        <li><b>Advisors</b> can look but not change anything, for example after scanning a car's QR sticker.</li>
+        <li><b>Administrators</b> can do everything staff can, plus Reports, deleting cars and managing staff logins.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="teams">
+  <div class="sec-h"><span class="eyebrow">Your part</span><h2>Who does what</h2>
+    <p class="intro">Each team works on its own stage. Tap your department's box under <b>How prep is going</b> to see only the cars waiting for you.</p></div>
+  <div class="roles">
+    <article class="role"><div class="role-h"><h3>Managers controlling preparation</h3><span class="chip">All stages</span></div><span class="login">ADMINISTRATOR LOGIN</span>
+      <p>Add cars and check the ones that arrive by email, set Prep requested, chase cars over 7 days, use Reports and Outstanding bodywork, archive completed cars, print notices and manage logins.</p></article>
+    <article class="role"><div class="role-h"><h3>Workshop controllers</h3><span class="chip">Mechanical</span></div><span class="login">STAFF LOGIN</span>
+      <p>Upload the 145 point check, tick Service, MOT passed and Mechanical QC, check the MOT date, and note any parts on order.</p></article>
+    <article class="role"><div class="role-h"><h3>Painters</h3><span class="chip">Bodywork</span></div><span class="login">STAFF LOGIN</span>
+      <p>Read the cosmetic notes, tick Cosmetic, Dents, Alloy wheels and Paint, enter how many wheels need refining, then tick QC complete (it adds your initials).</p></article>
+    <article class="role"><div class="role-h"><h3>Photographers</h3><span class="chip">Photos</span></div><span class="login">STAFF LOGIN</span>
+      <p>Tick <b>Photographs completed</b> when the photos are done.</p></article>
+    <article class="role"><div class="role-h"><h3>Valeters</h3><span class="chip">Valet</span></div><span class="login">STAFF LOGIN</span>
+      <p>Tick <b>Valet completed</b> when the valet is done.</p></article>
+  </div>
+  <p class="note">The final <b>Quality check completed</b> box is ticked by whoever signs the car off as forecourt-ready, usually a manager.</p>
+</section>
+
+<section class="sec" id="line">
+  <div class="sec-h"><span class="eyebrow">The prep line</span><h2>The six stages</h2>
+    <p class="intro">Every car goes through the same six stages in order. A stage finishes when all its boxes are ticked, and the car moves on by itself. The bar on each car card shows this line.</p></div>
+  <ol class="line">
+    <li><span class="seg"></span><span class="st"><b>Inbound</b></span><span class="who">Managers</span>
+      <ul><li>Advertised on Auto Trader</li><li>Preparation lines requested</li><li>QR sticker fitted</li></ul></li>
+    <li><span class="seg"></span><span class="st"><b>Valet</b></span><span class="who">Valeters</span>
+      <ul><li>Valet completed</li></ul></li>
+    <li><span class="seg"></span><span class="st"><b>Photos</b></span><span class="who">Photographers</span>
+      <ul><li>Photographs completed</li></ul></li>
+    <li><span class="seg"></span><span class="st"><b>Mechanical</b></span><span class="who">Workshop</span>
+      <ul><li class="up">145 point check (upload)</li><li>Service</li><li>MOT passed</li><li>Mechanical QC complete</li></ul></li>
+    <li><span class="seg"></span><span class="st"><b>Bodywork</b></span><span class="who">Painters</span>
+      <ul><li>Cosmetic check complete, with notes</li><li>Dents completed</li><li>Alloy wheels completed</li><li>Paint work completed</li><li>QC complete (initials)</li></ul></li>
+    <li><span class="seg"></span><span class="st"><b>Quality Check</b></span><span class="who">Managers</span>
+      <ul><li>Quality check completed (initials)</li></ul></li>
+  </ol>
+</section>
+
+<section class="sec" id="find">
+  <div class="split">
+    <div class="stack">
+      <div class="sec-h"><span class="eyebrow">Home screen</span><h2>Finding a car</h2></div>
+      <p>The stock is split into three tabs. Tap any car card to open it.</p>
+      <ul class="points">
+        <li><b>In prep</b>: cars still being worked on.</li>
+        <li><b>Completed</b>: cars that have passed Quality Check.</li>
+        <li><b>Archived</b>: cars moved out of the way.</li>
+      </ul>
+      <p>To find any car, type a registration, tag number, make or model into <b>Search our stock</b> and tap <span class="btnlike">Search</span>. It looks through every car, including Completed and Archived, and labels each result. Tap <b>Clear search</b> to go back.</p>
+      <p>Each card shows the registration (<span class="plate">YD74 XXM</span>), days in prep, the prep requested (<span class="chip">TAC</span> <span class="chip ghost">Service</span> <span class="chip ghost">MOT</span>), the six-stage bar and how many of the 15 tasks are done.</p>
+      <p class="note"><b>How prep is going</b> shows cars in prep, cars completed, and the average days in prep against the 7-day target.</p>
+    </div>
+    <figure class="phone"><img src="{{stock}}" alt="Car cards in the In prep tab, each with a number plate, prep chips and a stage bar" width="780" height="1688"></figure>
+  </div>
+</section>
+
+<section class="sec" id="dept">
+  <div class="split wide-shot">
+    <div class="stack">
+      <div class="sec-h"><span class="eyebrow">Home screen</span><h2>Department boxes</h2></div>
+      <p>Under <b>How prep is going</b>, <b>Still to do, by department</b> shows a box for each department with the number of cars that still need it.</p>
+      <ul class="points">
+        <li>A car counts in <b>every</b> department it still needs, whatever stage it has reached. A car at Valet with its mechanical boxes unticked counts under Mechanical too.</li>
+        <li>Tap <b>Bodywork</b> and the <b>Bodywork jobs</b> buttons open underneath, counting cars still needing Cosmetic, Dents, Alloy wheels and Paint. Tap one to go straight to that job; tap it again to go back to all Bodywork.</li>
+        <li>Tap a box to show only those cars. The box turns navy and the stock list says what you are viewing.</li>
+        <li>Tap the box again, or tap <b>Show all</b>, to see every car.</li>
+      </ul>
+    </div>
+    <figure class="shot"><img src="{{dept}}" alt="Department boxes with Bodywork selected and its job buttons open underneath" width="716" height="758"></figure>
+  </div>
+</section>
+
+<section class="sec" id="work">
+  <div class="sec-h"><span class="eyebrow">The car sheet</span><h2>Working on a car</h2>
+    <p class="intro">Open the car and tick each job as it is done. Everything saves as you type or tick, so there is no Save button.</p></div>
+  <div class="trio">
+    <figure class="shot" style="margin:0"><img src="{{sheettop}}" alt="Top of a car sheet showing the stage bar, days in prep and car details" width="780" height="1688"></figure>
+    <div class="stack">
+      <ul class="points">
+        <li><b>Stage bar</b>: green ticks are finished stages; the dark segment is where the car is now.</li>
+        <li><b>Sign-offs</b>: ticking Bodywork <b>QC complete</b> or the final <b>Quality check completed</b> adds your initials and the date.</li>
+        <li><b>Who and when</b>: every ticked box shows the date and the person who ticked it.</li>
+        <li><b>Car details</b>: correct the registration, make, model, tag, mileage or MOT expiry at the top. Type the MOT date as digits, for example <code>250527</code>, and it becomes 25/05/27.</li>
+        <li><b>Notes</b>: faults, parts on order, who has the keys.</li>
+      </ul>
+      <p class="note">When the last box is ticked, the car moves to the <b>Completed</b> tab by itself.</p>
+    </div>
+    <figure class="shot" style="margin:0"><img src="{{body}}" alt="Bodywork checklist with cosmetic notes, ticked boxes and wheels to refine" width="780" height="600"></figure>
+  </div>
+</section>
+
+<section class="sec" id="checks">
+  <div class="sec-h"><span class="eyebrow">Mechanical and Bodywork</span><h2>145 point checks and cosmetic notes</h2></div>
+  <div class="pair">
+    <div class="stack">
+      <h3>145 point mechanical check</h3>
+      <p>This is done by uploading the paperwork, not by ticking a box.</p>
+      <ol class="steps">
+        <li><span>Open the car and go to <b>Mechanical</b>.</span></li>
+        <li><span>Tap <span class="btnlike">Upload check</span> and choose a PDF or take a photo (JPEG, PNG, WebP or HEIC, up to 15&nbsp;MB).</span></li>
+        <li><span>The row changes to <span class="chip" style="background:var(--ok-bg);color:var(--ok)">Completed ✓</span> with the file name.</span></li>
+      </ol>
+      <p>Tap <b>Add another file</b> for extra pages, up to 10 per car. To remove a file tap <b>Remove</b>, then <b>Tap again to remove</b>. Removing the last file sets the check back to Needs upload.</p>
+      <figure class="shot"><img src="{{mech}}" alt="Mechanical stage with the 145 point check uploaded and marked Completed" width="780" height="620"></figure>
+    </div>
+    <div class="stack">
+      <h3>Cosmetic notes and wheels</h3>
+      <p>Under <b>Cosmetic check complete</b> on the Bodywork stage, write what cosmetic work the car needs, for example "respray rear bumper, door ding nearside". Tick the box when the check is done.</p>
+      <p>Next to <b>Alloy wheels completed</b>, enter how many alloys need refining (0 to 5).</p>
+      <p>The notes and wheel counts feed the <b>Outstanding bodywork</b> lists in Reports, so painters and managers can see every job by tag number.</p>
+      <figure class="shot"><img src="{{cosmetics}}" alt="Outstanding bodywork list in Reports showing cosmetic notes by tag number" width="780" height="980"></figure>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="add">
+  <div class="sec-h"><span class="eyebrow">New stock</span><h2>Adding cars</h2></div>
+  <div class="split wide-shot">
+    <div class="stack">
+      <h3>By hand</h3>
+      <p>Tap <span class="btnlike">Add car</span>, fill in registration, make and model (tag number and mileage if you have them), tap the <b>Prep requested</b> buttons that apply, then <b>Add to prep</b>. The car starts at Inbound.</p>
+      <figure class="shot"><img src="{{add}}" alt="The Add a car form with TAC and Service selected" width="780" height="700"></figure>
+    </div>
+    <div class="stack">
+      <h3>By email</h3>
+      <p>Send the car's details to the 145 Prepped email-in address (your manager has it). The car appears at Inbound within a minute with the note "Added from email. Check the details are right." Put each detail on its own line:</p>
+      <div class="mail">
+        <div class="mail-h"><span>To: 145 Prepped email-in address</span><span>Subject: anything</span></div>
+<pre>TOYOTA
+AYGO X
+YD74XXM
+TAG T1042
+TAC
+SERVICE
+MOT - 25/05/2027
+MILEAGE 13442</pre>
+      </div>
+      <ul class="points">
+        <li>Put the number on the TAG line, for example <code>TAG T1042</code>. A TAG line with no number brings in no tag.</li>
+        <li>TAC, SERVICE and MOT lines fill <b>Prep requested</b>. An MOT line with a date also sets the MOT expiry.</li>
+        <li>A registration already on the system, including completed and archived cars, is skipped rather than duplicated.</li>
+      </ul>
+      <p class="note warn">Always open a car added by email and check its details.</p>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="qr">
+  <div class="sec-h"><span class="eyebrow">On the car</span><h2>QR stickers and the Awaiting prep notice</h2>
+    <p class="intro">Every car has its own QR code. Scanning it with a phone camera opens that car's progress after the person signs in, so advisors can check a car on the forecourt.</p></div>
+  <div class="pair">
+    <ol class="steps">
+      <li><span>Open the car and tap <span class="btnlike">Print QR sticker</span>.</span></li>
+      <li><span>Choose a layout and tap <b>Print</b>.</span></li>
+      <li><span>Fit it, then tick <b>QR sticker fitted</b> on the Inbound stage.</span></li>
+    </ol>
+    <p class="note">In the print window, turn headers and footers off and keep the scale at 100%. The notice says the QR is for staff, so customers are not sent to a sign-in page.</p>
+  </div>
+  <div class="tbl"><table>
+    <thead><tr><th>Layout</th><th>Use it for</th><th>Print settings</th></tr></thead>
+    <tbody>
+      <tr><td>Single label, 100 × 70 mm</td><td>Dashboard sticker with the Vantage logo</td><td>Margins None</td></tr>
+      <tr><td>A4 sheet, 8 per page</td><td>An office printer, then cut out</td><td>Margins Default</td></tr>
+      <tr><td>Small label, 50 × 30 mm</td><td>Label printers: QR, registration and tag only</td><td>Margins None</td></tr>
+      <tr><td>A4 landscape notice</td><td>A4 price board sign, fits a 28 × 17 cm window: AWAITING PREP, QR, plate, model and tag</td><td>Landscape, margins Default</td></tr>
+    </tbody>
+  </table></div>
+  <figure class="shot" style="max-width:720px;align-self:center;width:100%"><img src="{{notice}}" alt="The A4 landscape Awaiting prep notice with the Vantage logo, QR code, number plate, model and tag" width="1100" height="775"></figure>
+</section>
+
+<section class="sec" id="done">
+  <div class="split">
+    <div class="stack">
+      <div class="sec-h"><span class="eyebrow">After prep</span><h2>Completed, archived and live updates</h2></div>
+      <ul class="points">
+        <li><b>Completed</b>: a car moves here by itself once every box is ticked. Unticking a box sends it back to In prep.</li>
+        <li><b>Archiving</b>: open a completed car and tap <b>Archive car</b>. Cars are also archived automatically 30 days after they are completed, or 365 days after they arrived. Nothing is deleted, archived cars still count in Reports, and <b>Restore from archive</b> brings one back.</li>
+        <li><b>Live updates</b>: when someone else ticks a box, uploads a check or adds a car, a pop-up appears at the top of your screen within about 8 seconds. Tap it to close it. You never see pop-ups for your own changes, and only while the app is open.</li>
+      </ul>
+    </div>
+    <figure class="phone"><img src="{{popup}}" alt="A pop-up reading Paul updated Valet: Valet completed (YD74 XXM)" width="780" height="600"></figure>
+  </div>
+</section>
+
+<section class="sec" id="admin">
+  <div class="sec-h"><span class="eyebrow">Managers</span><h2>For administrators</h2>
+    <p class="intro">Tap <span class="btnlike">Reports</span> in the header. It updates live and includes archived cars.</p></div>
+  <div class="trio">
+    <figure class="shot" style="margin:0"><img src="{{reports}}" alt="Reports with completed, average days, on-target and over-target figures" width="780" height="1688"></figure>
+    <div class="stack">
+      <ul class="points">
+        <li><b>Top figures</b>: cars completed, average days from arrival to completed, the share done within 7 days, and cars over target.</li>
+        <li><b>Cars completed</b> by week, month or year, or <b>Pick a month</b>.</li>
+        <li>Where the stock is now, time in each stage, cars over target, cars sent back and sign-offs by person.</li>
+        <li><b>Outstanding bodywork</b> (near the bottom): <b>Alloys</b> lists cars with wheels to refine and the total; <b>Cosmetics</b> lists cars with notes and paint not done. Tag number first; tap a car to open it.</li>
+        <li><b>145 point checks</b> (at the bottom): type a registration to find and view its check.</li>
+      </ul>
+    </div>
+    <div class="stack">
+      <figure class="shot" style="margin:0"><img src="{{alloys}}" alt="Outstanding bodywork with the Alloys tab open" width="780" height="560"></figure>
+      <figure class="shot" style="margin:0"><img src="{{checks}}" alt="145 point checks search finding WM68 KJU" width="780" height="420"></figure>
+    </div>
+  </div>
+  <div class="pair">
+    <div class="stack"><h3>Staff logins</h3>
+      <p>Tap <b>Account</b>, then <b>Manage staff logins</b>. Add a person with their full name, a username, a starting password and a role, then tell them the password in person. From the list you can change a role, reset a password, deactivate a login or delete it. Past sign-offs stay on the cars.</p></div>
+    <div class="stack"><h3>Deleting a car</h3>
+      <p>Open it and tap <b>Delete car</b> twice. This also deletes its 145 point check files and cannot be undone, so archive instead unless the car was added by mistake.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="help">
+  <div class="sec-h"><span class="eyebrow">If something goes wrong</span><h2>Tips and troubleshooting</h2></div>
+  <div class="tbl"><table>
+    <thead><tr><th>Problem</th><th>What to do</th></tr></thead>
+    <tbody>
+      <tr><td>Signed out</td><td>Sign in again with your username and password.</td></tr>
+      <tr><td>A change didn't save</td><td>Check your signal; a message appears if a save fails. Reopen the car and tick again.</td></tr>
+      <tr><td>An email didn't create a car</td><td>Check the registration isn't already on the system (including Archived) and that the reg is on its own line. Ask an administrator to check.</td></tr>
+      <tr><td>Upload refused</td><td>Files must be a PDF or photo under 15 MB. Take the photo at a lower quality or send a PDF.</td></tr>
+      <tr><td>Car in the wrong stage</td><td>A car sits at the first stage with an unticked box. Look for the unticked box in an earlier stage.</td></tr>
+      <tr><td>Notice prints on two pages</td><td>Choose Landscape, margins Default, scale 100%.</td></tr>
+      <tr><td>Forgot password</td><td>Ask an administrator to reset it under Manage staff logins.</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">Advisors see the same screens as staff, with everything greyed out so nothing can be changed by accident.</p>
+</section>
+
+<p class="foot">145 Prepped · Vantage Motor Group · Screens show example cars.</p>
+</div>
+</main>

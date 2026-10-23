@@ -119,6 +119,12 @@ Administrators can find any check from the **145 point checks** search at the bo
 
 Files are stored inside the database, so they live on the Render disk (`/data`), are included in `npm run backup`, and use disk space. Keep an eye on the 1 GB disk if you upload a lot of large PDFs. Deleting a car deletes its check files.
 
+## User guide
+
+The user guide is at **/guide** (for example www.145prepped.co.uk/guide) and only opens for signed-in people; anyone else is sent to the sign-in page and then straight on to the guide. Open it from **Account -> Open the user guide**. It has a **Download PDF** button (/guide.pdf) and a link back to the app.
+
+To change it, edit `guide/src/guide-src.html` (screenshots are in `guide/src/shots/`), then run `python3 guide/src/build.py` to rebuild `guide/guide.html` and `guide/guide.pdf` (needs Pillow and Playwright with Chromium) and commit both.
+
 ## Searching
 
 The **Search** box on the home screen looks through every car: in prep, completed and archived. Type a registration (spaces don't matter), tag number, make or model and tap **Search** or press Enter. Each result is labelled In prep, Completed or Archived. Tap **Clear search**, a tab or a department box to go back.

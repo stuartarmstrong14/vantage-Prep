@@ -5,6 +5,7 @@ COPY package.json server.js ./
 COPY lib ./lib
 COPY scripts ./scripts
 COPY public ./public
+COPY guide/guide.html guide/guide.pdf ./guide/
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh && mkdir -p /data && chown node:node /data
 ENV NODE_ENV=production DATA_DIR=/data PORT=3000 TRUST_PROXY=1

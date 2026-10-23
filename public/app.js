@@ -317,6 +317,8 @@
     }).join('');
     var sig = dHtml + jHtml;
     if ($('#dept').dataset.sig !== sig) { $('#dept-boxes').innerHTML = dHtml; $('#dept-jobs').innerHTML = jHtml; $('#dept').dataset.sig = sig; }
+    // the bodywork job buttons only show once Bodywork (or one of its jobs) is picked
+    $('#dept-jobs').hidden = !(state.f === 'need:body' || state.f.indexOf('job:') === 0);
     var fl = $('#f-label');
     if (state.f !== 'all' && state.tab === 'prep') {
       var lbl = state.f.indexOf('need:') === 0 ? STAGES.filter(function (x) { return 'need:' + x.k === state.f; })[0].l : JOBS.filter(function (x) { return 'job:' + x[0] === state.f; })[0][1];
@@ -535,7 +537,7 @@
   $('#dept').addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('[data-f]'); if (!b) return;
     var f = b.dataset.f;
-    if (state.f === f) { state.f = 'all'; render(); return; }
+    if (state.f === f) { state.f = f.indexOf('job:') === 0 ? 'need:body' : 'all'; render(); return; }
     state.f = f; state.tab = 'prep'; render(); toList();
   });
   $('#stock').addEventListener('click', function (e) { if (e.target.id === 'f-clear') { state.f = 'all'; render(); } });

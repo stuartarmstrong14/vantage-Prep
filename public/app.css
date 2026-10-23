@@ -307,6 +307,7 @@ input.field,select.field,textarea.field,input[type="search"],input[type="text"],
 .dbox.zero b{color:var(--muted)}
 .dbox.on{background:var(--navy);color:var(--navy-ink);border-color:var(--navy)}
 .dbox.on span,.dbox.on b{color:var(--navy-ink)}
+.djobs[hidden]{display:none}
 .djobs{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .djl{font-size:14px;font-weight:700;color:var(--on-bg-soft);margin-right:2px}
 .djob{min-height:40px;padding:0 14px;border-radius:999px;border:1.5px solid var(--glass-line);background:var(--glass);color:var(--on-bg);font:inherit;font-weight:600;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}

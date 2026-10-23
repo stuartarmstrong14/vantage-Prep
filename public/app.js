@@ -304,20 +304,25 @@
     $('#tab-arch').setAttribute('aria-selected', state.tab === 'arch');
     $('#tab-prep').setAttribute('aria-selected', state.tab === 'prep');
     $('#tab-done').setAttribute('aria-selected', state.tab === 'done');
-    $('#stage-filter').hidden = state.tab !== 'prep';
-
-    var sel = $('#stage-filter');
-    var cnt = function (f) { return active.filter(function (c) { return needsWork(c, f); }).length; };
-    var opts = '<option value="all">All cars in prep (' + active.length + ')</option>'
-      + '<optgroup label="Still needs">' + STAGES.map(function (s) {
-        return '<option value="need:' + s.k + '">' + esc(s.l) + ' (' + cnt('need:' + s.k) + ')</option>';
-      }).join('') + '</optgroup>'
-      + '<optgroup label="Bodywork jobs still to do">' + JOBS.map(function (j) {
-        return '<option value="job:' + j[0] + '">' + esc(j[1]) + ' (' + cnt('job:' + j[0]) + ')</option>';
-      }).join('') + '</optgroup>';
+    // department boxes: how many cars still need each department (tap to filter the stock list)
     if (!/^(all|need:\w+|job:\w+)$/.test(state.f)) state.f = 'all';
-    if (sel.dataset.sig !== opts) { sel.innerHTML = opts; sel.dataset.sig = opts; }
-    sel.value = state.f;
+    var cnt = function (f) { return active.filter(function (c) { return needsWork(c, f); }).length; };
+    var dHtml = STAGES.map(function (s) {
+      var f = 'need:' + s.k, n = cnt(f), on = state.f === f;
+      return '<button type="button" class="dbox' + (on ? ' on' : '') + (n ? '' : ' zero') + '" data-f="' + f + '" aria-pressed="' + on + '"><b class="num">' + n + '</b><span>' + esc(s.l) + '</span></button>';
+    }).join('');
+    var jHtml = '<span class="djl">Bodywork jobs</span>' + JOBS.map(function (j) {
+      var f = 'job:' + j[0], n = cnt(f), on = state.f === f;
+      return '<button type="button" class="djob' + (on ? ' on' : '') + '" data-f="' + f + '" aria-pressed="' + on + '">' + esc(j[1]) + ' <b class="num">' + n + '</b></button>';
+    }).join('');
+    var sig = dHtml + jHtml;
+    if ($('#dept').dataset.sig !== sig) { $('#dept-boxes').innerHTML = dHtml; $('#dept-jobs').innerHTML = jHtml; $('#dept').dataset.sig = sig; }
+    var fl = $('#f-label');
+    if (state.f !== 'all' && state.tab === 'prep') {
+      var lbl = state.f.indexOf('need:') === 0 ? STAGES.filter(function (x) { return 'need:' + x.k === state.f; })[0].l : JOBS.filter(function (x) { return 'job:' + x[0] === state.f; })[0][1];
+      fl.innerHTML = 'Showing cars that still need <b>' + esc(lbl) + '</b> <button type="button" class="linkbtn" id="f-clear">Show all</button>';
+      fl.hidden = false;
+    } else fl.hidden = true;
 
     var vis = state.loaded ? visible() : [];
     $('#go').textContent = 'Show ' + vis.length + (vis.length === 1 ? ' car' : ' cars');
@@ -527,7 +532,13 @@
   $('#tab-prep').addEventListener('click', function () { state.tab = 'prep'; render(); });
   $('#tab-done').addEventListener('click', function () { state.tab = 'done'; render(); });
   $('#tab-arch').addEventListener('click', function () { state.tab = 'arch'; render(); });
-  $('#stage-filter').addEventListener('change', function (e) { state.f = e.target.value; render(); });
+  $('#dept').addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-f]'); if (!b) return;
+    var f = b.dataset.f;
+    if (state.f === f) { state.f = 'all'; render(); return; }
+    state.f = f; state.tab = 'prep'; render(); toList();
+  });
+  $('#stock').addEventListener('click', function (e) { if (e.target.id === 'f-clear') { state.f = 'all'; render(); } });
   $('#q').addEventListener('input', function (e) { state.q = e.target.value; render(); });
   function toList() {
     var el = $('#stock');

@@ -295,3 +295,26 @@ fieldset:disabled .chk input{opacity:.85}
 
 /* iPhones zoom into any text box smaller than 16px; keep every box at 16px so tapping one never zooms the page. */
 input.field,select.field,textarea.field,input[type="search"],input[type="text"],input[type="number"],input[type="password"]{font-size:16px}
+
+/* Department boxes: cars still needing each department */
+.dept{display:flex;flex-direction:column;gap:12px}
+.dept h3{font-size:20px;font-weight:600}
+.dboxes{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.dbox{background:var(--surface);color:var(--ink);border:2px solid transparent;border-radius:20px;padding:14px 14px 12px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0;text-align:left;font:inherit;cursor:pointer;box-shadow:var(--shadow)}
+.dbox b{font-size:34px;font-weight:700;line-height:1;letter-spacing:-.02em}
+.dbox span{font-size:14px;font-weight:700;color:var(--muted);overflow-wrap:anywhere}
+.dbox:hover{border-color:var(--navy)}
+.dbox.zero b{color:var(--muted)}
+.dbox.on{background:var(--navy);color:var(--navy-ink);border-color:var(--navy)}
+.dbox.on span,.dbox.on b{color:var(--navy-ink)}
+.djobs{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.djl{font-size:14px;font-weight:700;color:var(--on-bg-soft);margin-right:2px}
+.djob{min-height:40px;padding:0 14px;border-radius:999px;border:1.5px solid var(--glass-line);background:var(--glass);color:var(--on-bg);font:inherit;font-weight:600;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.djob b{font-weight:700}
+.djob:hover{background:rgba(255,255,255,.4)}
+.djob.on{background:var(--navy);color:var(--navy-ink);border-color:var(--navy)}
+.dhint{font-size:14px;color:var(--on-bg-soft)}
+.flabel{margin:0;font-size:16px;color:var(--on-bg)}
+.flabel .linkbtn{color:var(--on-bg);text-decoration:underline;margin-left:6px}
+@media (max-width:900px){.dboxes{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:420px){.dbox{padding:12px}.dbox b{font-size:28px}}

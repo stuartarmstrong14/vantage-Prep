@@ -119,6 +119,12 @@ Administrators can find any check from the **145 point checks** search at the bo
 
 Files are stored inside the database, so they live on the Render disk (`/data`), are included in `npm run backup`, and use disk space. Keep an eye on the 1 GB disk if you upload a lot of large PDFs. Deleting a car deletes its check files.
 
+## Department boxes
+
+Under **How prep is going**, **Still to do, by department** shows a box for each department (Inbound, Valet, Photos, Mechanical, Bodywork, Quality Check). Each box shows how many cars in prep still need work from that department, whatever stage the car has reached: a car waiting at Valet with its mechanical boxes unticked counts under Mechanical too. Below them, **Bodywork jobs** counts cars still needing Cosmetic, Dents, Alloy wheels and Paint.
+
+Tap a box to show only those cars in the stock list; tap it again (or **Show all**) to see everything. This replaces the old stage drop-down.
+
 ## Cosmetic notes
 
 Under **Cosmetic check complete** on the Bodywork stage there is a box for what cosmetic work needs doing (up to 1,000 characters). It saves as you type and everyone can see it; advisors see it read-only. The tick box still marks the cosmetic check as done.

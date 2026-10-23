@@ -54,7 +54,6 @@
     <p class="kicker">Search our stock</p>
     <h1>Get every car forecourt ready</h1>
     <div class="panel">
-      <select class="pillfield" id="stage-filter" aria-label="Show cars that still need"></select>
       <input class="pillfield" id="q" type="search" placeholder="Registration, make or model" aria-label="Search cars" autocomplete="off">
       <button class="pillbtn" id="go" type="button">Show cars</button>
     </div>
@@ -70,6 +69,12 @@
       <div class="stat"><b class="num" id="s-done">0</b><span>Prep completed</span></div>
       <div class="stat"><b class="num" id="s-avg">0</b><span>Avg days in prep</span></div>
     </div>
+    <div class="dept" id="dept" aria-label="Cars still needing each department">
+      <h3>Still to do, by department</h3>
+      <div class="dboxes" id="dept-boxes"></div>
+      <div class="djobs" id="dept-jobs"></div>
+      <p class="dhint">Tap a box to see those cars. Tap it again to show everything.</p>
+    </div>
   </section>
 
   <section class="sec" id="stock">
@@ -81,6 +86,7 @@
         <button class="tab" type="button" role="tab" id="tab-arch" aria-selected="false">Archived <span class="num" id="tab-arch-n">0</span></button>
       </div>
     </div>
+    <p class="flabel" id="f-label" role="status" hidden></p>
     <main id="list" class="grid" aria-live="polite"></main>
   </section>
 </div>

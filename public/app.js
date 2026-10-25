@@ -53,9 +53,26 @@
   var linkMatch = location.pathname.match(/^\/c\/([a-f0-9]{12})$/);
   state.deepLink = linkMatch ? linkMatch[1] : null;
 
-  var ROLE_LABELS = { admin: 'Administrator', staff: 'Staff', advisor: 'Advisor (view only)' };
+  var ROLE_LABELS = { admin: 'Administrator', staff: 'Staff', advisor: 'Advisor (view only)', paint: 'Paint (paint only)', alloy: 'Alloys (alloys only)', dent: 'Dents (dents only)' };
+  var ROLE_ORDER = ['staff', 'paint', 'alloy', 'dent', 'advisor', 'admin'];
+  // Specialist logins see everything but can only tick their own bodywork job.
+  var SPECIALIST = {
+    paint: { done: ['body_paint'], fields: [], job: 'job:body_paint' },
+    alloy: { done: ['body_wheels'], fields: ['bodyWheels'], job: 'job:body_wheels' },
+    dent: { done: ['body_dent'], fields: [], job: 'job:body_dent' }
+  };
   function roleLabel(r) { return ROLE_LABELS[r] || r; }
-  function readOnly() { return !!state.user && state.user.role === 'advisor'; }
+  function specialist() { return !!state.user && SPECIALIST[state.user.role] || null; }
+  function readOnly() { return !!state.user && (state.user.role === 'advisor' || !!SPECIALIST[state.user.role]); }
+  // For a specialist, switch on only their own tick box (and wheels to refine for alloys); everything else stays locked.
+  function lockForRole() {
+    var sp = specialist(); if (!sp) return;
+    $('#m-body').disabled = false;
+    document.querySelectorAll('#m-body input, #m-body textarea, #m-body select, #m-body button').forEach(function (el) {
+      var t = el.dataset && el.dataset.t, x = el.dataset && el.dataset.x;
+      el.disabled = !((t && sp.done.indexOf(t) >= 0) || (x && sp.fields.indexOf(x) >= 0));
+    });
+  }
 
   $('#target').textContent = TARGET;
 
@@ -186,6 +203,8 @@
   document.addEventListener('click', function (e) { var b = $('#notice'); if (b && !b.hidden && b.contains(e.target)) b.hidden = true; });
 
   function startApp() {
+    var spr = state.user && SPECIALIST[state.user.role];
+    if (spr && state.f === 'all') state.f = spr.job;
     // signed in after following a link to the user guide: go there now
     if (/[?&]next=guide\b/.test(location.search)) { location.replace('/guide'); return; }
     $('#auth').hidden = true;
@@ -438,6 +457,7 @@
     $('#m-del').hidden = state.user.role !== 'admin';
     $('#m-body').disabled = readOnly();
     $('#m-qr').hidden = readOnly();
+    lockForRole();
     $('#m-qr').href = '/sticker.html?ids=' + id;
     $('#ov-car').hidden = false;
     $('#ov-car .sheet').scrollTop = 0;
@@ -546,6 +566,7 @@
       var ni = $('#m-checks [data-x="' + ax + '"]');
       if (ni) { ni.value = av; ni.focus(); if (ass != null) { try { ni.setSelectionRange(ass, ase); } catch (er) { /* ignore */ } } }
     }
+    lockForRole();
   }
 
   /* ---------- events: list and car sheet ---------- */
@@ -734,7 +755,7 @@
         + '<div class="urow-top"><div><div class="urow-name">' + esc(u.display) + (me ? ' (you)' : '') + '</div><div class="urow-user">@' + esc(u.username) + ' · Initials ' + esc(u.initials) + '</div></div>'
         + '<span class="pill ' + (u.active ? (u.role === 'admin' ? 'ok' : '') : 'bad') + '">' + (u.active ? roleLabel(u.role) : 'Deactivated') + '</span></div>'
         + '<div class="urow-actions">'
-        + (me ? '' : '<select class="field" data-role aria-label="Role for ' + esc(u.display) + '">' + ['staff', 'advisor', 'admin'].map(function (r) { return '<option value="' + r + '"' + (u.role === r ? ' selected' : '') + '>' + esc(roleLabel(r)) + '</option>'; }).join('') + '</select>')
+        + (me ? '' : '<select class="field" data-role aria-label="Role for ' + esc(u.display) + '">' + ROLE_ORDER.map(function (r) { return '<option value="' + r + '"' + (u.role === r ? ' selected' : '') + '>' + esc(roleLabel(r)) + '</option>'; }).join('') + '</select>')
         + '<button class="btn" type="button" data-resetpw>Set new password</button>'
         + (me ? '' : '<button class="btn ' + (u.active ? 'danger' : '') + '" type="button" data-toggle>' + (u.active ? 'Deactivate' : 'Reactivate') + '</button>')
         + (me || u.active ? '' : '<button class="btn danger" type="button" data-delete>Delete login</button>')

@@ -119,6 +119,10 @@ Administrators can find any check from the **145 point checks** search at the bo
 
 Files are stored inside the database, so they live on the Render disk (`/data`), are included in `npm run backup`, and use disk space. Keep an eye on the 1 GB disk if you upload a lot of large PDFs. Deleting a car deletes its check files.
 
+## Paint, Alloys and Dents logins
+
+Besides Staff, Advisor and Administrator, an administrator can give someone a **Paint**, **Alloys** or **Dents** login under Manage staff logins. These people see every car (read only) but can tick just their own Bodywork job: Paint work completed, Alloy wheels completed (plus how many wheels need refining) or Dents completed. Their stock list opens on the cars still needing their job. The server enforces this, so nothing else can be changed from those logins, and the stage still moves on by itself when their tick finishes Bodywork.
+
 ## User guide
 
 The user guide is at **/guide** (for example www.145prepped.co.uk/guide) and only opens for signed-in people; anyone else is sent to the sign-in page and then straight on to the guide. Open it from **Account -> Open the user guide**. It has a **Download PDF** button (/guide.pdf) and a link back to the app.

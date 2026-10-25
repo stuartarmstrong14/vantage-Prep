@@ -216,10 +216,10 @@
         <label for="u-user">Username<input class="field" id="u-user" maxlength="32" autocapitalize="none" spellcheck="false" required></label>
         <label for="u-pass">Starting password<input class="field" id="u-pass" type="text" minlength="8" maxlength="200" autocomplete="off" required></label>
         <label for="u-role">Role
-          <select class="field" id="u-role"><option value="staff">Staff</option><option value="advisor">Advisor (view only)</option><option value="admin">Administrator</option></select>
+          <select class="field" id="u-role"><option value="staff">Staff</option><option value="paint">Paint (paint only)</option><option value="alloy">Alloys (alloys only)</option><option value="dent">Dents (dents only)</option><option value="advisor">Advisor (view only)</option><option value="admin">Administrator</option></select>
         </label>
       </div>
-      <p class="muted-s">Staff can add cars and tick off prep. Advisors can only look at progress, for example after scanning a car's QR sticker. Administrators can also delete cars and manage logins. Tell the person their starting password in person; they can change it under Account.</p>
+      <p class="muted-s">Staff can add cars and tick off prep. Paint, Alloys and Dents logins can see every car but only tick their own job. Advisors can only look at progress, for example after scanning a car's QR sticker. Administrators can also delete cars and manage logins. Tell the person their starting password in person; they can change it under Account.</p>
       <p class="formerr light" id="u-err" role="alert" hidden></p>
       <div class="row"><button class="btn primary" type="submit" style="min-height:46px;padding:0 24px">Add person</button></div>
     </form>

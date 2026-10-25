@@ -43,10 +43,10 @@ const SECRET = loadSecret();
 /* ---------- database ---------- */
 const db = new DatabaseSync(path.join(DATA_DIR, 'prep.db'));
 db.exec('PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;');
-// Older databases only allowed the roles admin and staff. Rebuild the table once to add advisor.
+// Older databases allowed fewer roles. Rebuild the users table once so the CHECK lists every role.
 (function migrateRoles() {
   const t = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'").get();
-  if (t && t.sql.indexOf("'advisor'") < 0) {
+  if (t && t.sql.indexOf("'dent'") < 0) {
     db.exec(`
       BEGIN;
       ALTER TABLE users RENAME TO users_old;
@@ -55,7 +55,7 @@ db.exec('PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;');
         username TEXT NOT NULL UNIQUE COLLATE NOCASE,
         display TEXT NOT NULL,
         initials TEXT NOT NULL,
-        role TEXT NOT NULL CHECK (role IN ('admin','staff','advisor')),
+        role TEXT NOT NULL CHECK (role IN ('admin','staff','advisor','paint','alloy','dent')),
         pass_hash TEXT NOT NULL,
         ver INTEGER NOT NULL DEFAULT 1,
         active INTEGER NOT NULL DEFAULT 1,
@@ -73,7 +73,7 @@ db.exec(`
     username TEXT NOT NULL UNIQUE COLLATE NOCASE,
     display TEXT NOT NULL,
     initials TEXT NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('admin','staff','advisor')),
+    role TEXT NOT NULL CHECK (role IN ('admin','staff','advisor','paint','alloy','dent')),
     pass_hash TEXT NOT NULL,
     ver INTEGER NOT NULL DEFAULT 1,
     active INTEGER NOT NULL DEFAULT 1,
@@ -190,9 +190,25 @@ function requireUser(req) {
   if (!u) throw new HttpError(401, 'Please sign in.');
   return u;
 }
+// Specialist logins can only tick their own bodywork job (and the alloy login can set wheels to refine).
+const ROLES = ['admin', 'staff', 'advisor', 'paint', 'alloy', 'dent'];
+const SPECIALIST = {
+  paint: { done: ['body_paint'], fields: [], name: 'Paint' },
+  alloy: { done: ['body_wheels'], fields: ['bodyWheels'], name: 'Alloys' },
+  dent: { done: ['body_dent'], fields: [], name: 'Dents' },
+};
+const DONE_BY_STAGE = [
+  ['arrived', ['advert', 'lines', 'qr']], ['valet', ['done']], ['photos', ['done']],
+  ['mech', ['pt145', 'service', 'motbook', 'qc']], ['body', ['cosmetic', 'dent', 'wheels', 'paint', 'qc']], ['ready', ['qc']],
+];
+function stageFromDone(done) {
+  for (const [k, items] of DONE_BY_STAGE) if (!items.every((t) => done[k + '_' + t] === true)) return k;
+  return 'ready';
+}
 function requireStaff(req) {
   const u = requireUser(req);
   if (u.role === 'advisor') throw new HttpError(403, 'Advisors can view progress but not change it.');
+  if (SPECIALIST[u.role]) throw new HttpError(403, 'Your login can only update ' + SPECIALIST[u.role].name.toLowerCase() + '.');
   return u;
 }
 function requireAdmin(req) {
@@ -649,11 +665,28 @@ async function handleApi(req, res, url) {
   if (carMatch) {
     const id = carMatch[1];
     if (method === 'PATCH') {
-      const u = requireStaff(req);
+      const u = requireUser(req);
+      if (u.role === 'advisor') throw new HttpError(403, 'Advisors can view progress but not change it.');
       const row = q.carById.get(id);
       if (!row) throw new HttpError(404, 'That car no longer exists.');
-      const b = await readJson(req);
-      const next = applyCarPatch(JSON.parse(row.data), b, u);
+      let b = await readJson(req);
+      const cur = JSON.parse(row.data);
+      const sp = SPECIALIST[u.role];
+      if (sp) {
+        // keep only this login's own job; the stage is worked out here from the ticks
+        const only = {};
+        const d = b && b.done && typeof b.done === 'object' ? b.done : {};
+        const doneKeys = Object.keys(d).filter((k) => sp.done.includes(k));
+        const fieldKeys = Object.keys(b || {}).filter((k) => sp.fields.includes(k));
+        if (!doneKeys.length && !fieldKeys.length) throw new HttpError(403, 'Your login can only update ' + sp.name.toLowerCase() + '.');
+        if (doneKeys.length) {
+          only.done = {}; doneKeys.forEach((k) => { only.done[k] = d[k]; });
+          only.stage = stageFromDone(Object.assign({}, cur.done, only.done));
+        }
+        fieldKeys.forEach((k) => { only[k] = b[k]; });
+        b = only;
+      }
+      const next = applyCarPatch(cur, b, u);
       q.updateCar.run(JSON.stringify(next), new Date().toISOString(), u.display, id);
       bump();
       return sendJson(res, 200, carOut(q.carById.get(id)));
@@ -679,7 +712,7 @@ async function handleApi(req, res, url) {
     const username = str(b.username).trim();
     const display = str(b.display).trim();
     const password = str(b.password);
-    const role = ['admin', 'advisor'].includes(b.role) ? b.role : 'staff';
+    const role = ROLES.includes(b.role) ? b.role : 'staff';
     if (!/^[a-z0-9._-]{3,32}$/i.test(username)) throw new HttpError(400, 'Username must be 3 to 32 letters, numbers, dots, dashes or underscores.');
     if (!display || display.length > 60) throw new HttpError(400, 'Enter the person\'s full name.');
     if (password.length < 8 || password.length > 200) throw new HttpError(400, 'Password must be at least 8 characters.');
@@ -714,7 +747,7 @@ async function handleApi(req, res, url) {
     let display = target.display;
     let initials = target.initials;
     if ('role' in b) {
-      if (!['admin', 'staff', 'advisor'].includes(b.role)) throw new HttpError(400, 'Unknown role.');
+      if (!ROLES.includes(b.role)) throw new HttpError(400, 'Unknown role.');
       role = b.role;
     }
     if ('active' in b) active = !!b.active;

@@ -132,7 +132,7 @@
 
   function signedOut(message) {
     stopPolling();
-    state.user = null; state.cars = new Map(); state.rev = null; state.loaded = false; state.open = null;
+    state.user = null; state.cars = new Map(); state.rev = null; state.loaded = false; state.open = null; state.f = 'all'; state.q = ''; try { $('#q').value = ''; } catch (e) { /* ignore */ }
     ['#ov-car', '#ov-new', '#ov-acct', '#ov-users', '#ov-reports'].forEach(function (s) { $(s).hidden = true; });
     showAuth('login', message || '');
   }
@@ -204,7 +204,7 @@
 
   function startApp() {
     var spr = state.user && SPECIALIST[state.user.role];
-    if (spr && state.f === 'all') state.f = spr.job;
+    if (spr) state.f = spr.job;
     // signed in after following a link to the user guide: go there now
     if (/[?&]next=guide\b/.test(location.search)) { location.replace('/guide'); return; }
     $('#auth').hidden = true;

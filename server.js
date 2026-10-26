@@ -46,7 +46,7 @@ db.exec('PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;');
 // Older databases allowed fewer roles. Rebuild the users table once so the CHECK lists every role.
 (function migrateRoles() {
   const t = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'").get();
-  if (t && t.sql.indexOf("'dent'") < 0) {
+  if (t && t.sql.indexOf("'valet'") < 0) {
     db.exec(`
       BEGIN;
       ALTER TABLE users RENAME TO users_old;
@@ -55,7 +55,7 @@ db.exec('PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;');
         username TEXT NOT NULL UNIQUE COLLATE NOCASE,
         display TEXT NOT NULL,
         initials TEXT NOT NULL,
-        role TEXT NOT NULL CHECK (role IN ('admin','staff','advisor','paint','alloy','dent')),
+        role TEXT NOT NULL CHECK (role IN ('admin','staff','advisor','paint','alloy','dent','valet')),
         pass_hash TEXT NOT NULL,
         ver INTEGER NOT NULL DEFAULT 1,
         active INTEGER NOT NULL DEFAULT 1,
@@ -73,7 +73,7 @@ db.exec(`
     username TEXT NOT NULL UNIQUE COLLATE NOCASE,
     display TEXT NOT NULL,
     initials TEXT NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('admin','staff','advisor','paint','alloy','dent')),
+    role TEXT NOT NULL CHECK (role IN ('admin','staff','advisor','paint','alloy','dent','valet')),
     pass_hash TEXT NOT NULL,
     ver INTEGER NOT NULL DEFAULT 1,
     active INTEGER NOT NULL DEFAULT 1,
@@ -190,12 +190,13 @@ function requireUser(req) {
   if (!u) throw new HttpError(401, 'Please sign in.');
   return u;
 }
-// Specialist logins can only tick their own bodywork job (and the alloy login can set wheels to refine).
-const ROLES = ['admin', 'staff', 'advisor', 'paint', 'alloy', 'dent'];
+// Technician logins can only tick their own job (the alloy login can also set wheels to refine).
+const ROLES = ['admin', 'staff', 'advisor', 'paint', 'alloy', 'dent', 'valet'];
 const SPECIALIST = {
   paint: { done: ['body_paint'], fields: [], name: 'Paint' },
   alloy: { done: ['body_wheels'], fields: ['bodyWheels'], name: 'Alloys' },
   dent: { done: ['body_dent'], fields: [], name: 'Dents' },
+  valet: { done: ['valet_done', 'photos_done'], fields: [], name: 'Valet and Photos' },
 };
 const DONE_BY_STAGE = [
   ['arrived', ['advert', 'lines', 'qr']], ['valet', ['done']], ['photos', ['done']],

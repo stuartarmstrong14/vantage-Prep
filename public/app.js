@@ -53,13 +53,14 @@
   var linkMatch = location.pathname.match(/^\/c\/([a-f0-9]{12})$/);
   state.deepLink = linkMatch ? linkMatch[1] : null;
 
-  var ROLE_LABELS = { admin: 'Administrator', staff: 'Staff', advisor: 'Advisor (view only)', paint: 'Paint (paint only)', alloy: 'Alloys (alloys only)', dent: 'Dents (dents only)' };
-  var ROLE_ORDER = ['staff', 'paint', 'alloy', 'dent', 'advisor', 'admin'];
+  var ROLE_LABELS = { admin: 'Administrator', staff: 'Staff', advisor: 'Advisor (view only)', valet: 'Valet Technician (valet and photos only)', paint: 'Paint Technician (paint only)', alloy: 'Alloy Technician (alloys only)', dent: 'Dent Technician (dents only)' };
+  var ROLE_ORDER = ['staff', 'valet', 'paint', 'alloy', 'dent', 'advisor', 'admin'];
   // Specialist logins see everything but can only tick their own bodywork job.
   var SPECIALIST = {
     paint: { done: ['body_paint'], fields: [], job: 'job:body_paint' },
     alloy: { done: ['body_wheels'], fields: ['bodyWheels'], job: 'job:body_wheels' },
-    dent: { done: ['body_dent'], fields: [], job: 'job:body_dent' }
+    dent: { done: ['body_dent'], fields: [], job: 'job:body_dent' },
+    valet: { done: ['valet_done', 'photos_done'], fields: [], job: 'need:valet' }
   };
   function roleLabel(r) { return ROLE_LABELS[r] || r; }
   function specialist() { return !!state.user && SPECIALIST[state.user.role] || null; }

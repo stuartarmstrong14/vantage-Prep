@@ -119,9 +119,18 @@ Administrators can find any check from the **145 point checks** search at the bo
 
 Files are stored inside the database, so they live on the Render disk (`/data`), are included in `npm run backup`, and use disk space. Keep an eye on the 1 GB disk if you upload a lot of large PDFs. Deleting a car deletes its check files.
 
-## Paint, Alloys and Dents logins
+## Technician logins
 
-Besides Staff, Advisor and Administrator, an administrator can give someone a **Paint**, **Alloys** or **Dents** login under Manage staff logins. These people see every car (read only) but can tick just their own Bodywork job: Paint work completed, Alloy wheels completed (plus how many wheels need refining) or Dents completed. Their stock list opens on the cars still needing their job. The server enforces this, so nothing else can be changed from those logins, and the stage still moves on by itself when their tick finishes Bodywork.
+Besides Staff, Advisor and Administrator, an administrator can give someone a technician login under Manage staff logins. Technicians see every car (read only) but can tick just their own job:
+
+| Login | Can tick | Also |
+| --- | --- | --- |
+| Valet Technician | Valet completed, Photographs completed | |
+| Paint Technician | Paint work completed | |
+| Alloy Technician | Alloy wheels completed | Wheels to refine |
+| Dent Technician | Dents completed | |
+
+Their stock list opens on the cars still needing their job. The server enforces this, so nothing else can be changed from those logins, and the stage still moves on by itself when their tick finishes a stage.
 
 ## User guide
 

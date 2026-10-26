@@ -231,7 +231,7 @@
   function stageDone(c, s) { var d = c.done || {}; return s.t.every(function (t) { return d[s.k + '_' + t[0]] === true; }); }
   function stageIdx(c) { var k = stageKey(c), i = STAGES.findIndex(function (s) { return s.k === k; }); return i < 0 ? 0 : i; }
   function carDays(c) {
-    var end = (stageKey(c) === 'ready' && c.readyAt) ? c.readyAt : todayStr();
+    var end = (isDone(c) && c.readyAt) ? c.readyAt : todayStr();
     return Math.max(0, dayNum(end) - dayNum(c.added || todayStr()));
   }
   function doneCount(c) {
@@ -240,7 +240,7 @@
     return n;
   }
   function daysClass(c) {
-    if (stageKey(c) === 'ready') return 'ok';
+    if (isDone(c)) return 'ok';
     var d = carDays(c);
     return d > TARGET ? 'bad' : (d >= TARGET - 1 ? 'warn' : '');
   }
@@ -269,7 +269,9 @@
 
   /* ---------- list ---------- */
   // Prep is completed once the car reaches the Quality Check stage.
-  function isDone(c) { return stageKey(c) === 'ready'; }
+  // Completed = every box ticked, including the final Quality check. Until then the car waits at Quality Check.
+  function isDone(c) { return stageKey(c) === 'ready' && (c.done || {}).ready_qc === true; }
+  function awaitingQc(c) { return stageKey(c) === 'ready' && !isDone(c); }
   // A car is archived automatically 30 days after it was completed (passed Quality Check),
   // or once it has been on the system for more than 365 days. Nothing is deleted.
   // A person can also archive a completed car by hand, or restore one (archived: true / false overrides both rules).
@@ -278,7 +280,7 @@
     if (c.archived === true) return true;
     if (c.archived === false) return false;
     var today = dayNum(todayStr());
-    if (c.readyAt && stageKey(c) === 'ready' && today - dayNum(c.readyAt) > ARCHIVE_AFTER_DONE) return true;
+    if (c.readyAt && isDone(c) && today - dayNum(c.readyAt) > ARCHIVE_AFTER_DONE) return true;
     return !!c.added && today - dayNum(c.added) > ARCHIVE_AFTER_ADDED;
   }
   // The drop-down filters by work still outstanding, not by the stage a car has reached:
@@ -288,6 +290,7 @@
     if (!f || f === 'all') return true;
     var m = /^(need|job):(.+)$/.exec(f); if (!m) return true;
     if (m[1] === 'job') return (c.done || {})[m[2]] !== true;
+    if (m[2] === 'ready') return awaitingQc(c);
     var st = STAGES.filter(function (x) { return x.k === m[2]; })[0];
     return st ? !stageDone(c, st) : true;
   }
@@ -313,7 +316,7 @@
     });
     out.sort(function (a, b) {
       if (q) { var sa = statusOf(a.c), sb = statusOf(b.c); if (sa !== sb) return sa - sb; }
-      var ra = stageKey(a.c) === 'ready', rb = stageKey(b.c) === 'ready';
+      var ra = isDone(a.c), rb = isDone(b.c);
       if (ra !== rb) return ra ? 1 : -1;
       return carDays(b.c) - carDays(a.c);
     });
@@ -325,7 +328,7 @@
     state.cars.forEach(function (c) { every.push(c); });
     var archived = every.filter(isArchived);
     var all = every.filter(function (c) { return !isArchived(c); });
-    var inPrep = all.filter(function (c) { return stageKey(c) !== 'ready'; });
+    var inPrep = all.filter(function (c) { return !isDone(c); });
     var completed = all.filter(isDone);
     var active = all.filter(function (c) { return !isDone(c); });
     var avg = inPrep.length ? Math.round(inPrep.reduce(function (n, c) { return n + carDays(c); }, 0) / inPrep.length * 10) / 10 : 0;
@@ -372,7 +375,7 @@
       list.innerHTML = '<div class="empty" style="grid-column:1/-1"><h2>No cars in prep</h2><p>Add the first car as it arrives. Each one gets a checklist from inbound through to quality check.</p>' + (readOnly() ? '' : '<button class="btn primary" type="button" data-act="add" style="min-height:48px;padding:0 26px">Add car</button>') + '</div>';
       return;
     }
-    if (!vis.length) { list.innerHTML = '<div class="empty" style="grid-column:1/-1"><p>' + (state.tab === 'done' && !state.q.trim() ? 'No cars have completed prep yet. A car moves here when it reaches Quality Check.' : state.tab === 'arch' && !state.q.trim() ? 'Nothing archived yet. A car moves here automatically 30 days after it is completed, or 365 days after it arrived. It is still counted in the reports.' : 'No cars match this search.') + '</p></div>'; return; }
+    if (!vis.length) { list.innerHTML = '<div class="empty" style="grid-column:1/-1"><p>' + (state.tab === 'done' && !state.q.trim() ? 'No cars have completed prep yet. A car moves here once every box is ticked, including the final quality check.' : state.tab === 'arch' && !state.q.trim() ? 'Nothing archived yet. A car moves here automatically 30 days after it is completed, or 365 days after it arrived. It is still counted in the reports.' : 'No cars match this search.') + '</p></div>'; return; }
     list.innerHTML = vis.map(function (r) { return cardHtml(r.id, r.c, srch); }).join('');
   }
   function cardHtml(id, c, showStatus) {
@@ -382,7 +385,7 @@
     var meta = [c.tag ? (/^tag/i.test(c.tag) ? c.tag : 'Tag ' + c.tag) : '', miles(c.mileage)].filter(Boolean).map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('');
     var tags = (showStatus ? '<span class="pill stat-' + ['prep', 'done', 'arch'][statusOf(c)] + '">' + ['In prep', 'Completed', 'Archived'][statusOf(c)] + '</span>' : '')
       + (mi ? '<span class="pill ' + mi.cls + '">' + esc(mi.t) + '</span>' : '');
-    var daysTxt = stageKey(c) === 'ready' ? ('Prepped in ' + d + 'd') : (d + (d === 1 ? ' day' : ' days') + ' in prep');
+    var daysTxt = isDone(c) ? ('Prepped in ' + d + 'd') : (d + (d === 1 ? ' day' : ' days') + ' in prep');
     return '<button class="car" type="button" data-open="' + esc(id) + '">'
       + '<div class="car-top"><span class="plate">' + esc(c.reg || 'No reg') + '</span><span class="pill num ' + dc + '">' + daysTxt + '</span></div>'
       + '<div class="car-name">' + esc(name || 'Unnamed car') + '</div>'
@@ -500,7 +503,7 @@
   function syncStage(id) {
     var c = state.cars.get(id); if (!c) return;
     var want = keyFromDone(c.done || {});
-    if (want !== c.stage) upd(id, { stage: want }, { readyAt: want === 'ready' ? todayStr() : '' });
+    if (want !== c.stage) upd(id, { stage: want }, { readyAt: want === 'ready' && (c.done || {}).ready_qc ? todayStr() : '' });
   }
   function doUpload(id, file, inp) {
     if (file.size > 15 * 1024 * 1024) { toast('That file is over 15 MB. Use a smaller file or a lower photo quality.'); inp.value = ''; return; }
@@ -530,7 +533,7 @@
       return '<div class="seg' + cls + '"><i></i><span>' + esc(st.s || st.l) + (cls === ' on' ? ' &#10003;' : '') + '</span></div>';
     }).join('');
     var d = carDays(c);
-    $('#m-days').innerHTML = '<span>Now at <b>' + esc(STAGES[stageIdx(c)].l) + '</b></span><span><b class="num">' + d + '</b> ' + (stageKey(c) === 'ready' ? 'days from arrival to quality check' : 'days in prep, target ' + TARGET) + '</span><span>Arrived <b>' + esc(fmtDate(c.added)) + '</b></span><span><b class="num">' + doneCount(c) + '</b> of ' + TOTAL + ' tasks done</span>';
+    $('#m-days').innerHTML = '<span>Now at <b>' + esc(STAGES[stageIdx(c)].l) + '</b></span><span><b class="num">' + d + '</b> ' + (isDone(c) ? 'days from arrival to completed' : 'days in prep, target ' + TARGET) + '</span><span>Arrived <b>' + esc(fmtDate(c.added)) + '</b></span><span><b class="num">' + doneCount(c) + '</b> of ' + TOTAL + ' tasks done</span>';
     $('#m-upd').textContent = c.updatedBy ? ('Last updated by ' + c.updatedBy + ', ' + new Date(c.updatedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })) : '';
 
     var ab = $('#m-arch'), arch = isArchived(c);
@@ -635,8 +638,12 @@
     // The stage follows the ticks. Reaching Quality Check means prep is complete.
     var after = Object.assign({}, c.done, o.done), want = keyFromDone(after), extra = null;
     if (want !== c.stage) {
-      o.stage = want; extra = { readyAt: want === 'ready' ? todayStr() : '' };
-      if (want === 'ready' && stageKey(c) !== 'ready') toast('All areas complete. Moved to Completed.');
+      o.stage = want; extra = { readyAt: want === 'ready' && after.ready_qc ? todayStr() : '' };
+      if (want === 'ready' && stageKey(c) !== 'ready') toast(after.ready_qc ? 'All boxes ticked. Moved to Completed.' : 'All prep done. Now waiting for the quality check.');
+    }
+    if (t === 'ready_qc' && stageKey(c) === 'ready') {
+      extra = { readyAt: e.target.checked ? todayStr() : '' };
+      toast(e.target.checked ? 'Quality check signed off. Moved to Completed.' : 'Quality check unticked. Back to waiting for the quality check.');
     }
     upd(state.open, o, extra);
   });
@@ -942,8 +949,8 @@
     if (view === 'pick') weekly = tabsHtml + pickHtml();
 
     // where the stock is now
-    var stageRows = STAGES.filter(function (s) { return s.k !== 'ready'; }).map(function (s) {
-      return { l: s.l, n: active.filter(function (c) { return stageKey(c) === s.k; }).length };
+    var stageRows = STAGES.map(function (s) {
+      return { l: s.k === 'ready' ? 'Waiting for quality check' : s.l, n: active.filter(function (c) { return stageKey(c) === s.k; }).length };
     });
     var smx = Math.max.apply(null, stageRows.map(function (r) { return r.n; }).concat([1]));
     var byStage = '<div class="hbars">' + stageRows.map(function (r) {

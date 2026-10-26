@@ -334,10 +334,7 @@ function applyCarPatch(cur, body, user) {
       else throw new HttpError(400, 'MOT date is not valid.');
     } else if (key === 'stage') {
       if (!STAGE_KEYS.includes(v)) throw new HttpError(400, 'Unknown stage.');
-      if (v !== cur.stage) {
-        next.stage = v;
-        next.readyAt = v === 'ready' ? todayStr() : '';
-      }
+      if (v !== cur.stage) next.stage = v;
     } else if (key === 'bodyWheels') {
       if (v === null || v === '') next.bodyWheels = null;
       else if (Number.isInteger(v) && v >= 0 && v <= 5) next.bodyWheels = v;
@@ -368,6 +365,10 @@ function applyCarPatch(cur, body, user) {
     }
     // any other key is ignored on purpose
   }
+  // Completed means every box ticked, including the final quality check. readyAt is the day that happened.
+  const finished = (d) => !!d && d.ready_qc === true && stageFromDone(d) === 'ready';
+  if (finished(next.done)) { if (!finished(cur.done) || !cur.readyAt) next.readyAt = todayStr(); }
+  else next.readyAt = '';
   stampHistory(cur, next, user);
   return next;
 }

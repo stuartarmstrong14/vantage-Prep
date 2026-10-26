@@ -146,7 +146,7 @@ The **Search** box on the home screen looks through every car: in prep, complete
 
 Under **How prep is going**, **Still to do, by department** shows a box for each department (Inbound, Valet, Photos, Mechanical, Bodywork, Quality Check). Each box shows how many cars in prep still need work from that department, whatever stage the car has reached: a car waiting at Valet with its mechanical boxes unticked counts under Mechanical too. Tapping **Bodywork** also opens **Bodywork jobs**, which counts cars still needing Cosmetic, Dents, Alloy wheels and Paint; they stay hidden otherwise. Tapping an open job again goes back to the Bodywork list.
 
-Tap a box to show only those cars in the stock list; tap it again (or **Show all**) to see everything. This replaces the old stage drop-down.
+Tap a box to show only those cars in the stock list; tap it again (or **Show all**) to see everything. The **Quality Check** box counts only cars where everything else is ticked and the final quality check is still to do. A car moves to **Completed** once that last box is ticked. This replaces the old stage drop-down.
 
 ## Cosmetic notes
 

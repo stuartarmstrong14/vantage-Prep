@@ -324,3 +324,14 @@ input.field,select.field,textarea.field,input[type="search"],input[type="text"],
 .pill.stat-prep{background:var(--surface-2);color:var(--ink)}
 .pill.stat-done{background:var(--ok-bg);color:var(--ok)}
 .pill.stat-arch{background:var(--warn-bg);color:var(--warn)}
+
+/* Data health */
+.hl-sum{border-radius:14px;padding:12px 16px;margin-bottom:12px}
+.hl-sum.good{background:var(--ok-bg);color:var(--ok)}
+.hl-sum.warn{background:var(--warn-bg);color:var(--warn)}
+.hl-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:10px}
+.hl-grid div{background:var(--surface-2);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.hl-grid b{font-size:26px;line-height:1}
+.hl-grid span{font-size:13px;color:var(--muted);font-weight:600}
+@media (max-width:520px){.hl-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+button.flink{font-family:inherit;cursor:pointer}

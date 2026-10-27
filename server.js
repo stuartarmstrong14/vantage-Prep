@@ -98,6 +98,13 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS files_car ON files (car_id);
 `);
 
+// Removed checks go to a recycle bin for 30 days instead of being deleted straight away.
+(function migrateFiles() {
+  const cols = db.prepare('PRAGMA table_info(files)').all().map((c) => c.name);
+  if (!cols.includes('deleted_at')) db.exec('ALTER TABLE files ADD COLUMN deleted_at TEXT');
+  if (!cols.includes('deleted_by')) db.exec('ALTER TABLE files ADD COLUMN deleted_by TEXT');
+})();
+
 const q = {
   countUsers: db.prepare('SELECT COUNT(*) AS c FROM users'),
   userById: db.prepare('SELECT * FROM users WHERE id = ?'),
@@ -112,6 +119,12 @@ const q = {
   deleteCar: db.prepare('DELETE FROM cars WHERE id = ?'),
   insertFile: db.prepare('INSERT INTO files (id, car_id, name, type, size, data, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'),
   fileById: db.prepare('SELECT * FROM files WHERE id = ?'),
+  binFile: db.prepare('UPDATE files SET deleted_at = ?, deleted_by = ? WHERE id = ?'),
+  binFilesForCar: db.prepare('UPDATE files SET deleted_at = ?, deleted_by = ? WHERE car_id = ? AND deleted_at IS NULL'),
+  unbinFile: db.prepare('UPDATE files SET deleted_at = NULL, deleted_by = NULL WHERE id = ?'),
+  purgeBin: db.prepare('DELETE FROM files WHERE deleted_at IS NOT NULL AND deleted_at < ?'),
+  fileMeta: db.prepare('SELECT id, car_id, name, type, size, created_at, created_by, deleted_at, deleted_by FROM files'),
+  fileIds: db.prepare('SELECT id FROM files'),
   deleteFile: db.prepare('DELETE FROM files WHERE id = ?'),
   deleteFilesForCar: db.prepare('DELETE FROM files WHERE car_id = ?'),
 };
@@ -601,11 +614,13 @@ async function handleApi(req, res, url) {
   if (upMatch && method === 'POST') {
     const u = requireStaff(req);
     const carId = upMatch[1];
-    const row = q.carById.get(carId);
-    if (!row) throw new HttpError(404, 'That car no longer exists.');
+    if (!q.carById.get(carId)) throw new HttpError(404, 'That car no longer exists.');
     const buf = await readRaw(req, MAX_UPLOAD);
     const type = sniffType(buf);
     if (!type) throw new HttpError(400, 'Upload a PDF or a photo (JPEG, PNG, WebP or HEIC).');
+    // read the car only now, after the upload has arrived, so changes made meanwhile are not overwritten
+    const row = q.carById.get(carId);
+    if (!row) throw new HttpError(404, 'That car no longer exists.');
     const cur = JSON.parse(row.data);
     const list = cur.checks || [];
     if (list.length >= MAX_FILES_PER_CAR) throw new HttpError(400, 'This car already has ' + MAX_FILES_PER_CAR + ' files. Remove one first.');
@@ -623,15 +638,46 @@ async function handleApi(req, res, url) {
       q.updateCar.run(JSON.stringify(next), now, u.display, carId);
       db.exec('COMMIT');
     } catch (e) { db.exec('ROLLBACK'); throw e; }
+    console.log('145 check uploaded for ' + (cur.reg || carId) + ' by ' + u.display + ' (' + name + ')');
     bump();
     return sendJson(res, 201, carOut(q.carById.get(carId)));
   }
 
+  /* ---------- data health (administrators) ---------- */
+  if (method === 'GET' && p === '/api/health') {
+    requireAdmin(req);
+    return sendJson(res, 200, healthReport());
+  }
+  if (method === 'POST' && p === '/api/health/reattach') {
+    const u = requireAdmin(req);
+    const n = reattachOrphans(u);
+    if (n) bump();
+    return sendJson(res, 200, { reattached: n, health: healthReport() });
+  }
+  const restoreMatch = p.match(/^\/api\/files\/([a-f0-9]{16})\/restore$/);
+  if (restoreMatch && method === 'POST') {
+    const u = requireAdmin(req);
+    const f = q.fileById.get(restoreMatch[1]);
+    if (!f) throw new HttpError(404, 'That file is no longer in the recycle bin.');
+    if (!q.carById.get(f.car_id)) throw new HttpError(400, 'The car this check belonged to has been deleted, so it cannot be put back.');
+    q.unbinFile.run(f.id);
+    attachFile(f, u);
+    console.log('145 check restored from recycle bin: ' + f.name + ' by ' + u.display);
+    bump();
+    return sendJson(res, 200, { ok: true, health: healthReport() });
+  }
+  if (method === 'POST' && p === '/api/health/recover') {
+    const u = requireAdmin(req);
+    const result = await recoverFromBackup(req, u);
+    if (result.recovered.length) bump();
+    return sendJson(res, 200, Object.assign(result, { health: healthReport() }));
+  }
+
   const fileMatch = p.match(/^\/api\/files\/([a-f0-9]{16})$/);
   if (fileMatch && method === 'GET') {
-    requireUser(req);
+    const viewer = requireUser(req);
     const f = q.fileById.get(fileMatch[1]);
-    if (!f) throw new HttpError(404, 'That file no longer exists.');
+    if (!f || (f.deleted_at && viewer.role !== 'admin')) throw new HttpError(404, 'That file no longer exists.');
     const ascii = f.name.replace(/[^A-Za-z0-9._ -]/g, '_');
     res.writeHead(200, {
       'Content-Type': f.type,
@@ -647,7 +693,7 @@ async function handleApi(req, res, url) {
   if (fileMatch && method === 'DELETE') {
     const u = requireStaff(req);
     const f = q.fileById.get(fileMatch[1]);
-    if (!f) throw new HttpError(404, 'That file no longer exists.');
+    if (!f || f.deleted_at) throw new HttpError(404, 'That file no longer exists.');
     const row = q.carById.get(f.car_id);
     const now = new Date().toISOString();
     if (row) {
@@ -658,7 +704,8 @@ async function handleApi(req, res, url) {
       stampHistory(cur, next, u);
       q.updateCar.run(JSON.stringify(next), now, u.display, row.id);
     }
-    q.deleteFile.run(f.id);
+    q.binFile.run(now, u.display, f.id);
+    console.log('145 check removed (kept in recycle bin 30 days): ' + f.name + ' by ' + u.display);
     bump();
     return sendJson(res, 200, row ? carOut(q.carById.get(row.id)) : { ok: true });
   }
@@ -669,9 +716,10 @@ async function handleApi(req, res, url) {
     if (method === 'PATCH') {
       const u = requireUser(req);
       if (u.role === 'advisor') throw new HttpError(403, 'Advisors can view progress but not change it.');
+      let b = await readJson(req);
+      // read the car only after the change has arrived, so nothing saved meanwhile (like a 145 check) is overwritten
       const row = q.carById.get(id);
       if (!row) throw new HttpError(404, 'That car no longer exists.');
-      let b = await readJson(req);
       const cur = JSON.parse(row.data);
       const sp = SPECIALIST[u.role];
       if (sp) {
@@ -694,9 +742,11 @@ async function handleApi(req, res, url) {
       return sendJson(res, 200, carOut(q.carById.get(id)));
     }
     if (method === 'DELETE') {
-      requireAdmin(req);
-      q.deleteFilesForCar.run(id);
+      const adm = requireAdmin(req);
+      const gone = q.carById.get(id);
+      q.binFilesForCar.run(new Date().toISOString(), adm.display, id);
       q.deleteCar.run(id);
+      console.log('car deleted: ' + (gone ? JSON.parse(gone.data).reg : id) + ' by ' + adm.display + ' (its 145 checks are in the recycle bin for 30 days)');
       bump();
       return sendJson(res, 200, { ok: true });
     }
@@ -783,6 +833,158 @@ async function handleApi(req, res, url) {
 
   throw new HttpError(404, 'Not found.');
 }
+
+
+/* ---------- keeping 145 checks safe ---------- */
+const normRegKey = (r) => String(r || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+function allCarsParsed() { return q.allCars.all().map((r) => ({ id: r.id, data: JSON.parse(r.data) })); }
+// Put a stored file back on its car's 145 check list (and tick the check).
+function attachFile(f, u) {
+  const row = q.carById.get(f.car_id);
+  if (!row) return false;
+  const cur = JSON.parse(row.data);
+  const list = cur.checks || [];
+  if (list.some((x) => x.id === f.id)) return false;
+  const next = Object.assign({}, cur, {
+    checks: list.concat([{ id: f.id, name: f.name, type: f.type, size: f.size, at: f.created_at, by: f.created_by }])
+      .sort((a, b) => (a.at < b.at ? -1 : 1)),
+    done: Object.assign({}, cur.done, { [CHECK_KEY]: true }),
+  });
+  stampHistory(cur, next, u);
+  q.updateCar.run(JSON.stringify(next), new Date().toISOString(), u.display, f.car_id);
+  return true;
+}
+function orphanFiles() {
+  const cars = allCarsParsed();
+  const linked = new Set();
+  const regOf = {};
+  cars.forEach((c) => { regOf[c.id] = c.data.reg; (c.data.checks || []).forEach((x) => linked.add(x.id)); });
+  return q.fileMeta.all().filter((f) => !f.deleted_at && !linked.has(f.id))
+    .map((f) => ({ id: f.id, name: f.name, size: f.size, at: f.created_at, by: f.created_by, reg: regOf[f.car_id] || null, carExists: !!regOf[f.car_id] }));
+}
+function reattachOrphans(u) {
+  let n = 0;
+  orphanFiles().forEach((o) => { if (o.carExists && attachFile(q.fileById.get(o.id), u)) n++; });
+  if (n) console.log(n + ' unattached 145 check(s) reattached by ' + u.display);
+  return n;
+}
+const BACKUP_DIR = path.join(DATA_DIR, 'backups');
+function listBackups() {
+  try {
+    return fs.readdirSync(BACKUP_DIR).filter((f) => /^auto-.*\.db$/.test(f))
+      .map((f) => { const st = fs.statSync(path.join(BACKUP_DIR, f)); return { name: f, size: st.size, at: st.mtime.toISOString() }; })
+      .sort((a, b) => (a.at < b.at ? 1 : -1));
+  } catch (e) { return []; }
+}
+function diskSpace() {
+  try { const st = fs.statfsSync(DATA_DIR); return { free: st.bavail * st.bsize, total: st.blocks * st.bsize }; } catch (e) { return null; }
+}
+// Copies the whole database into /data/backups. Keeps the newest 14, and fewer if the disk is getting full.
+function autoBackup(reason) {
+  try {
+    if (!q.allCars.all().length) return null;
+    fs.mkdirSync(BACKUP_DIR, { recursive: true });
+    const d = new Date(), p2 = (n) => String(n).padStart(2, '0');
+    const name = 'auto-' + d.getUTCFullYear() + p2(d.getUTCMonth() + 1) + p2(d.getUTCDate()) + '-' + p2(d.getUTCHours()) + p2(d.getUTCMinutes()) + p2(d.getUTCSeconds()) + '-' + reason + '.db';
+    db.exec("VACUUM INTO '" + path.join(BACKUP_DIR, name).replace(/'/g, "''") + "'");
+    let list = listBackups();
+    while (list.length > 14) { fs.unlinkSync(path.join(BACKUP_DIR, list.pop().name)); }
+    let sp = diskSpace();
+    while (sp && list.length > 2 && sp.free < sp.total * 0.25) { fs.unlinkSync(path.join(BACKUP_DIR, list.pop().name)); list = listBackups(); sp = diskSpace(); }
+    console.log('automatic backup saved: ' + name);
+    return name;
+  } catch (e) { console.error('automatic backup failed:', e.message); return null; }
+}
+function onSeparateDisk() {
+  try { return fs.statSync(DATA_DIR).dev !== fs.statSync('/').dev; } catch (e) { return null; }
+}
+function healthReport() {
+  const cars = allCarsParsed();
+  const files = q.fileMeta.all();
+  const live = files.filter((f) => !f.deleted_at);
+  const regOf = {}; cars.forEach((c) => { regOf[c.id] = c.data.reg; });
+  const linked = cars.reduce((n, c) => n + (c.data.checks || []).length, 0);
+  const tickedNoFile = cars.filter((c) => (c.data.done || {})[CHECK_KEY] === true && !(c.data.checks || []).length).map((c) => c.data.reg);
+  const bin = files.filter((f) => f.deleted_at).map((f) => ({ id: f.id, name: f.name, reg: regOf[f.car_id] || null, carExists: !!regOf[f.car_id], at: f.created_at, deletedAt: f.deleted_at, deletedBy: f.deleted_by }))
+    .sort((a, b) => (a.deletedAt < b.deletedAt ? 1 : -1));
+  return {
+    dataDir: DATA_DIR, separateDisk: onSeparateDisk(), disk: diskSpace(),
+    cars: cars.length, checkFiles: live.length, checksOnCars: linked,
+    unattached: orphanFiles(), tickedNoFile, bin, backups: listBackups(),
+  };
+}
+// An administrator uploads a downloaded backup; any 145 check in it that is missing here is put back on the same car (matched by registration).
+function saveUpload(req, limit) {
+  return new Promise((resolve, reject) => {
+    const tmp = path.join(os.tmpdir(), 'recover-' + crypto.randomBytes(6).toString('hex') + '.db');
+    const out = fs.createWriteStream(tmp);
+    let size = 0, failed = false;
+    req.on('data', (c) => {
+      if (failed) return;
+      size += c.length;
+      if (size > limit) { failed = true; out.destroy(); fs.unlink(tmp, () => {}); reject(new HttpError(413, 'That file is too large to be a backup.')); return; }
+      if (!out.write(c)) { req.pause(); out.once('drain', () => req.resume()); }
+    });
+    req.on('end', () => { if (!failed) out.end(() => resolve(tmp)); });
+    req.on('error', (e) => { failed = true; out.destroy(); fs.unlink(tmp, () => {}); reject(e); });
+  });
+}
+async function recoverFromBackup(req, u) {
+  const tmp = await saveUpload(req, 900 * 1024 * 1024);
+  let old;
+  try {
+    const head = Buffer.alloc(16); const fd = fs.openSync(tmp, 'r'); fs.readSync(fd, head, 0, 16, 0); fs.closeSync(fd);
+    if (head.toString('latin1') !== 'SQLite format 3\u0000') throw new HttpError(400, 'That is not a 145 Prepped backup file.');
+    old = new DatabaseSync(tmp, { readOnly: true });
+    const hasFiles = old.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'files'").get();
+    if (!old.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'cars'").get()) throw new HttpError(400, 'That is not a 145 Prepped backup file.');
+    if (!hasFiles) return { recovered: [], skipped: 0, message: 'That backup has no 145 checks in it.' };
+    const oldCols = old.prepare('PRAGMA table_info(files)').all().map((c) => c.name);
+    const oldCars = {};
+    old.prepare('SELECT id, data FROM cars').all().forEach((r) => { const d = JSON.parse(r.data); oldCars[r.id] = d; });
+    const nowCars = allCarsParsed();
+    const byId = {}, byReg = {};
+    nowCars.forEach((c) => { byId[c.id] = c; byReg[normRegKey(c.data.reg)] = c; });
+    const have = new Set(q.fileIds.all().map((r) => r.id));
+    const ids = old.prepare('SELECT id, car_id' + (oldCols.includes('deleted_at') ? ', deleted_at' : '') + ' FROM files').all();
+    const getOld = old.prepare('SELECT * FROM files WHERE id = ?');
+    const recovered = []; let skipped = 0;
+    db.exec('BEGIN');
+    try {
+      for (const r of ids) {
+        if (r.deleted_at) { skipped++; continue; }
+        const oc = oldCars[r.car_id];
+        const target = byId[r.car_id] || (oc && byReg[normRegKey(oc.reg)]);
+        if (!target) { skipped++; continue; }
+        if (!have.has(r.id)) {
+          const f = getOld.get(r.id);
+          q.insertFile.run(f.id, target.id, f.name, f.type, f.size, f.data, f.created_at, f.created_by);
+          have.add(f.id);
+          if (attachFile(q.fileById.get(f.id), u)) recovered.push({ reg: target.data.reg, name: f.name });
+        } else {
+          const f = q.fileById.get(r.id);
+          if (f && !f.deleted_at && attachFile(f, u)) recovered.push({ reg: target.data.reg, name: f.name });
+          else skipped++;
+        }
+      }
+      db.exec('COMMIT');
+    } catch (e) { db.exec('ROLLBACK'); throw e; }
+    console.log('recovered ' + recovered.length + ' 145 check(s) from a backup, by ' + u.display);
+    return { recovered, skipped };
+  } finally {
+    try { if (old) old.close(); } catch (e) { /* ignore */ }
+    fs.unlink(tmp, () => {});
+  }
+}
+// Every start (which is every update) and every day: back up first, then empty the recycle bin of anything older than 30 days.
+function dailyCare(reason) {
+  autoBackup(reason);
+  const cutoff = new Date(Date.now() - 30 * 86400000).toISOString();
+  const r = q.purgeBin.run(cutoff);
+  if (r.changes) console.log('recycle bin: ' + r.changes + ' check(s) older than 30 days removed for good');
+}
+dailyCare('startup');
+setInterval(() => dailyCare('daily'), 24 * 3600 * 1000).unref();
 
 /* ---------- static files ---------- */
 const MIME = {

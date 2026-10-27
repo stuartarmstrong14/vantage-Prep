@@ -486,7 +486,7 @@
     $('#ov-car').hidden = true; state.open = null;
     if (location.pathname !== '/') { try { history.replaceState(null, '', '/'); } catch (e) { /* ignore */ } }
   }
-  function fmtSize(n) { return n >= 1048576 ? (Math.round(n / 104857.6) / 10) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
+  function fmtSize(n) { return n >= 1073741824 ? (Math.round(n / 107374182.4) / 10) + ' GB' : n >= 1048576 ? (Math.round(n / 104857.6) / 10) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
   // The 145 point check is completed by uploading the paperwork, not by a tick box.
   function uploadRowHtml(c, tid, label, on) {
     var files = c.checks || [], ro = readOnly();
@@ -770,6 +770,73 @@
         + '</div></div>';
     }).join('');
   }
+  /* ---------- data health (administrators) ---------- */
+  function fmtWhen(iso) { try { return new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: TZ }); } catch (e) { return iso; } }
+  function renderHealth(h) {
+    var ok = !h.unattached.length && h.separateDisk !== false;
+    var last = h.backups[0];
+    var html = '<div class="block"><div class="hl-sum ' + (ok ? 'good' : 'warn') + '"><b>' + (ok ? 'Every stored 145 point check is attached to its car.' : h.unattached.length ? 'Some stored checks are not showing on their car. Reattach them below.' : 'The data folder is not on its own disk. Check the Render disk.') + '</b></div>'
+      + '<div class="hl-grid">'
+      + '<div><b class="num">' + h.cars + '</b><span>Cars</span></div>'
+      + '<div><b class="num">' + h.checkFiles + '</b><span>145 check files stored</span></div>'
+      + '<div><b class="num">' + h.checksOnCars + '</b><span>Attached to cars</span></div>'
+      + '<div><b class="num">' + h.backups.length + '</b><span>Automatic backups</span></div></div>'
+      + '<p class="muted-s">Data folder ' + esc(h.dataDir) + (h.separateDisk === true ? ' on its own disk (kept through updates).' : h.separateDisk === false ? ' is <b>not</b> on a separate disk. Updates could wipe it. Check the Render disk.' : '.')
+      + (h.disk ? ' Free space ' + fmtSize(h.disk.free) + ' of ' + fmtSize(h.disk.total) + '.' : '')
+      + (last ? ' Last automatic backup ' + esc(fmtWhen(last.at)) + '.' : ' No automatic backup yet.') + '</p></div>';
+    html += '<div class="block"><h3>Unattached checks (' + h.unattached.length + ')</h3>'
+      + (h.unattached.length ? '<p class="muted-s">These files are stored safely but are not showing on their car.</p><div class="rp-list">' + h.unattached.map(function (o) {
+        return '<div class="rp-row plain"><span class="l"><b>' + esc(o.reg || 'Car deleted') + '</b><small>' + esc(o.name) + ' · uploaded ' + esc(fmtWhen(o.at)) + ' by ' + esc(o.by) + '</small></span><span class="flinks"><a class="flink" href="/api/files/' + esc(o.id) + '" target="_blank" rel="noopener">View</a></span></div>';
+      }).join('') + '</div><div class="row"><button class="btn primary" id="hl-reattach" type="button" style="min-height:46px;padding:0 22px">Reattach to their cars</button></div>'
+        : '<p class="muted-s">None. Every stored check is showing on its car.</p>') + '</div>';
+    html += '<div class="block"><h3>Ticked without a file (' + h.tickedNoFile.length + ')</h3>'
+      + (h.tickedNoFile.length ? '<p class="muted-s">These cars show the 145 check as done but have no file. Most were ticked before uploads were added. If one should have a file, recover it from a backup below.</p><p>' + h.tickedNoFile.map(esc).join(', ') + '</p>'
+        : '<p class="muted-s">None.</p>') + '</div>';
+    html += '<div class="block"><h3>Recycle bin (' + h.bin.length + ')</h3>'
+      + (h.bin.length ? '<p class="muted-s">Removed checks are kept for 30 days.</p><div class="rp-list">' + h.bin.map(function (o) {
+        return '<div class="rp-row plain"><span class="l"><b>' + esc(o.reg || 'Car deleted') + '</b><small>' + esc(o.name) + ' · removed ' + esc(fmtWhen(o.deletedAt)) + ' by ' + esc(o.deletedBy || 'unknown') + '</small></span><span class="flinks"><a class="flink" href="/api/files/' + esc(o.id) + '" target="_blank" rel="noopener">View</a>'
+          + (o.carExists ? '<button type="button" class="flink" data-restore="' + esc(o.id) + '">Restore</button>' : '') + '</span></div>';
+      }).join('') + '</div>' : '<p class="muted-s">Empty.</p>') + '</div>';
+    $('#hl-body').innerHTML = html;
+  }
+  function loadHealth() {
+    return api('GET', '/api/health').then(renderHealth).catch(function (ex) {
+      if (!ex || ex.code !== 'unauth') $('#hl-body').innerHTML = '<div class="block"><p class="formerr light">' + esc((ex && ex.message) || 'Could not check the data.') + '</p></div>';
+    });
+  }
+  $('#ac-health').addEventListener('click', function () {
+    $('#ov-acct').hidden = true; $('#ov-health').hidden = false; $('#hl-status').textContent = ''; loadHealth(); $('#hl-close').focus();
+  });
+  $('#hl-close').addEventListener('click', function () { $('#ov-health').hidden = true; });
+  $('#hl-body').addEventListener('click', function (e) {
+    if (e.target.closest('#hl-reattach')) {
+      e.target.disabled = true;
+      api('POST', '/api/health/reattach', {}).then(function (r) { renderHealth(r.health); toast(r.reattached + (r.reattached === 1 ? ' check reattached.' : ' checks reattached.')); refresh(true); })
+        .catch(function (ex) { toast((ex && ex.message) || 'Could not reattach.'); e.target.disabled = false; });
+      return;
+    }
+    var rb = e.target.closest('[data-restore]');
+    if (rb) {
+      rb.disabled = true;
+      api('POST', '/api/files/' + rb.dataset.restore + '/restore', {}).then(function (r) { renderHealth(r.health); toast('Check restored to its car.'); refresh(true); })
+        .catch(function (ex) { toast((ex && ex.message) || 'Could not restore.'); rb.disabled = false; });
+    }
+  });
+  $('#hl-file').addEventListener('change', function (e) {
+    var f = e.target.files && e.target.files[0]; if (!f) return;
+    var st = $('#hl-status'); st.textContent = 'Reading ' + f.name + '…';
+    fetch('/api/health/recover', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/octet-stream' }, body: f })
+      .then(function (r) { return r.json().catch(function () { return null; }).then(function (d) { return { status: r.status, data: d }; }); })
+      .then(function (res) {
+        if (res.status >= 300) throw { message: (res.data && res.data.error) || 'Could not read that backup.' };
+        var d = res.data, n = d.recovered.length;
+        st.textContent = n ? n + (n === 1 ? ' check' : ' checks') + ' put back: ' + d.recovered.map(function (x) { return x.reg; }).join(', ') : (d.message || 'Nothing was missing. Every check in that backup is already here.');
+        renderHealth(d.health); if (n) refresh(true);
+      })
+      .catch(function (ex) { st.textContent = (ex && ex.message) || 'Could not read that backup.'; })
+      .then(function () { e.target.value = ''; });
+  });
+
   $('#ac-users').addEventListener('click', function () {
     $('#ov-acct').hidden = true; $('#us-form').reset(); $('#u-err').hidden = true;
     $('#ov-users').hidden = false; loadUsers(); $('#us-close').focus();

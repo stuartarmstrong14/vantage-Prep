@@ -119,6 +119,16 @@ Administrators can find any check from the **145 point checks** search at the bo
 
 Files are stored inside the database, so they live on the Render disk (`/data`), are included in `npm run backup`, and use disk space. Keep an eye on the 1 GB disk if you upload a lot of large PDFs. Deleting a car deletes its check files.
 
+## Keeping 145 point checks safe
+
+- **Your data is only on the Render disk** (`/data`). GitHub holds the code, never the data, so pushing an update replaces code only. Never remove the disk or change its mount path.
+- **Automatic backups:** every time the app starts (which happens on every update) and once a day, it saves a full copy of the database to `/data/backups`. It keeps the newest 14, fewer if the disk gets more than 75% full.
+- **Recycle bin:** removing a 145 check, or deleting a car, keeps its check files for 30 days. The app logs who removed what.
+- **Data health** (Account -> Data health and recovery, administrators): shows how many checks are stored and attached, lists any check that is stored but not showing on its car (**Reattach to their cars**), lists cars ticked without a file, shows the recycle bin (**Restore**), the automatic backups, and lets you **recover checks from a downloaded backup**. Recovery only adds missing checks back to the same car, matched by registration; nothing else is changed or rolled back.
+- **Safety test before every update:** `npm test` uploads checks and runs overlapping saves, a lost link, a removal and restore, a restart and a recovery from backup, and fails if any check goes missing. Run it before pushing.
+- **Saves no longer overwrite each other:** the server reads a car only after an upload or change has fully arrived, so a slow upload and someone ticking a box at the same moment can't undo each other.
+- **Weekly:** an administrator should still use **Download backup** and keep the file off the server. Render also snapshots the disk daily for 7 days, but restoring a snapshot rolls back everything since, so try Data health first.
+
 ## Technician logins
 
 Besides Staff, Advisor and Administrator, an administrator can give someone a technician login under Manage staff logins. Technicians see every car (read only) but can tick just their own job:

@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning server.js",
     "reset-password": "node --disable-warning=ExperimentalWarning scripts/reset-password.js",
-    "backup": "node --disable-warning=ExperimentalWarning scripts/backup.js"
+    "backup": "node --disable-warning=ExperimentalWarning scripts/backup.js",
+    "test": "node --disable-warning=ExperimentalWarning scripts/test-data-safety.js"
   },
   "engines": {
     "node": ">=22.13.0"

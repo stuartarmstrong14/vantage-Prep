@@ -51,9 +51,10 @@
   </header>
 
   <section class="hero" aria-label="Find a car">
-    <p class="kicker">Search our stock</p>
+    <p class="kicker" id="centre-kicker">Search our stock</p>
     <h1>Get every car forecourt ready</h1>
     <div class="panel">
+      <label class="centre-wrap" id="centre-wrap" hidden><span class="vh">Centre</span><select class="pillfield" id="centre-sel" aria-label="Centre"></select></label>
       <input class="pillfield" id="q" type="search" placeholder="Registration, tag, make or model" aria-label="Search all cars" autocomplete="off" enterkeyhint="search">
       <button class="pillbtn" id="go" type="button">Search</button>
     </div>
@@ -153,6 +154,7 @@
         <label>Make<input class="field" id="n-make" required maxlength="40" placeholder="Ford"></label>
         <label>Model<input class="field" id="n-model" required maxlength="40" placeholder="Focus"></label>
         <label>Tag number<input class="field" id="n-tag" maxlength="12" placeholder="T1042"></label>
+        <label id="n-centre-wrap" hidden>Centre<select class="field" id="n-centre"></select></label>
         <label>Mileage<input class="field num" id="n-miles" type="number" inputmode="numeric" min="0" max="2000000" placeholder="42000"></label>
       </div>
       <div class="prepreq"><span class="lbl">Prep requested</span><div class="pqs big" id="n-prep">
@@ -178,10 +180,12 @@
     <div class="block" id="ac-admin" hidden>
       <h3>Staff</h3>
       <div><button class="btn primary" id="ac-users" type="button" style="min-height:48px;padding:0 24px">Manage staff logins</button></div>
+      <div id="ac-owner-only">
       <h3 style="margin-top:14px">Backup</h3>
       <p class="muted-s">Download a full copy of everything: cars, history, logins and uploaded 145 point checks. Keep it somewhere safe, such as a work drive. Once a week is a good habit.</p>
       <div class="row" style="gap:10px;flex-wrap:wrap"><button class="btn" id="ac-health" type="button" style="min-height:48px;padding:0 24px">Data health and recovery</button></div>
       <div><a class="btn" id="ac-backup" href="/api/backup" style="min-height:48px;padding:0 24px;display:inline-flex;align-items:center;text-decoration:none">Download backup</a></div>
+      </div>
     </div>
     <div class="block">
       <h3>Help</h3>
@@ -232,6 +236,10 @@
         <label for="u-display">Full name<input class="field" id="u-display" maxlength="60" required></label>
         <label for="u-user">Username<input class="field" id="u-user" maxlength="32" autocapitalize="none" spellcheck="false" required></label>
         <label for="u-pass">Starting password<input class="field" id="u-pass" type="text" minlength="8" maxlength="200" autocomplete="off" required></label>
+        <label for="u-centre" id="u-centre-wrap" hidden>Centre
+          <select class="field" id="u-centre"></select>
+          <small class="muted-s" id="u-centre-note" hidden>Directors see every centre.</small>
+        </label>
         <label for="u-role">Role
           <select class="field" id="u-role"><option value="staff">Staff</option><option value="valet">Valet Technician (valet and photos only)</option><option value="paint">Paint Technician (paint only)</option><option value="alloy">Alloy Technician (alloys only)</option><option value="dent">Dent Technician (dents only)</option><option value="advisor">Advisor (view only)</option><option value="admin">Administrator</option></select>
         </label>

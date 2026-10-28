@@ -335,3 +335,12 @@ input.field,select.field,textarea.field,input[type="search"],input[type="text"],
 .hl-grid span{font-size:13px;color:var(--muted);font-weight:600}
 @media (max-width:520px){.hl-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 button.flink{font-family:inherit;cursor:pointer}
+
+/* Group version: centre switcher and comparison */
+.centre-wrap{display:block}
+.centre-wrap select{font-weight:700}
+.rp-cmp td.bad{color:var(--bad);font-weight:700}
+.rp-cmp .rp-ce{color:var(--navy);font-size:15px;padding:0;min-height:0;text-align:left;text-decoration:underline}
+.rp-cmp{min-width:660px}
+.rp-cmp th{white-space:nowrap}
+.rp-cmp td:first-child{white-space:nowrap}

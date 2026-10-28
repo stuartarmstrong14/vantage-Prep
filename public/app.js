@@ -42,7 +42,7 @@
   }
 
   var state = {
-    user: null, cars: new Map(), rev: null, f: 'all', q: '', open: null,
+    user: null, cars: new Map(), allCars: new Map(), centres: [], centre: 'all', rev: null, f: 'all', q: '', open: null,
     expanded: new Set(), loaded: false, err: '', pending: 0, tab: 'prep'
   };
   var timers = {};
@@ -53,7 +53,7 @@
   var linkMatch = location.pathname.match(/^\/c\/([a-f0-9]{12})$/);
   state.deepLink = linkMatch ? linkMatch[1] : null;
 
-  var ROLE_LABELS = { admin: 'Administrator', staff: 'Staff', advisor: 'Advisor (view only)', valet: 'Valet Technician (valet and photos only)', paint: 'Paint Technician (paint only)', alloy: 'Alloy Technician (alloys only)', dent: 'Dent Technician (dents only)' };
+  var ROLE_LABELS = { owner: 'Group owner', director: 'Director (all centres, view only)', principal: 'Centre principal', admin: 'Administrator', staff: 'Staff', advisor: 'Advisor (view only)', valet: 'Valet Technician (valet and photos only)', paint: 'Paint Technician (paint only)', alloy: 'Alloy Technician (alloys only)', dent: 'Dent Technician (dents only)' };
   var ROLE_ORDER = ['staff', 'valet', 'paint', 'alloy', 'dent', 'advisor', 'admin'];
   // Specialist logins see everything but can only tick their own bodywork job.
   var SPECIALIST = {
@@ -64,7 +64,36 @@
   };
   function roleLabel(r) { return ROLE_LABELS[r] || r; }
   function specialist() { return !!state.user && SPECIALIST[state.user.role] || null; }
-  function readOnly() { return !!state.user && (state.user.role === 'advisor' || !!SPECIALIST[state.user.role]); }
+  function readOnly() { return !!state.user && (state.user.role === 'advisor' || state.user.role === 'director' || !!SPECIALIST[state.user.role]); }
+  /* ---------- centres (group version) ---------- */
+  // Group logins (owner, director) see every centre and can switch between them; everyone else sees only their own centre.
+  function role() { return state.user ? state.user.role : ''; }
+  function isGroup() { return role() === 'owner' || role() === 'director'; }
+  function isOwner() { return role() === 'owner' || role() === 'admin'; }
+  function canManage() { return role() === 'owner' || role() === 'principal' || role() === 'admin'; }
+  function canReport() { return canManage() || role() === 'director'; }
+  function centreName(id) { var c = (state.centres || []).filter(function (x) { return x.id === id; })[0]; return c ? c.name : ''; }
+  function scopeCars() {
+    var m = new Map();
+    state.allCars.forEach(function (c, id) { if (!isGroup() || state.centre === 'all' || c.centre === state.centre) m.set(id, c); });
+    state.cars = m;
+  }
+  function renderCentreSel() {
+    var sel = $('#centre-sel'), wrap = $('#centre-wrap');
+    if (!state.centres || !state.centres.length) { wrap.hidden = true; $('#centre-kicker').textContent = 'Search our stock'; return; }
+    if (!isGroup()) { wrap.hidden = true; $('#centre-kicker').textContent = centreName(state.user.centre) || 'Search our stock'; return; }
+    wrap.hidden = false;
+    var count = function (id) { var n = 0; state.allCars.forEach(function (c) { if ((id === 'all' || c.centre === id) && !isDone(c) && !isArchived(c)) n++; }); return n; };
+    var brands = []; state.centres.forEach(function (c) { if (brands.indexOf(c.brand) < 0) brands.push(c.brand); });
+    var html = '<option value="all">All centres (' + count('all') + ' in prep)</option>' + brands.map(function (b) {
+      return '<optgroup label="' + esc(b) + '">' + state.centres.filter(function (c) { return c.brand === b; }).map(function (c) {
+        return '<option value="' + esc(c.id) + '">' + esc(c.name) + ' (' + count(c.id) + ')</option>';
+      }).join('') + '</optgroup>';
+    }).join('');
+    if (sel.dataset.sig !== html) { sel.innerHTML = html; sel.dataset.sig = html; }
+    sel.value = state.centre;
+    $('#centre-kicker').textContent = state.centre === 'all' ? 'All 13 centres' : centreName(state.centre);
+  }
   // For a specialist, switch on only their own tick box (and wheels to refine for alloys); everything else stays locked.
   function lockForRole() {
     var sp = specialist(); if (!sp) return;
@@ -123,7 +152,7 @@
     btn.disabled = true;
     api('POST', authMode === 'setup' ? '/api/setup' : '/api/login', body).then(function (r) {
       $('#a-pass').value = '';
-      state.user = r.user;
+      state.user = r.user; state.centres = r.centres || []; state.centre = 'all';
       startApp();
     }).catch(function (ex) {
       err.textContent = (ex && ex.message) || 'Could not reach the server. Check your connection.';
@@ -133,7 +162,7 @@
 
   function signedOut(message) {
     stopPolling();
-    state.user = null; state.cars = new Map(); state.rev = null; state.loaded = false; state.open = null; state.f = 'all'; state.q = ''; try { $('#q').value = ''; } catch (e) { /* ignore */ }
+    state.user = null; state.cars = new Map(); state.allCars = new Map(); state.centres = []; state.centre = 'all'; state.rev = null; state.loaded = false; state.open = null; state.f = 'all'; state.q = ''; try { $('#q').value = ''; } catch (e) { /* ignore */ }
     ['#ov-car', '#ov-new', '#ov-acct', '#ov-users', '#ov-reports'].forEach(function (s) { $(s).hidden = true; });
     showAuth('login', message || '');
   }
@@ -156,8 +185,9 @@
       if (r.unchanged && state.loaded) return;
       var m = new Map();
       r.cars.forEach(function (c) { m.set(c.id, c); });
-      if (state.loaded) announce(state.cars, m);
-      state.cars = m;
+      if (state.loaded) announce(state.allCars, m);
+      state.allCars = m;
+      scopeCars();
       state.loaded = true;
       render();
       if (state.open) renderSheet();
@@ -203,6 +233,7 @@
   }
   document.addEventListener('click', function (e) { var b = $('#notice'); if (b && !b.hidden && b.contains(e.target)) b.hidden = true; });
 
+  $('#u-role').addEventListener('change', syncCentreField);
   function startApp() {
     var spr = state.user && SPECIALIST[state.user.role];
     if (spr) state.f = spr.job;
@@ -212,7 +243,7 @@
     $('#app').hidden = false;
     $('#a-user').value = '';
     $('#add-btn').hidden = readOnly();
-    $('#rep-btn').hidden = !state.user || state.user.role !== 'admin';
+    $('#rep-btn').hidden = !canReport();
     render();
     refresh(true);
     startPolling();
@@ -324,6 +355,7 @@
   }
   function render() {
     if (!state.user) return;
+    renderCentreSel();
     var every = [];
     state.cars.forEach(function (c) { every.push(c); });
     var archived = every.filter(isArchived);
@@ -382,7 +414,7 @@
     var d = carDays(c), dc = daysClass(c), mi = motInfo(c);
     var st = STAGES[stageIdx(c)];
     var name = [c.make, c.model].filter(Boolean).join(' ');
-    var meta = [c.tag ? (/^tag/i.test(c.tag) ? c.tag : 'Tag ' + c.tag) : '', miles(c.mileage)].filter(Boolean).map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('');
+    var meta = [isGroup() && state.centre === 'all' && c.centre ? centreName(c.centre) : '', c.tag ? (/^tag/i.test(c.tag) ? c.tag : 'Tag ' + c.tag) : '', miles(c.mileage)].filter(Boolean).map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('');
     var tags = (showStatus ? '<span class="pill stat-' + ['prep', 'done', 'arch'][statusOf(c)] + '">' + ['In prep', 'Completed', 'Archived'][statusOf(c)] + '</span>' : '')
       + (mi ? '<span class="pill ' + mi.cls + '">' + esc(mi.t) + '</span>' : '');
     var daysTxt = isDone(c) ? ('Prepped in ' + d + 'd') : (d + (d === 1 ? ' day' : ' days') + ' in prep');
@@ -458,7 +490,7 @@
     }).join('');
     $('#m-notes').value = c.notes || '';
     renderPrepChips(c);
-    $('#m-del').hidden = state.user.role !== 'admin';
+    $('#m-del').hidden = !canManage();
     $('#m-body').disabled = readOnly();
     $('#m-qr').hidden = readOnly();
     lockForRole();
@@ -587,6 +619,10 @@
     if (e.target.id === 'f-clear') { state.f = 'all'; render(); }
     if (e.target.id === 'q-clear') { clearSearch(); render(); }
   });
+  $('#centre-sel').addEventListener('change', function (e) {
+    state.centre = e.target.value; state.f = 'all'; scopeCars(); render();
+    if (!$('#ov-reports').hidden) renderReports();
+  });
   $('#q').addEventListener('input', function (e) { state.q = e.target.value; if (state.q.trim()) state.f = 'all'; render(); });
   function toList() {
     var el = $('#stock');
@@ -702,7 +738,10 @@
     var b = e.target.closest && e.target.closest('.pq'); if (!b) return;
     b.classList.toggle('on'); b.setAttribute('aria-pressed', b.classList.contains('on'));
   });
-  function openNew() { $('#n-form').reset(); Array.prototype.forEach.call($('#n-prep').querySelectorAll('.pq'), function (b) { b.classList.remove('on'); b.setAttribute('aria-pressed', 'false'); }); $('#ov-new').hidden = false; $('#n-reg').focus(); }
+  function openNew() {
+    var gw = isGroup() && state.centres.length; $('#n-centre-wrap').hidden = !gw;
+    if (gw) { $('#n-centre').innerHTML = state.centres.map(function (c) { return '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>'; }).join(''); if (state.centre !== 'all') $('#n-centre').value = state.centre; }
+    $('#n-form').reset(); if (gw && state.centre !== 'all') $('#n-centre').value = state.centre; Array.prototype.forEach.call($('#n-prep').querySelectorAll('.pq'), function (b) { b.classList.remove('on'); b.setAttribute('aria-pressed', 'false'); }); $('#ov-new').hidden = false; $('#n-reg').focus(); }
   function closeNew() { $('#ov-new').hidden = true; }
   $('#n-close').addEventListener('click', closeNew);
   $('#ov-new').addEventListener('click', function (e) { if (e.target === e.currentTarget) closeNew(); });
@@ -715,8 +754,9 @@
       tag: $('#n-tag').value, mileage: miles === '' ? null : Number(miles),
       prep: Array.prototype.map.call($('#n-prep').querySelectorAll('.pq.on'), function (b) { return b.dataset.k; })
     };
+    if (isGroup()) body.centre = $('#n-centre').value;
     api('POST', '/api/cars', body).then(function (car) {
-      state.cars.set(car.id, car);
+      state.allCars.set(car.id, car); state.cars.set(car.id, car);
       closeNew(); render(); openCar(car.id);
     }).catch(fail);
   });
@@ -724,8 +764,9 @@
   /* ---------- account ---------- */
   function openAccount() {
     $('#ac-h').textContent = state.user.display;
-    $('#ac-sub').textContent = '@' + state.user.username + ' · ' + roleLabel(state.user.role) + ' · Initials ' + state.user.initials;
-    $('#ac-admin').hidden = state.user.role !== 'admin';
+    $('#ac-sub').textContent = '@' + state.user.username + ' · ' + roleLabel(state.user.role) + (state.user.centre ? ' · ' + centreName(state.user.centre) : '') + ' · Initials ' + state.user.initials;
+    $('#ac-admin').hidden = !canManage();
+    $('#ac-owner-only').hidden = !isOwner();
     $('#pw-form').reset();
     $('#pw-err').hidden = true;
     $('#ov-acct').hidden = false;
@@ -753,6 +794,18 @@
 
   /* ---------- staff logins (administrators) ---------- */
   var users = [];
+  function rolesICanGive(current) {
+    var list = role() === 'owner' ? ['director', 'principal', 'staff', 'valet', 'paint', 'alloy', 'dent', 'advisor'] : role() === 'principal' ? ['staff', 'valet', 'paint', 'alloy', 'dent', 'advisor'] : ROLE_ORDER;
+    return current && list.indexOf(current) < 0 ? [current].concat(list) : list;
+  }
+  function fillUserForm() {
+    $('#u-role').innerHTML = rolesICanGive().map(function (r) { return '<option value="' + r + '">' + esc(roleLabel(r)) + '</option>'; }).join('');
+    var showCentre = role() === 'owner' && state.centres.length;
+    $('#u-centre-wrap').hidden = !showCentre;
+    if (showCentre) $('#u-centre').innerHTML = state.centres.map(function (c) { return '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>'; }).join('');
+    syncCentreField();
+  }
+  function syncCentreField() { var dir = $('#u-role').value === 'director'; $('#u-centre').disabled = dir; $('#u-centre-note').hidden = !dir; }
   function loadUsers() {
     return api('GET', '/api/users').then(function (r) { users = r.users; renderUsers(); }).catch(fail);
   }
@@ -760,10 +813,10 @@
     $('#us-list').innerHTML = users.map(function (u) {
       var me = u.id === state.user.id;
       return '<div class="urow' + (u.active ? '' : ' off') + '" data-uid="' + u.id + '">'
-        + '<div class="urow-top"><div><div class="urow-name">' + esc(u.display) + (me ? ' (you)' : '') + '</div><div class="urow-user">@' + esc(u.username) + ' · Initials ' + esc(u.initials) + '</div></div>'
+        + '<div class="urow-top"><div><div class="urow-name">' + esc(u.display) + (me ? ' (you)' : '') + '</div><div class="urow-user">@' + esc(u.username) + ' · ' + esc(u.centre ? centreName(u.centre) : 'Whole group') + ' · Initials ' + esc(u.initials) + '</div></div>'
         + '<span class="pill ' + (u.active ? (u.role === 'admin' ? 'ok' : '') : 'bad') + '">' + (u.active ? roleLabel(u.role) : 'Deactivated') + '</span></div>'
         + '<div class="urow-actions">'
-        + (me ? '' : '<select class="field" data-role aria-label="Role for ' + esc(u.display) + '">' + ROLE_ORDER.map(function (r) { return '<option value="' + r + '"' + (u.role === r ? ' selected' : '') + '>' + esc(roleLabel(r)) + '</option>'; }).join('') + '</select>')
+        + (me ? '' : '<select class="field" data-role aria-label="Role for ' + esc(u.display) + '">' + rolesICanGive(u.role).map(function (r) { return '<option value="' + r + '"' + (u.role === r ? ' selected' : '') + '>' + esc(roleLabel(r)) + '</option>'; }).join('') + '</select>')
         + '<button class="btn" type="button" data-resetpw>Set new password</button>'
         + (me ? '' : '<button class="btn ' + (u.active ? 'danger' : '') + '" type="button" data-toggle>' + (u.active ? 'Deactivate' : 'Reactivate') + '</button>')
         + (me || u.active ? '' : '<button class="btn danger" type="button" data-delete>Delete login</button>')
@@ -838,7 +891,7 @@
   });
 
   $('#ac-users').addEventListener('click', function () {
-    $('#ov-acct').hidden = true; $('#us-form').reset(); $('#u-err').hidden = true;
+    $('#ov-acct').hidden = true; $('#us-form').reset(); fillUserForm(); $('#u-err').hidden = true; users = []; renderUsers();
     $('#ov-users').hidden = false; loadUsers(); $('#us-close').focus();
   });
   $('#us-close').addEventListener('click', function () { $('#ov-users').hidden = true; });
@@ -887,9 +940,10 @@
     e.preventDefault();
     var err = $('#u-err'); err.hidden = true;
     api('POST', '/api/users', {
-      display: $('#u-display').value, username: $('#u-user').value, password: $('#u-pass').value, role: $('#u-role').value
+      display: $('#u-display').value, username: $('#u-user').value, password: $('#u-pass').value, role: $('#u-role').value,
+      centre: role() === 'owner' && $('#u-role').value !== 'director' ? $('#u-centre').value : undefined
     }).then(function () {
-      $('#us-form').reset(); toast('Person added.'); return loadUsers();
+      $('#us-form').reset(); fillUserForm(); toast('Person added.'); return loadUsers();
     }).catch(function (ex) {
       if (ex && ex.code === 'unauth') return;
       err.textContent = (ex && ex.message) || 'Could not add that person.'; err.hidden = false;
@@ -1071,7 +1125,26 @@
       + '<label class="rp-pick" for="rp-q">Search by registration<input class="field" id="rp-q" type="search" placeholder="For example YB19 CYZ" autocomplete="off" value="' + esc(state.rpQ || '') + '"></label>'
       + '<div id="rp-checks">' + checksHtml() + '</div></section>';
     var hadFocus = document.activeElement && document.activeElement.id === 'rp-q', selEnd = hadFocus ? document.activeElement.selectionEnd : 0;
-    $('#rp-body').innerHTML = tiles + '<div class="rp-grid" style="margin-top:14px">'
+    var groupCard = '';
+    if (isGroup() && state.centre === 'all' && state.centres.length) {
+      var mStart = todayStr().slice(0, 7);
+      var rowsC = state.centres.map(function (ce) {
+        var mine = []; state.allCars.forEach(function (c, id) { if (c.centre === ce.id) mine.push(c); });
+        var act = mine.filter(function (c) { return !isDone(c) && !isArchived(c); });
+        var fin = mine.filter(isDone);
+        var month = fin.filter(function (c) { return c.readyAt && c.readyAt.slice(0, 7) === mStart; }).length;
+        var av = fin.length ? fin.reduce(function (n, c) { return n + carDays(c); }, 0) / fin.length : 0;
+        var okp = fin.length ? Math.round(fin.filter(function (c) { return carDays(c) <= TARGET; }).length / fin.length * 100) : 0;
+        var over = act.filter(function (c) { return carDays(c) > TARGET; }).length;
+        var qc = act.filter(awaitingQc).length;
+        return { ce: ce, act: act.length, month: month, av: av, n: fin.length, okp: okp, over: over, qc: qc };
+      });
+      groupCard = '<section class="rp-card full"><h3>Centres compared</h3><p class="sub">Tap a centre to open its own reports.</p><div style="overflow-x:auto"><table class="rp-tbl rp-cmp"><thead><tr><th>Centre</th><th>In prep</th><th>Waiting for QC</th><th>Over ' + TARGET + ' days</th><th>Completed this month</th><th>Avg days</th><th>Within ' + TARGET + ' days</th></tr></thead><tbody>'
+        + rowsC.map(function (r) {
+          return '<tr><td><button type="button" class="linkbtn rp-ce" data-centre="' + esc(r.ce.id) + '">' + esc(r.ce.name) + '</button></td><td>' + r.act + '</td><td>' + r.qc + '</td><td' + (r.over ? ' class="bad"' : '') + '>' + r.over + '</td><td>' + r.month + '</td><td>' + (r.n ? one(r.av) : '–') + '</td><td>' + (r.n ? r.okp + '%' : '–') + '</td></tr>';
+        }).join('') + '</tbody></table></div></section>';
+    }
+    $('#rp-body').innerHTML = tiles + '<div class="rp-grid" style="margin-top:14px">' + groupCard
       + '<section class="rp-card full"><h3>Cars completed</h3>' + weekly + '</section>'
       + '<section class="rp-card"><h3>Where the stock is now</h3>' + byStage + '<p class="sub">' + active.length + ' cars in prep.</p></section>'
       + '<section class="rp-card"><h3>Time in each stage</h3>' + stageTime + '</section>'
@@ -1144,6 +1217,8 @@
     if (e.target.dataset && e.target.dataset.rpm) { state.rpMonth = e.target.value; renderReports(); var m = $('#rp-month'); if (m) m.focus(); }
   });
   $('#rp-body').addEventListener('click', function (e) {
+    var ceb = e.target.closest && e.target.closest('[data-centre]');
+    if (ceb) { state.centre = ceb.dataset.centre; scopeCars(); render(); renderReports(); $('#ov-reports .sheet').scrollTop = 0; return; }
     var v = e.target.closest && e.target.closest('[data-rpv]');
     if (v) { state.rpView = v.dataset.rpv; renderReports(); return; }
     var rb = e.target.closest && e.target.closest('[data-rpb]');
@@ -1156,7 +1231,7 @@
 
   /* ---------- start ---------- */
   api('GET', '/api/session').then(function (s) {
-    if (s.user) { state.user = s.user; startApp(); }
+    if (s.user) { state.user = s.user; state.centres = s.centres || []; state.centre = 'all'; startApp(); }
     else {
       showAuth(s.setup ? 'setup' : 'login');
       if (!s.setup && /[?&]next=guide\b/.test(location.search)) $('#auth-sub').textContent = 'Sign in to read the user guide.';

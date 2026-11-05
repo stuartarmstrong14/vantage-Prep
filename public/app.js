@@ -493,6 +493,11 @@
   function costItem(id) { return costs.items.filter(function (i) { return i.id === id; })[0]; }
   var gbp = function (n) { return '\u00a3' + (Math.round(n * 100) / 100).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
   var hrs = function (n) { return (Math.round(n * 100) / 100) + (n === 1 ? ' hr' : ' hrs'); };
+  // Dent and alloy lines become the Dents and Alloy wheels jobs; every other line is cosmetic or paint work.
+  var DENT_ITEM = /^dents?$/i, ALLOY_ITEM = /alloy/i;
+  function isCosmeticLine(l) { return !DENT_ITEM.test(l.name) && !ALLOY_ITEM.test(l.name); }
+  function estCount(c, re) { return (c.estimate || []).filter(function (l) { return re.test(l.name); }).reduce(function (n, l) { return n + l.qty; }, 0); }
+  function cosmeticTotals(c) { return estTotals({ estimate: (c.estimate || []).filter(isCosmeticLine) }); }
   function estTotals(c) {
     var t = { hours: 0, cost: 0, lines: (c.estimate || []).length };
     (c.estimate || []).forEach(function (l) { var it = costItem(l.id); if (it) { t.hours += it.hours * l.qty; t.cost += (it.cost || 0) * l.qty; } });
@@ -593,7 +598,12 @@
           if (x.sign && c[x.sign]) signed = ' <small class="muted-s">signed ' + esc(fmtDate(c[x.sign])) + (c[x.name] ? ' by ' + esc(c[x.name]) : '') + '</small>';
         }
         var tl = on && c.tickLog && c.tickLog[tid];
-        if (tl && tl.at) signed += ' <small class="muted-s">' + new Date(tl.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: TZ }) + (tl.by ? ' by ' + esc(tl.by) : '') + '</small>';
+        if (on && c.notNeeded && c.notNeeded[tid]) signed += ' <small class="muted-s nn">Not needed: none on the cosmetic estimate</small>';
+        else if (tl && tl.at) signed += ' <small class="muted-s">' + new Date(tl.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: TZ }) + (tl.by ? ' by ' + esc(tl.by) : '') + '</small>';
+        if (!on && (tid === 'body_dent' || tid === 'body_wheels')) {
+          var en = estCount(c, tid === 'body_dent' ? DENT_ITEM : ALLOY_ITEM);
+          if (en) signed += ' <small class="muted-s">' + en + (tid === 'body_dent' ? (en === 1 ? ' dent' : ' dents') : (en === 1 ? ' wheel' : ' wheels')) + ' on the estimate</small>';
+        }
         return '<div class="chkrow"><label class="chk' + (on ? ' done' : '') + '"><input type="checkbox" data-t="' + tid + '"' + (on ? ' checked' : '') + '><span>' + esc(t[1]) + signed + '</span></label>' + ex + '</div>';
       }).join('');
       var complete = done === s.t.length;
@@ -1234,20 +1244,20 @@
     var wheels = cars.filter(function (c) { return !done(c, 'body_wheels') && Number(c.bodyWheels) > 0; }).sort(byTag);
     var wtotal = wheels.reduce(function (n, c) { return n + Number(c.bodyWheels); }, 0);
     var PAINT = /paint|respray|spray|refinish|lacquer|colour match/i;
-    var paint = cars.filter(function (c) { return !done(c, 'body_paint') && (String(c.cosmeticNotes || '').trim() || (c.estimate || []).length); })
+    var paint = cars.filter(function (c) { return !done(c, 'body_paint') && (String(c.cosmeticNotes || '').trim() || (c.estimate || []).some(isCosmeticLine)); })
       .sort(function (a, b) { return (PAINT.test(b.cosmeticNotes) - PAINT.test(a.cosmeticNotes)) || byTag(a, b); });
     var wh = '<div class="rp-card full"><h3>Alloy wheels to refine</h3><p class="sub">' + (wheels.length ? wtotal + ' wheel' + (wtotal === 1 ? '' : 's') + ' on ' + wheels.length + ' car' + (wheels.length === 1 ? '' : 's') : 'Nothing to do') + '</p>'
       + wheels.map(function (c) {
         var n = Number(c.bodyWheels);
         return '<button type="button" class="rp-row" data-open="' + c.id + '"><span class="l"><b>' + tagOf(c) + '</b><small>' + name(c) + '</small></span><span class="r">' + n + (n === 1 ? ' wheel' : ' wheels') + '</span></button>';
       }).join('') + '</div>';
-    var estAll = paint.reduce(function (t, c) { var e = estTotals(c); t.hours += e.hours; t.cost += e.cost; return t; }, { hours: 0, cost: 0 });
+    var estAll = paint.reduce(function (t, c) { var e = cosmeticTotals(c); t.hours += e.hours; t.cost += e.cost; return t; }, { hours: 0, cost: 0 });
     var pt = '<div class="rp-card full"><h3>Paint and cosmetic work</h3><p class="sub">' + (paint.length ? paint.length + ' car' + (paint.length === 1 ? '' : 's') + ' with cosmetic work and paint not yet done' + (estAll.hours || estAll.cost ? ': estimated ' + hrs(estAll.hours) + (costs.showCost ? ', ' + gbp(estAll.cost) : '') + ' in total' : '') + '. Cars whose notes mention paint are listed first.' : 'No cosmetic work to show.') + '</p>'
       + paint.map(function (c) {
-        var isP = PAINT.test(c.cosmeticNotes || ''), et = estTotals(c);
+        var isP = PAINT.test(c.cosmeticNotes || ''), et = cosmeticTotals(c), cl = (c.estimate || []).filter(isCosmeticLine);
         return '<button type="button" class="rp-row cmrow" data-open="' + c.id + '"><span class="l"><b>' + tagOf(c) + (isP ? ' <span class="pill">Paint</span>' : '') + '</b><small>' + name(c) + '</small>'
           + (c.cosmeticNotes ? '<span class="cmnote">' + esc(c.cosmeticNotes) + '</span>' : '')
-          + (et.lines ? '<span class="cmest">' + esc((c.estimate || []).map(function (l) { return l.name + (l.qty > 1 ? ' \u00d7 ' + l.qty : ''); }).join(', ')) + '</span>' : '') + '</span>'
+          + (et.lines ? '<span class="cmest">' + esc(cl.map(function (l) { return l.name + (l.qty > 1 ? ' \u00d7 ' + l.qty : ''); }).join(', ')) + '</span>' : '') + '</span>'
           + (et.lines ? '<span class="r">' + (costs.showCost ? gbp(et.cost) : hrs(et.hours)) + '</span>' : '') + '</button>';
       }).join('') + '</div>';
     var open = state.rpBody, chip = function (k, label, n) {

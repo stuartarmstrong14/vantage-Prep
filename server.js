@@ -367,6 +367,29 @@ function carOut(row) {
   return Object.assign({ id: row.id }, JSON.parse(row.data), { updatedAt: row.updated_at, updatedBy: row.updated_by });
 }
 
+// The cosmetic estimate decides whether the Dents and Alloy wheels jobs are needed:
+// - a Dent line means dents need doing; no Dent line means the Dents box is ticked as "not needed"
+// - alloy lines (Alloy Wheel, Diamond Cut Alloy, Painted Alloy) set the wheels to refine; none means "not needed"
+// Every other line is cosmetic or paint work. A box the estimate marked "not needed" goes back to a normal job if
+// the matching repair is added later, or if the estimate is cleared.
+const DENT_ITEM = /^dents?$/i, ALLOY_ITEM = /alloy/i;
+function estimateDrivesJobs(cur, next) {
+  const est = next.estimate || [];
+  const dents = est.filter((l) => DENT_ITEM.test(l.name)).reduce((n, l) => n + l.qty, 0);
+  const wheels = est.filter((l) => ALLOY_ITEM.test(l.name)).reduce((n, l) => n + l.qty, 0);
+  const done = Object.assign({}, next.done || cur.done || {});
+  const nn = Object.assign({}, next.notNeeded || cur.notNeeded || {});
+  const decide = (key, count) => {
+    if (est.length && count === 0) { if (!done[key]) { done[key] = true; nn[key] = true; } }
+    else if (nn[key]) { done[key] = false; delete nn[key]; }
+  };
+  decide('body_dent', dents);
+  decide('body_wheels', wheels);
+  if (wheels > 0 && !done.body_wheels) next.bodyWheels = Math.min(5, wheels);
+  next.done = done; next.notNeeded = nn;
+  next.stage = stageFromDone(done);
+  if (next.stage !== cur.stage) next.readyAt = '';
+}
 function applyCarPatch(cur, body, user) {
   const next = Object.assign({}, cur);
   for (const key of Object.keys(body)) {
@@ -428,9 +451,12 @@ function applyCarPatch(cur, body, user) {
       }
       if (Object.keys(done).length > 100) throw new HttpError(400, 'Invalid checklist.');
       next.done = done;
+      // someone unticking a box the estimate marked as not needed takes it back to a normal job
+      if (cur.notNeeded) { const nn = Object.assign({}, cur.notNeeded); Object.keys(v).forEach((k) => { if (v[k] === false) delete nn[k]; }); next.notNeeded = nn; }
     }
     // any other key is ignored on purpose
   }
+  if ('estimate' in body) estimateDrivesJobs(cur, next);
   // Completed means every box ticked, including the final quality check. readyAt is the day that happened.
   const finished = (d) => !!d && d.ready_qc === true && stageFromDone(d) === 'ready';
   if (finished(next.done)) { if (!finished(cur.done) || !cur.readyAt) next.readyAt = todayStr(); }

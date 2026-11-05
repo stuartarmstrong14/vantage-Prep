@@ -600,9 +600,9 @@
         var tl = on && c.tickLog && c.tickLog[tid];
         if (on && c.notNeeded && c.notNeeded[tid]) signed += ' <small class="muted-s nn">Not needed: none on the cosmetic estimate</small>';
         else if (tl && tl.at) signed += ' <small class="muted-s">' + new Date(tl.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: TZ }) + (tl.by ? ' by ' + esc(tl.by) : '') + '</small>';
-        if (!on && (tid === 'body_dent' || tid === 'body_wheels')) {
-          var en = estCount(c, tid === 'body_dent' ? DENT_ITEM : ALLOY_ITEM);
-          if (en) signed += ' <small class="muted-s">' + en + (tid === 'body_dent' ? (en === 1 ? ' dent' : ' dents') : (en === 1 ? ' wheel' : ' wheels')) + ' on the estimate</small>';
+        if (!on && tid === 'body_dent') {        // alloys show their count in the wheels box only
+          var en = estCount(c, DENT_ITEM);
+          if (en) signed += ' <small class="muted-s">' + en + (en === 1 ? ' dent' : ' dents') + ' on the estimate</small>';
         }
         return '<div class="chkrow"><label class="chk' + (on ? ' done' : '') + '"><input type="checkbox" data-t="' + tid + '"' + (on ? ' checked' : '') + '><span>' + esc(t[1]) + signed + '</span></label>' + ex + '</div>';
       }).join('');

@@ -117,7 +117,7 @@ On the Mechanical stage, the **145 point mechanical check** row is an upload box
 
 Administrators can find any check from the **145 point checks** search at the bottom of **Reports** by typing a registration (spaces and capitals don't matter). Nothing is listed until you type.
 
-Files are stored inside the database, so they live on the Render disk (`/data`), are included in `npm run backup`, and use disk space. Keep an eye on the 1 GB disk if you upload a lot of large PDFs. Deleting a car deletes its check files.
+Uploaded PDFs over 150 KB are made smaller automatically with Ghostscript (images re-saved at 150 dpi, still easy to read and print); if that fails or doesn't help, the original is kept as uploaded. Data health shows whether PDF shrinking is on and how much it has saved. Files are stored inside the database, so they live on the Render disk (`/data`), are included in `npm run backup`, and use disk space. Keep an eye on the 1 GB disk if you upload a lot of large PDFs. Deleting a car deletes its check files.
 
 ## Keeping 145 point checks safe
 

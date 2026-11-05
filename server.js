@@ -9,6 +9,7 @@ const path = require('node:path');
 const os = require('node:os');
 const crypto = require('node:crypto');
 const { DatabaseSync } = require('node:sqlite');
+const { execFile, execFileSync } = require('node:child_process');
 const { hashPassword, verifyPassword } = require('./lib/passwords');
 const inbound = require('./lib/inbound');
 
@@ -649,9 +650,10 @@ async function handleApi(req, res, url) {
     const u = requireStaff(req);
     const carId = upMatch[1];
     if (!q.carById.get(carId)) throw new HttpError(404, 'That car no longer exists.');
-    const buf = await readRaw(req, MAX_UPLOAD);
+    let buf = await readRaw(req, MAX_UPLOAD);
     const type = sniffType(buf);
     if (!type) throw new HttpError(400, 'Upload a PDF or a photo (JPEG, PNG, WebP or HEIC).');
+    if (type === 'application/pdf') buf = await shrinkPdf(buf);
     // read the car only now, after the upload has arrived, so changes made meanwhile are not overwritten
     const row = q.carById.get(carId);
     if (!row) throw new HttpError(404, 'That car no longer exists.');
@@ -906,6 +908,39 @@ async function handleApi(req, res, url) {
 }
 
 
+
+/* ---------- smaller PDFs ---------- */
+// Scanned 145 checks are mostly big images. Ghostscript re-saves them at 150 dpi (still easy to read and print),
+// which usually cuts the size by well over half. If Ghostscript is missing, fails, or the result is not smaller,
+// the original file is kept exactly as uploaded.
+const GS = process.env.GHOSTSCRIPT || 'gs';
+let gsVersion = null;
+try { gsVersion = String(execFileSync(GS, ['--version'], { timeout: 5000 })).trim(); } catch (e) { gsVersion = null; }
+const pdfStats = { shrunk: 0, kept: 0, savedBytes: 0 };
+function shrinkPdf(buf) {
+  if (!gsVersion || buf.length < 150 * 1024) return Promise.resolve(buf);
+  const base = path.join(os.tmpdir(), 'pdf-' + crypto.randomBytes(6).toString('hex'));
+  const inp = base + '-in.pdf', out = base + '-out.pdf';
+  const done = (b) => { fs.unlink(inp, () => {}); fs.unlink(out, () => {}); return b; };
+  try { fs.writeFileSync(inp, buf); } catch (e) { return Promise.resolve(buf); }
+  const args = ['-q', '-dSAFER', '-dBATCH', '-dNOPAUSE', '-sDEVICE=pdfwrite', '-dCompatibilityLevel=1.5', '-dPDFSETTINGS=/ebook',
+    '-dDetectDuplicateImages=true', '-dCompressFonts=true', '-sOutputFile=' + out, inp];
+  return new Promise((resolve) => {
+    execFile(GS, args, { timeout: 60000 }, (err) => {
+      let small = null;
+      try { if (!err) small = fs.readFileSync(out); } catch (e) { small = null; }
+      if (small && small.length >= 1024 && small.subarray(0, 5).toString('latin1') === '%PDF-' && small.length < buf.length * 0.9) {
+        pdfStats.shrunk++; pdfStats.savedBytes += buf.length - small.length;
+        console.log('PDF reduced from ' + Math.round(buf.length / 1024) + ' KB to ' + Math.round(small.length / 1024) + ' KB');
+        resolve(done(small));
+      } else {
+        pdfStats.kept++;
+        if (err) console.log('PDF kept at original size (could not shrink: ' + (err.killed ? 'took too long' : err.message.split('\n')[0]) + ')');
+        resolve(done(buf));
+      }
+    });
+  });
+}
 /* ---------- keeping 145 checks safe ---------- */
 const normRegKey = (r) => String(r || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 function allCarsParsed() { return q.allCars.all().map((r) => ({ id: r.id, data: JSON.parse(r.data) })); }
@@ -980,6 +1015,7 @@ function healthReport() {
     .sort((a, b) => (a.deletedAt < b.deletedAt ? 1 : -1));
   return {
     dataDir: DATA_DIR, separateDisk: onSeparateDisk(), disk: diskSpace(),
+    pdfShrink: { available: !!gsVersion, version: gsVersion, shrunk: pdfStats.shrunk, kept: pdfStats.kept, savedBytes: pdfStats.savedBytes },
     cars: cars.length, checkFiles: live.length, checksOnCars: linked,
     unattached: orphanFiles(), tickedNoFile, bin, backups: listBackups(),
   };

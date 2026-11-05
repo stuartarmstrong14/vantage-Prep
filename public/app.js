@@ -822,7 +822,9 @@
       + '<div><b class="num">' + h.backups.length + '</b><span>Automatic backups</span></div></div>'
       + '<p class="muted-s">Data folder ' + esc(h.dataDir) + (h.separateDisk === true ? ' on its own disk (kept through updates).' : h.separateDisk === false ? ' is <b>not</b> on a separate disk. Updates could wipe it. Check the Render disk.' : '.')
       + (h.disk ? ' Free space ' + fmtSize(h.disk.free) + ' of ' + fmtSize(h.disk.total) + '.' : '')
-      + (last ? ' Last automatic backup ' + esc(fmtWhen(last.at)) + '.' : ' No automatic backup yet.') + '</p></div>';
+      + (last ? ' Last automatic backup ' + esc(fmtWhen(last.at)) + '.' : ' No automatic backup yet.') + '</p>'
+      + (h.pdfShrink ? '<p class="muted-s">PDF shrinking: ' + (h.pdfShrink.available ? '<b>on</b> (Ghostscript ' + esc(h.pdfShrink.version) + '). Since the last restart ' + h.pdfShrink.shrunk + ' PDF' + (h.pdfShrink.shrunk === 1 ? '' : 's') + ' reduced, saving ' + fmtSize(h.pdfShrink.savedBytes) + '.' : '<b>off</b>. PDFs are stored at their original size.') + '</p>' : '')
+      + '</div>';
     html += '<div class="block"><h3>Unattached checks (' + h.unattached.length + ')</h3>'
       + (h.unattached.length ? '<p class="muted-s">These files are stored safely but are not showing on their car.</p><div class="rp-list">' + h.unattached.map(function (o) {
         return '<div class="rp-row plain"><span class="l"><b>' + esc(o.reg || 'Car deleted') + '</b><small>' + esc(o.name) + ' · uploaded ' + esc(fmtWhen(o.at)) + ' by ' + esc(o.by) + '</small></span><span class="flinks"><a class="flink" href="/api/files/' + esc(o.id) + '" target="_blank" rel="noopener">View</a></span></div>';

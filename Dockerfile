@@ -1,5 +1,5 @@
 FROM node:22-alpine
-RUN apk add --no-cache su-exec
+RUN apk add --no-cache su-exec ghostscript
 WORKDIR /app
 COPY package.json server.js ./
 COPY lib ./lib

@@ -1131,10 +1131,14 @@
       return '<button type="button" class="rp-row" data-open="' + c.id + '"><span class="l"><b>' + esc(c.reg) + ' ' + esc([c.make, c.model].filter(Boolean).join(' ')) + '</b></span><span class="r">' + c.sentBack + (c.sentBack === 1 ? ' time' : ' times') + '</span></button>';
     }).join('') + '</div>' : '<p class="rp-empty">No car has been moved back to an earlier stage.</p>';
 
-    var checksCard = '<section class="rp-card full"><h3>145 point checks</h3>'
+    var costCard = '<section class="rp-card"><h3>Cosmetic costs</h3>'
+      + '<label class="rp-pick" for="rp-cq">Search by registration or tag<input class="field" id="rp-cq" type="search" placeholder="For example LK21 ZXA" autocomplete="off" value="' + esc(state.rpCq || '') + '"></label>'
+      + '<div id="rp-costs">' + costsHtml() + '</div></section>';
+    var checksCard = '<section class="rp-card"><h3>145 point checks</h3>'
       + '<label class="rp-pick" for="rp-q">Search by registration<input class="field" id="rp-q" type="search" placeholder="For example YB19 CYZ" autocomplete="off" value="' + esc(state.rpQ || '') + '"></label>'
       + '<div id="rp-checks">' + checksHtml() + '</div></section>';
-    var hadFocus = document.activeElement && document.activeElement.id === 'rp-q', selEnd = hadFocus ? document.activeElement.selectionEnd : 0;
+    var focusId = document.activeElement && (document.activeElement.id === 'rp-q' || document.activeElement.id === 'rp-cq') ? document.activeElement.id : null;
+    var hadFocus = !!focusId, selEnd = hadFocus ? document.activeElement.selectionEnd : 0;
     $('#rp-body').innerHTML = tiles + '<div class="rp-grid" style="margin-top:14px">'
       + '<section class="rp-card full"><h3>Cars completed</h3>' + weekly + '</section>'
       + '<section class="rp-card"><h3>Where the stock is now</h3>' + byStage + '<p class="sub">' + active.length + ' cars in prep.</p></section>'
@@ -1143,10 +1147,36 @@
       + '<section class="rp-card"><h3>Sent back to an earlier stage</h3>' + sent + '<p class="sub">' + backTotal + (backTotal === 1 ? ' move back' : ' moves back') + ' in total.</p></section>'
       + '<section class="rp-card full"><h3>Sign-offs and ticks by person</h3>' + people + '</section>'
       + cosmCards()
-      + checksCard + '</div>';
-    if (hadFocus) { var qi = $('#rp-q'); if (qi) { qi.focus(); try { qi.setSelectionRange(selEnd, selEnd); } catch (er) { /* ignore */ } } }
+      + checksCard + costCard + '</div>';
+    if (hadFocus) { var qi = $('#' + focusId); if (qi) { qi.focus(); try { qi.setSelectionRange(selEnd, selEnd); } catch (er) { /* ignore */ } } }
   }
   function normReg(x) { return String(x || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+  // Cosmetic costs: an overview of every car in prep with an estimate, or one car's breakdown when searched.
+  function costsHtml() {
+    var raw = String(state.rpCq || '').trim(), qn = normReg(raw), cars = [];
+    state.cars.forEach(function (c, id) { cars.push(Object.assign({ id: id }, c)); });
+    var money = function (t) { return hrs(t.hours) + (costs.showCost ? ' &middot; <b>' + gbp(t.cost) + '</b>' : ''); };
+    if (!qn) {
+      var open = cars.filter(function (c) { return !isDone(c) && !isArchived(c) && (c.estimate || []).length; });
+      var tot = open.reduce(function (t, c) { var e = estTotals(c); t.hours += e.hours; t.cost += e.cost; return t; }, { hours: 0, cost: 0 });
+      var todo = open.filter(function (c) { return (c.done || {}).body_paint !== true; });
+      var todoT = todo.reduce(function (t, c) { var e = estTotals(c); t.hours += e.hours; t.cost += e.cost; return t; }, { hours: 0, cost: 0 });
+      return '<div class="cc-sum"><div><b class="num">' + open.length + '</b><span>Cars in prep with an estimate</span></div><div><b class="num">' + money(tot) + '</b><span>Estimated in total</span></div><div><b class="num">' + money(todoT) + '</b><span>Still to do (paint not ticked)</span></div></div>'
+        + '<p class="sub">Type a registration or tag to see a car\'s cosmetic estimate line by line.</p>';
+    }
+    var hits = cars.filter(function (c) { return normReg(c.reg).indexOf(qn) >= 0 || normReg(c.tag).indexOf(qn) >= 0; });
+    if (!hits.length) return '<p class="rp-empty">No car matches that registration or tag.</p>';
+    return '<div class="rp-list">' + hits.slice(0, 10).map(function (c) {
+      var t = estTotals(c), st = isArchived(c) ? 'Archived' : isDone(c) ? 'Completed' : (STAGES[stageIdx(c)] || {}).l;
+      var lines = (c.estimate || []).map(function (l) {
+        var it = costItem(l.id);
+        return '<div class="cc-line"><span>' + esc(l.name) + (l.qty > 1 ? ' &times; ' + l.qty : '') + '</span><span class="num">' + (it ? hrs(it.hours * l.qty) + (costs.showCost ? ' &middot; ' + gbp(it.cost * l.qty) : '') : 'not on price list') + '</span></div>';
+      }).join('');
+      return '<div class="cc-car"><button type="button" class="rplink" data-open="' + esc(c.id) + '"><span class="l"><b>' + esc(c.reg) + ' ' + esc([c.make, c.model].filter(Boolean).join(' ')) + '</b><small>' + esc((c.tag ? c.tag + ' · ' : '') + st) + '</small></span></button>'
+        + (lines ? lines + '<div class="cc-line cc-tot"><span>Total</span><span class="num">' + money(t) + '</span></div>' : '<p class="muted-s">No cosmetic estimate on this car.</p>')
+        + (c.cosmeticNotes ? '<p class="cmnote">' + esc(c.cosmeticNotes) + '</p>' : '') + '</div>';
+    }).join('') + '</div>';
+  }
   function checksHtml() {
     var qn = normReg(state.rpQ), cars = [];
     state.cars.forEach(function (c, id) { cars.push(Object.assign({ id: id }, c)); });
@@ -1205,6 +1235,7 @@
   $('#rep-btn').addEventListener('click', openReports);
   $('#rp-close').addEventListener('click', function () { $('#ov-reports').hidden = true; });
   $('#rp-body').addEventListener('input', function (e) {
+    if (e.target.id === 'rp-cq') { state.rpCq = e.target.value; $('#rp-costs').innerHTML = costsHtml(); return; }
     if (e.target.id !== 'rp-q') return;
     state.rpQ = e.target.value; $('#rp-checks').innerHTML = checksHtml();
   });

@@ -351,3 +351,20 @@ button.flink{font-family:inherit;cursor:pointer}
 .cl-headrow{font-size:13px;font-weight:700;color:var(--muted)}
 @media (max-width:480px){.cl-row{grid-template-columns:minmax(0,1fr) 64px 84px auto}.est-line{grid-template-columns:minmax(0,1fr) auto}.est-line .linkbtn{grid-column:1/-1;justify-self:start;padding:0;min-height:28px}}
 @media (max-width:480px){.est-add{grid-template-columns:minmax(0,1fr) auto}.est-add select{grid-column:1/-1}}
+
+/* Cosmetic costs search in Reports */
+.cc-sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.cc-sum div{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.cc-sum b{font-size:17px;line-height:1.25}
+.cc-sum span{font-size:13px;color:var(--muted);font-weight:600}
+.cc-car{border-top:1px solid var(--line);padding:10px 0;display:flex;flex-direction:column;gap:6px}
+.cc-car:first-child{border-top:0}
+.cc-line{display:flex;justify-content:space-between;gap:10px;font-size:15px}
+.cc-line .num{color:var(--muted);white-space:nowrap}
+.cc-tot{border-top:1px dashed var(--line);padding-top:6px;font-weight:700}
+.cc-tot .num{color:var(--ink)}
+@media (max-width:520px){.cc-sum{grid-template-columns:1fr}}
+.cc-car .rplink{background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer;padding:0;display:block;width:100%}
+.cc-car .rplink .l{display:flex;flex-direction:column}
+.cc-car .rplink small{color:var(--muted);font-size:14px}
+.cc-car .rplink:hover b{text-decoration:underline}

@@ -162,7 +162,7 @@ Tap a box to show only those cars in the stock list; tap it again (or **Show all
 
 Under the cosmetic notes on the Bodywork stage, staff build a **Cosmetic estimate** by picking repairs from the price list (with a quantity). The car shows each line and the total time and internal cost. The **Paint and cosmetic work** list in Reports shows each car's estimate and the total for all outstanding cosmetic work.
 
-The price list started from the cosmetic matrix spreadsheet (Area of Repair, Time in hours, Internal cost; "New Pannel" was renamed "New Panel"). Administrators change it under **Account -> Edit cosmetic price list**: edit names, hours and prices, add or remove repairs, then **Save price list**. Estimates always use the current prices. Staff and administrators see prices; technicians and advisors see the repairs and hours only.
+The price list started from the cosmetic matrix spreadsheet (Area of Repair, Time in hours, Internal cost; "New Pannel" was renamed "New Panel"). Administrators change it under **Account -> Edit cosmetic price list**: edit names, hours and prices, add or remove repairs, then **Save price list**. At the bottom of Reports, **Cosmetic costs** sits beside the 145 point check search: with nothing typed it shows how many cars in prep have an estimate, the estimated total, and the amount still to do (paint not ticked); type a registration or tag to see that car's estimate line by line. Estimates always use the current prices. Staff and administrators see prices; technicians and advisors see the repairs and hours only.
 
 ## Cosmetic notes
 

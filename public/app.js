@@ -286,7 +286,7 @@
   }
   // The drop-down filters by work still outstanding, not by the stage a car has reached:
   // a car waiting at Valet with its mechanical work unticked counts under Mechanical too.
-  var JOBS = [['body_cosmetic', 'Cosmetic'], ['body_dent', 'Dents'], ['body_wheels', 'Alloy wheels'], ['body_paint', 'Paint']];
+  var JOBS = [['body_dent', 'Dents'], ['body_wheels', 'Alloy wheels'], ['body_paint', 'Paint']];
   function needsWork(c, f) {
     if (!f || f === 'all') return true;
     var m = /^(need|job):(.+)$/.exec(f); if (!m) return true;

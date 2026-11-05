@@ -122,6 +122,7 @@
     </div>
 
     <div class="block">
+      <p class="muted-s" id="m-dvla" hidden></p>
       <p class="money" id="m-upd"></p>
       <div class="row"><button class="btn" id="m-arch" type="button" hidden></button><button class="btn danger" id="m-del" type="button" hidden>Delete car</button></div>
     </div>
@@ -149,12 +150,15 @@
     </div>
     <form id="n-form" class="block" autocomplete="off">
       <div class="fields">
-        <label>Registration<input class="field" id="n-reg" required maxlength="10" placeholder="AB21 CDE"></label>
+        <label>Registration<span class="reg-look"><input class="field" id="n-reg" required maxlength="10" placeholder="AB21 CDE" autocomplete="off"><button class="btn" id="n-look" type="button">Look up</button></span></label>
         <label>Make<input class="field" id="n-make" required maxlength="40" placeholder="Ford"></label>
         <label>Model<input class="field" id="n-model" required maxlength="40" placeholder="Focus"></label>
+        <label>Colour<input class="field" id="n-colour" maxlength="30" placeholder="Blue"></label>
         <label>Tag number<input class="field" id="n-tag" maxlength="12" placeholder="T1042"></label>
         <label>Mileage<input class="field num" id="n-miles" type="number" inputmode="numeric" min="0" max="2000000" placeholder="42000"></label>
       </div>
+      <p class="muted-s" id="n-look-st" role="status"></p>
+      <input type="hidden" id="n-mot">
       <div class="prepreq"><span class="lbl">Prep requested</span><div class="pqs big" id="n-prep">
         <button type="button" class="pq" data-k="TAC" aria-pressed="false">TAC</button>
         <button type="button" class="pq" data-k="SERVICE" aria-pressed="false">Service</button>

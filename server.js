@@ -569,7 +569,7 @@ async function handleApi(req, res, url) {
 
   if (method === 'GET' && p === '/api/session') {
     const u = currentUser(req);
-    return sendJson(res, 200, { setup: q.countUsers.get().c === 0, user: u ? publicUser(u) : null, publicUrl: PUBLIC_URL || null });
+    return sendJson(res, 200, { setup: q.countUsers.get().c === 0, user: u ? publicUser(u) : null, publicUrl: PUBLIC_URL || null, lookup: lookupReady() });
   }
 
   if (method === 'POST' && p === '/api/setup') {
@@ -635,13 +635,14 @@ async function handleApi(req, res, url) {
     const u = requireStaff(req);
     const b = await readJson(req);
     const car = { reg: '', make: '', model: '', tag: '', prep: [], mileage: null, mot: '', notes: '', stage: 'arrived', added: todayStr(), readyAt: '', done: {} };
-    const filled = applyCarPatch(car, { reg: b.reg, make: b.make, model: b.model, tag: b.tag, prep: b.prep || [], mileage: b.mileage === undefined ? null : b.mileage }, u);
+    const filled = applyCarPatch(car, { reg: b.reg, make: b.make, model: b.model, tag: b.tag, colour: b.colour || '', mot: b.mot || '', prep: b.prep || [], mileage: b.mileage === undefined ? null : b.mileage }, u);
     if (!filled.reg || !filled.make || !filled.model) throw new HttpError(400, 'Registration, make and model are required.');
     filled.history = [{ s: 'arrived', at: new Date().toISOString(), by: u.display }];
     const id = crypto.randomBytes(6).toString('hex');
     const now = new Date().toISOString();
     q.insertCar.run(id, JSON.stringify(filled), now, u.display);
     bump();
+    if (lookupReady()) refreshCar(id).catch(() => {});
     return sendJson(res, 201, carOut(q.carById.get(id)));
   }
 
@@ -677,6 +678,17 @@ async function handleApi(req, res, url) {
     console.log('145 check uploaded for ' + (cur.reg || carId) + ' by ' + u.display + ' (' + name + ')');
     bump();
     return sendJson(res, 201, carOut(q.carById.get(carId)));
+  }
+
+  /* ---------- registration lookup (DVLA, and DVSA MOT history for the model) ---------- */
+  if (method === 'GET' && p === '/api/lookup') {
+    requireStaff(req);
+    if (!lookupReady()) throw new HttpError(501, 'Registration lookup is not set up yet. An administrator needs to add the DVLA key in Render.');
+    const reg = normRegKey(url.searchParams.get('reg'));
+    if (reg.length < 2 || reg.length > 8) throw new HttpError(400, 'Enter a full registration.');
+    const v = await lookupVehicle(reg);
+    if (!v) throw new HttpError(404, 'No vehicle found for ' + reg + '. Check the registration.');
+    return sendJson(res, 200, v);
   }
 
   /* ---------- cosmetic price list ---------- */
@@ -909,6 +921,113 @@ async function handleApi(req, res, url) {
 
 
 
+
+/* ---------- registration lookup ---------- */
+// DVLA Vehicle Enquiry Service: make, colour, year, fuel and MOT expiry (no model). Tax is not used.
+// DVSA MOT History API (optional): model, and the latest MOT result. Keys come from Render's Environment settings.
+const DVLA_KEY = process.env.DVLA_API_KEY || '';
+const DVLA_URL = process.env.DVLA_API_URL || 'https://driver-vehicle-licensing.api.gov.uk/vehicle-enquiry/v1/vehicles';
+const MOT = {
+  clientId: process.env.MOT_CLIENT_ID || '', secret: process.env.MOT_CLIENT_SECRET || '', apiKey: process.env.MOT_API_KEY || '',
+  tokenUrl: process.env.MOT_TOKEN_URL || '', scope: process.env.MOT_SCOPE || 'https://tapi.dvsa.gov.uk/.default',
+  base: process.env.MOT_API_URL || 'https://history.mot.api.gov.uk/v1/trade/vehicles/registration/',
+};
+const motReady = () => !!(MOT.clientId && MOT.secret && MOT.apiKey && MOT.tokenUrl);
+const lookupReady = () => !!DVLA_KEY || motReady();
+const lookupStats = { lastRun: null, checked: 0, updated: 0, failed: 0 };
+let motToken = null;
+async function getMotToken() {
+  if (motToken && motToken.exp > Date.now() + 60000) return motToken.value;
+  const r = await fetch(MOT.tokenUrl, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'client_credentials', client_id: MOT.clientId, client_secret: MOT.secret, scope: MOT.scope }), signal: AbortSignal.timeout(15000) });
+  if (!r.ok) throw new Error('MOT history sign-in failed (' + r.status + ')');
+  const j = await r.json();
+  motToken = { value: j.access_token, exp: Date.now() + (Number(j.expires_in) || 3600) * 1000 };
+  return motToken.value;
+}
+const titleCase = (t) => String(t || '').toLowerCase().replace(/\b[a-z]/g, (m) => m.toUpperCase()).replace(/\bBmw\b/, 'BMW').replace(/\bMg\b/, 'MG');
+async function lookupVehicle(reg) {
+  const out = { reg, make: '', model: '', colour: '', mot: '', motStatus: '', year: null, fuel: '', lastMot: null, checkedAt: new Date().toISOString(), source: [] };
+  let found = false;
+  if (DVLA_KEY) {
+    const r = await fetch(DVLA_URL, { method: 'POST', headers: { 'x-api-key': DVLA_KEY, 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ registrationNumber: reg }), signal: AbortSignal.timeout(15000) });
+    if (r.status === 200) {
+      const v = await r.json(); found = true; out.source.push('DVLA');
+      out.make = titleCase(v.make); out.colour = titleCase(v.colour); out.year = v.yearOfManufacture || null; out.fuel = titleCase(v.fuelType);
+      out.motStatus = v.motStatus || ''; out.mot = /^\d{4}-\d{2}-\d{2}$/.test(v.motExpiryDate || '') ? v.motExpiryDate : '';
+    } else if (r.status !== 404 && r.status !== 400) throw new Error('DVLA lookup failed (' + r.status + ')');
+  }
+  if (motReady()) {
+    try {
+      const r = await fetch(MOT.base + encodeURIComponent(reg), { headers: { Authorization: 'Bearer ' + await getMotToken(), 'X-API-Key': MOT.apiKey, Accept: 'application/json' }, signal: AbortSignal.timeout(15000) });
+      if (r.status === 200) {
+        const v = await r.json(); found = true; out.source.push('DVSA');
+        out.model = out.model || titleCase(v.model);
+        out.make = out.make || titleCase(v.make);
+        out.colour = out.colour || titleCase(v.primaryColour);
+        const tests = Array.isArray(v.motTests) ? v.motTests.slice().sort((a, b) => String(b.completedDate).localeCompare(String(a.completedDate))) : [];
+        const t = tests[0];
+        if (t) {
+          out.lastMot = { date: String(t.completedDate || '').slice(0, 10), result: t.testResult || '', mileage: t.odometerValue ? Number(t.odometerValue) : null,
+            advisories: (t.defects || []).filter((d) => /ADVISORY|MINOR/i.test(d.type || '')).length };
+          const exp = String(t.expiryDate || '').slice(0, 10);
+          if (/^\d{4}-\d{2}-\d{2}$/.test(exp) && exp > out.mot) out.mot = exp;
+        } else if (/^\d{4}-\d{2}-\d{2}/.test(v.motTestDueDate || '') && !out.mot) out.mot = String(v.motTestDueDate).slice(0, 10);
+      }
+    } catch (e) { if (!out.source.length) throw e; }
+  }
+  return found ? out : null;
+}
+// Re-check one car and save what changed: the MOT expiry always follows the official record; make, model and colour are only filled in when empty.
+async function refreshCar(id) {
+  const first = q.carById.get(id);
+  if (!first) return false;
+  const reg = normRegKey(JSON.parse(first.data).reg);
+  if (reg.length < 2) return false;
+  const v = await lookupVehicle(reg);
+  const row = q.carById.get(id);              // read again after the lookup so nothing saved meanwhile is overwritten
+  if (!row || !v) return false;
+  const cur = JSON.parse(row.data);
+  const next = Object.assign({}, cur, { dvla: { mot: v.mot, lastMot: v.lastMot, checkedAt: v.checkedAt } });
+  let changed = false;
+  if (v.mot && v.mot !== cur.mot) { next.mot = v.mot; changed = true; }
+  if (!cur.make && v.make) { next.make = v.make; changed = true; }
+  if (!cur.model && v.model) { next.model = v.model; changed = true; }
+  if (!cur.colour && v.colour) { next.colour = v.colour; changed = true; }
+  q.updateCar.run(JSON.stringify(next), new Date().toISOString(), changed ? 'DVLA check' : row.updated_by, id);
+  bump();
+  return changed;
+}
+// Every morning (and shortly after each start), check every car still in prep.
+let lookupRunning = false;
+async function dailyLookup() {
+  if (!lookupReady() || lookupRunning) return;
+  lookupRunning = true;
+  const s = { checked: 0, updated: 0, failed: 0 };
+  try {
+    for (const r of q.allCars.all()) {
+      const c = JSON.parse(r.data);
+      const finished = (c.done || {}).ready_qc === true && c.stage === 'ready';
+      if (finished || c.archived === true) continue;
+      try { if (await refreshCar(r.id)) s.updated++; s.checked++; } catch (e) { s.failed++; }
+      await new Promise((ok) => setTimeout(ok, 400));
+    }
+  } finally {
+    lookupRunning = false;
+    Object.assign(lookupStats, s, { lastRun: new Date().toISOString() });
+    console.log('daily DVLA/MOT check: ' + s.checked + ' cars checked, ' + s.updated + ' updated, ' + s.failed + ' failed');
+  }
+}
+function scheduleLookup() {
+  const now = new Date(), next = new Date(now);
+  next.setUTCHours(6, 0, 0, 0);                // about 6 or 7am UK time
+  if (next <= now) next.setUTCDate(next.getUTCDate() + 1);
+  setTimeout(() => { dailyLookup(); setInterval(dailyLookup, 24 * 3600 * 1000).unref(); }, next - now).unref();
+  setTimeout(dailyLookup, Number(process.env.LOOKUP_FIRST_RUN_MS) || 5 * 60 * 1000).unref();
+}
+scheduleLookup();
+
 /* ---------- smaller PDFs ---------- */
 // Scanned 145 checks are mostly big images. Ghostscript re-saves them at 150 dpi (still easy to read and print),
 // which usually cuts the size by well over half. If Ghostscript is missing, fails, or the result is not smaller,
@@ -1015,6 +1134,7 @@ function healthReport() {
     .sort((a, b) => (a.deletedAt < b.deletedAt ? 1 : -1));
   return {
     dataDir: DATA_DIR, separateDisk: onSeparateDisk(), disk: diskSpace(),
+    lookup: { dvla: !!DVLA_KEY, motHistory: motReady(), lastRun: lookupStats.lastRun, checked: lookupStats.checked, updated: lookupStats.updated, failed: lookupStats.failed },
     pdfShrink: { available: !!gsVersion, version: gsVersion, shrunk: pdfStats.shrunk, kept: pdfStats.kept, savedBytes: pdfStats.savedBytes },
     cars: cars.length, checkFiles: live.length, checksOnCars: linked,
     unattached: orphanFiles(), tickedNoFile, bin, backups: listBackups(),

@@ -20,7 +20,7 @@
   var TZ = 'Europe/London';
   var TOTAL = STAGES.reduce(function (n, s) { return n + s.t.length; }, 0);
   var FIELDS = [
-    ['reg', 'Registration', 'text'], ['make', 'Make', 'text'], ['model', 'Model', 'text'], ['tag', 'Tag number', 'text'],
+    ['reg', 'Registration', 'text'], ['make', 'Make', 'text'], ['model', 'Model', 'text'], ['colour', 'Colour', 'text'], ['tag', 'Tag number', 'text'],
     ['mileage', 'Mileage', 'number'], ['mot', 'MOT expiry', 'shortdate']
   ];
   var NUMERIC = { mileage: 1 };
@@ -383,7 +383,7 @@
     var d = carDays(c), dc = daysClass(c), mi = motInfo(c);
     var st = STAGES[stageIdx(c)];
     var name = [c.make, c.model].filter(Boolean).join(' ');
-    var meta = [c.tag ? (/^tag/i.test(c.tag) ? c.tag : 'Tag ' + c.tag) : '', miles(c.mileage)].filter(Boolean).map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('');
+    var meta = [c.tag ? (/^tag/i.test(c.tag) ? c.tag : 'Tag ' + c.tag) : '', miles(c.mileage), c.mot ? 'MOT ' + isoToShort(c.mot) : ''].filter(Boolean).map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('');
     var tags = (showStatus ? '<span class="pill stat-' + ['prep', 'done', 'arch'][statusOf(c)] + '">' + ['In prep', 'Completed', 'Archived'][statusOf(c)] + '</span>' : '')
       + (mi ? '<span class="pill ' + mi.cls + '">' + esc(mi.t) + '</span>' : '');
     var daysTxt = isDone(c) ? ('Prepped in ' + d + 'd') : (d + (d === 1 ? ' day' : ' days') + ' in prep');
@@ -560,6 +560,13 @@
     }).join('');
     var d = carDays(c);
     $('#m-days').innerHTML = '<span>Now at <b>' + esc(STAGES[stageIdx(c)].l) + '</b></span><span><b class="num">' + d + '</b> ' + (isDone(c) ? 'days from arrival to completed' : 'days in prep, target ' + TARGET) + '</span><span>Arrived <b>' + esc(fmtDate(c.added)) + '</b></span><span><b class="num">' + doneCount(c) + '</b> of ' + TOTAL + ' tasks done</span>';
+    var dv = c.dvla, dvEl = $('#m-dvla');
+    if (dvEl) {
+      dvEl.hidden = !dv;
+      if (dv) dvEl.textContent = 'MOT expiry checked with DVLA/DVSA on ' + new Date(dv.checkedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: TZ })
+        + (dv.mot ? ': valid until ' + fmtDate(dv.mot) + '.' : ': no MOT expiry on record.')
+        + (dv.lastMot && dv.lastMot.date ? ' Last MOT ' + fmtDate(dv.lastMot.date) + ', ' + String(dv.lastMot.result).toLowerCase() + (dv.lastMot.advisories ? ' with ' + dv.lastMot.advisories + (dv.lastMot.advisories === 1 ? ' advisory' : ' advisories') : '') + '.' : '') + ' Checked again every morning.';
+    }
     $('#m-upd').textContent = c.updatedBy ? ('Last updated by ' + c.updatedBy + ', ' + new Date(c.updatedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })) : '';
 
     var ab = $('#m-arch'), arch = isArchived(c);
@@ -741,16 +748,33 @@
     var b = e.target.closest && e.target.closest('.pq'); if (!b) return;
     b.classList.toggle('on'); b.setAttribute('aria-pressed', b.classList.contains('on'));
   });
-  function openNew() { $('#n-form').reset(); Array.prototype.forEach.call($('#n-prep').querySelectorAll('.pq'), function (b) { b.classList.remove('on'); b.setAttribute('aria-pressed', 'false'); }); $('#ov-new').hidden = false; $('#n-reg').focus(); }
+  function openNew() { lastLook = ''; $('#n-look-st').textContent = ''; $('#n-mot').value = ''; $('#n-form').reset(); Array.prototype.forEach.call($('#n-prep').querySelectorAll('.pq'), function (b) { b.classList.remove('on'); b.setAttribute('aria-pressed', 'false'); }); $('#ov-new').hidden = false; $('#n-reg').focus(); }
   function closeNew() { $('#ov-new').hidden = true; }
   $('#n-close').addEventListener('click', closeNew);
   $('#ov-new').addEventListener('click', function (e) { if (e.target === e.currentTarget) closeNew(); });
-  $('#n-reg').addEventListener('input', function (e) { e.target.value = e.target.value.toUpperCase(); });
+  $('#n-reg').addEventListener('input', function (e) { e.target.value = e.target.value.toUpperCase(); $('#n-look-st').textContent = ''; });
+  // Registration lookup: fills make, model, colour and MOT expiry from the DVLA (and DVSA for the model).
+  var lastLook = '', lookupOn = false;
+  function lookupReg(force) {
+    if (!lookupOn) return;
+    var reg = $('#n-reg').value.replace(/[^A-Z0-9]/gi, '').toUpperCase(), st = $('#n-look-st');
+    if (reg.length < 2 || (!force && reg === lastLook)) return;
+    lastLook = reg; st.textContent = 'Looking up ' + reg + '\u2026';
+    api('GET', '/api/lookup?reg=' + encodeURIComponent(reg)).then(function (v) {
+      if (lastLook !== reg) return;
+      var set = function (sel, val) { if (val && !$(sel).value.trim()) $(sel).value = val; };
+      set('#n-make', v.make); set('#n-model', v.model); set('#n-colour', v.colour);
+      $('#n-mot').value = v.mot || '';
+      st.textContent = 'Found: ' + [v.make, v.model, v.colour].filter(Boolean).join(' ') + (v.mot ? '. MOT until ' + isoToShort(v.mot) : '') + (v.model ? '' : '. Type the model, the DVLA does not supply it.');
+    }).catch(function (ex) { if (!ex || ex.code !== 'unauth') st.textContent = (ex && ex.message) || 'Lookup failed. Fill the details in by hand.'; });
+  }
+  $('#n-reg').addEventListener('blur', function () { lookupReg(false); });
+  $('#n-look').addEventListener('click', function () { lookupReg(true); });
   $('#n-form').addEventListener('submit', function (e) {
     e.preventDefault();
     var miles = $('#n-miles').value;
     var body = {
-      reg: $('#n-reg').value, make: $('#n-make').value, model: $('#n-model').value,
+      reg: $('#n-reg').value, make: $('#n-make').value, model: $('#n-model').value, colour: $('#n-colour').value, mot: $('#n-mot').value,
       tag: $('#n-tag').value, mileage: miles === '' ? null : Number(miles),
       prep: Array.prototype.map.call($('#n-prep').querySelectorAll('.pq.on'), function (b) { return b.dataset.k; })
     };
@@ -823,6 +847,7 @@
       + '<p class="muted-s">Data folder ' + esc(h.dataDir) + (h.separateDisk === true ? ' on its own disk (kept through updates).' : h.separateDisk === false ? ' is <b>not</b> on a separate disk. Updates could wipe it. Check the Render disk.' : '.')
       + (h.disk ? ' Free space ' + fmtSize(h.disk.free) + ' of ' + fmtSize(h.disk.total) + '.' : '')
       + (last ? ' Last automatic backup ' + esc(fmtWhen(last.at)) + '.' : ' No automatic backup yet.') + '</p>'
+      + (h.lookup ? '<p class="muted-s">Registration lookup: ' + (h.lookup.dvla || h.lookup.motHistory ? '<b>on</b> (' + [h.lookup.dvla ? 'DVLA' : '', h.lookup.motHistory ? 'DVSA MOT history' : ''].filter(Boolean).join(' and ') + ').' + (h.lookup.lastRun ? ' Last daily MOT check ' + esc(fmtWhen(h.lookup.lastRun)) + ': ' + h.lookup.checked + ' cars checked, ' + h.lookup.updated + ' updated' + (h.lookup.failed ? ', ' + h.lookup.failed + ' failed' : '') + '.' : ' The first daily MOT check runs within a few minutes of a restart, then every morning.') : '<b>off</b>. Add DVLA_API_KEY in Render to switch it on.') + '</p>' : '')
       + (h.pdfShrink ? '<p class="muted-s">PDF shrinking: ' + (h.pdfShrink.available ? '<b>on</b> (Ghostscript ' + esc(h.pdfShrink.version) + '). Since the last restart ' + h.pdfShrink.shrunk + ' PDF' + (h.pdfShrink.shrunk === 1 ? '' : 's') + ' reduced, saving ' + fmtSize(h.pdfShrink.savedBytes) + '.' : '<b>off</b>. PDFs are stored at their original size.') + '</p>' : '')
       + '</div>';
     html += '<div class="block"><h3>Unattached checks (' + h.unattached.length + ')</h3>'
@@ -1257,6 +1282,7 @@
 
   /* ---------- start ---------- */
   api('GET', '/api/session').then(function (s) {
+    lookupOn = !!s.lookup; $('#n-look').hidden = !lookupOn;
     if (s.user) { state.user = s.user; startApp(); }
     else {
       showAuth(s.setup ? 'setup' : 'login');

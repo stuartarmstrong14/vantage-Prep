@@ -96,6 +96,8 @@ The endpoint accepts Postmark, Mailgun and SendGrid style posts, or a plain JSON
 | `COOKIE_SECURE` | auto | Set to `1` to force the secure cookie flag |
 | `INBOUND_SECRET` | off | Turns on adding cars by email. The key the email service puts on the web address |
 | `INBOUND_ALLOWED` | anyone | Comma-separated sender addresses allowed to add cars by email |
+| `DVLA_API_KEY` | off | Turns on the registration lookup (make, colour, MOT expiry) from the DVLA Vehicle Enquiry Service |
+| `MOT_CLIENT_ID`, `MOT_CLIENT_SECRET`, `MOT_API_KEY`, `MOT_TOKEN_URL` | off | Optional DVSA MOT History API credentials: adds the model and the latest MOT result. `MOT_TOKEN_URL` is the full token URL from DVSA's email |
 
 ## Looking after it
 
@@ -157,6 +159,14 @@ The **Search** box on the home screen looks through every car: in prep, complete
 Under **How prep is going**, **Still to do, by department** shows a box for each department (Inbound, Valet, Photos, Mechanical, Bodywork, Quality Check). Each box shows how many cars in prep still need work from that department, whatever stage the car has reached: a car waiting at Valet with its mechanical boxes unticked counts under Mechanical too. Tapping **Bodywork** also opens **Bodywork jobs**, which counts cars still needing Cosmetic, Dents, Alloy wheels and Paint; they stay hidden otherwise. Tapping an open job again goes back to the Bodywork list.
 
 Tap a box to show only those cars in the stock list; tap it again (or **Show all**) to see everything. The **Quality Check** box counts only cars where everything else is ticked and the final quality check is still to do. A car moves to **Completed** once that last box is ticked. This replaces the old stage drop-down.
+
+## Registration lookup and daily MOT check
+
+When `DVLA_API_KEY` is set in Render, **Add car** shows a **Look up** button next to the registration (it also looks up automatically when you leave the box). It fills in make, colour and MOT expiry from the DVLA; with the DVSA MOT History keys it also fills in the model and notes the latest MOT result. Anything already typed is not overwritten.
+
+Every morning (about 6am, and a few minutes after each restart) the app checks every car still in prep and updates its MOT expiry from the official record, so a new MOT shows up by itself. Make, model and colour are only filled in when empty, so staff edits are kept. Car cards show the MOT date, and the car sheet says when it was last checked. Tax status is not used. Data health shows whether the lookup is on and how the last daily check went.
+
+To get keys: apply for a DVLA Vehicle Enquiry Service API key on the DVLA developer portal, and (optional) register for the DVSA MOT History API. Paste them into Render -> Environment, then save; Render restarts the app.
 
 ## Cosmetic estimate
 

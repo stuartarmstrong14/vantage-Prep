@@ -368,3 +368,8 @@ button.flink{font-family:inherit;cursor:pointer}
 .cc-car .rplink .l{display:flex;flex-direction:column}
 .cc-car .rplink small{color:var(--muted);font-size:14px}
 .cc-car .rplink:hover b{text-decoration:underline}
+
+/* Registration lookup */
+.reg-look{display:flex;gap:8px}
+.reg-look .field{flex:1;min-width:0}
+.reg-look .btn{flex:none;min-height:44px;padding:0 14px}

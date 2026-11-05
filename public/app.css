@@ -335,3 +335,19 @@ input.field,select.field,textarea.field,input[type="search"],input[type="text"],
 .hl-grid span{font-size:13px;color:var(--muted);font-weight:600}
 @media (max-width:520px){.hl-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 button.flink{font-family:inherit;cursor:pointer}
+
+/* Cosmetic estimate */
+.est{margin-top:10px;border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--surface)}
+.est-head{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap}
+.est-tot{color:var(--ink)}
+.est-line{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;border-top:1px solid var(--line);padding-top:6px}
+.est-n{font-weight:600;overflow-wrap:anywhere}
+.est-v{color:var(--muted);font-size:14px;white-space:nowrap}
+.est-add{display:grid;grid-template-columns:minmax(0,1fr) 70px auto;gap:8px;align-items:center}
+.est-add .field{padding:8px 10px}
+.cmest{margin-top:2px;font-size:14px;color:var(--muted)}
+.cl-row{display:grid;grid-template-columns:minmax(0,1fr) 80px 100px auto;gap:8px;align-items:center;margin-bottom:8px}
+.cl-row .field{padding:8px 10px}
+.cl-headrow{font-size:13px;font-weight:700;color:var(--muted)}
+@media (max-width:480px){.cl-row{grid-template-columns:minmax(0,1fr) 64px 84px auto}.est-line{grid-template-columns:minmax(0,1fr) auto}.est-line .linkbtn{grid-column:1/-1;justify-self:start;padding:0;min-height:28px}}
+@media (max-width:480px){.est-add{grid-template-columns:minmax(0,1fr) auto}.est-add select{grid-column:1/-1}}

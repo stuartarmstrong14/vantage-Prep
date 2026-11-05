@@ -85,6 +85,14 @@ db.exec(`
     updated_at TEXT NOT NULL,
     updated_by TEXT NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS cost_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    hours REAL NOT NULL,
+    cost REAL NOT NULL,
+    sort INTEGER NOT NULL DEFAULT 0,
+    active INTEGER NOT NULL DEFAULT 1
+  );
   CREATE TABLE IF NOT EXISTS files (
     id TEXT PRIMARY KEY,
     car_id TEXT NOT NULL,
@@ -105,6 +113,19 @@ db.exec(`
   if (!cols.includes('deleted_by')) db.exec('ALTER TABLE files ADD COLUMN deleted_by TEXT');
 })();
 
+// Cosmetic repair price list, loaded once from the matrix supplied in November 2026 (Area of Repair, Time in hours, Internal cost).
+const COST_SEED = [
+  ['Bonnet', 4, 174], ['Bumper Corner', 2, 94], ['Diamond Cut Alloy', 1.5, 76.5], ['Door', 4, 174], ['Filler', 1.5, 76.5],
+  ['Flat & Polish P/P', 0.5, 41.5], ['Front Wing', 2, 104], ['Full bumper', 4, 174], ['Full Car Flat & Polish', 5, 217], ['Half Bumper', 3, 129],
+  ['Large Smart', 2, 112], ['Mirror Cover', 0.75, 50.25], ['New Panel', 3.5, 156.5], ['Painted Alloy', 1, 59], ['Panel Blend', 1, 59],
+  ['Rear Quarter', 4, 174], ['Retexture', 1.5, 86.5], ['Roof', 6, 252], ['Sensors PK of 4', 1.5, 76.5], ['Sill', 2, 104],
+  ['Small Smart', 1.5, 76.5], ['Spoiler', 2, 94], ['Tailgate', 4, 174], ['Touch-in', 0.5, 41.5], ['Tow Cover', 0.5, 41.5], ['Dent', 0, 35],
+];
+if (db.prepare('SELECT COUNT(*) AS c FROM cost_items').get().c === 0) {
+  const ins = db.prepare('INSERT INTO cost_items (name, hours, cost, sort) VALUES (?, ?, ?, ?)');
+  COST_SEED.forEach((r, i) => ins.run(r[0], r[1], r[2], i));
+}
+
 const q = {
   countUsers: db.prepare('SELECT COUNT(*) AS c FROM users'),
   userById: db.prepare('SELECT * FROM users WHERE id = ?'),
@@ -119,6 +140,8 @@ const q = {
   deleteCar: db.prepare('DELETE FROM cars WHERE id = ?'),
   insertFile: db.prepare('INSERT INTO files (id, car_id, name, type, size, data, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'),
   fileById: db.prepare('SELECT * FROM files WHERE id = ?'),
+  costItems: db.prepare('SELECT id, name, hours, cost, sort FROM cost_items WHERE active = 1 ORDER BY sort, id'),
+  costById: db.prepare('SELECT * FROM cost_items WHERE id = ? AND active = 1'),
   binFile: db.prepare('UPDATE files SET deleted_at = ?, deleted_by = ? WHERE id = ?'),
   binFilesForCar: db.prepare('UPDATE files SET deleted_at = ?, deleted_by = ? WHERE car_id = ? AND deleted_at IS NULL'),
   unbinFile: db.prepare('UPDATE files SET deleted_at = NULL, deleted_by = NULL WHERE id = ?'),
@@ -337,6 +360,17 @@ function applyCarPatch(cur, body, user) {
       next.notes = str(v).slice(0, 5000);
     } else if (key === 'cosmeticNotes') {
       next.cosmeticNotes = str(v).slice(0, 1000);
+    } else if (key === 'estimate') {
+      // cosmetic estimate: lines of { id, qty } from the price list; the name is kept so an old line still reads if an item is removed
+      if (!Array.isArray(v) || v.length > 40) throw new HttpError(400, 'Invalid estimate.');
+      const prev = {}; (cur.estimate || []).forEach((l) => { prev[l.id] = l; });
+      next.estimate = v.map((l) => {
+        const id = Number(l && l.id), qty = Number(l && l.qty);
+        if (!Number.isInteger(qty) || qty < 1 || qty > 20) throw new HttpError(400, 'Quantity must be a whole number from 1 to 20.');
+        const item = q.costById.get(id);
+        if (!item && !prev[id]) throw new HttpError(400, 'That repair is not on the price list.');
+        return { id, name: item ? item.name : prev[id].name, qty };
+      });
     } else if (key === 'mileage') {
       if (v === null || v === '') next.mileage = null;
       else if (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 2000000) next.mileage = Math.round(v);
@@ -641,6 +675,43 @@ async function handleApi(req, res, url) {
     console.log('145 check uploaded for ' + (cur.reg || carId) + ' by ' + u.display + ' (' + name + ')');
     bump();
     return sendJson(res, 201, carOut(q.carById.get(carId)));
+  }
+
+  /* ---------- cosmetic price list ---------- */
+  // Staff and administrators see prices; technicians and advisors see the repairs and hours only.
+  if (method === 'GET' && p === '/api/costs') {
+    const u = requireUser(req);
+    const showCost = u.role === 'admin' || u.role === 'staff';
+    return sendJson(res, 200, { showCost, items: q.costItems.all().map((i) => (showCost ? i : { id: i.id, name: i.name, hours: i.hours, sort: i.sort })) });
+  }
+  if (method === 'PUT' && p === '/api/costs') {
+    const u = requireAdmin(req);
+    const b = await readJson(req);
+    if (!b || !Array.isArray(b.items) || b.items.length > 200) throw new HttpError(400, 'Invalid price list.');
+    const clean = b.items.map((i, n) => {
+      const name = str(i && i.name).trim().slice(0, 60), hours = Number(i && i.hours), cost = Number(i && i.cost);
+      if (!name) throw new HttpError(400, 'Every repair needs a name (line ' + (n + 1) + ').');
+      if (!Number.isFinite(hours) || hours < 0 || hours > 100) throw new HttpError(400, 'Hours on line ' + (n + 1) + ' must be 0 to 100.');
+      if (!Number.isFinite(cost) || cost < 0 || cost > 100000) throw new HttpError(400, 'Cost on line ' + (n + 1) + ' must be a number of pounds.');
+      return { id: Number.isInteger(i.id) ? i.id : null, name, hours: Math.round(hours * 100) / 100, cost: Math.round(cost * 100) / 100, sort: n };
+    });
+    db.exec('BEGIN');
+    try {
+      const keep = new Set();
+      for (const i of clean) {
+        if (i.id && db.prepare('SELECT id FROM cost_items WHERE id = ?').get(i.id)) {
+          db.prepare('UPDATE cost_items SET name = ?, hours = ?, cost = ?, sort = ?, active = 1 WHERE id = ?').run(i.name, i.hours, i.cost, i.sort, i.id);
+          keep.add(i.id);
+        } else {
+          keep.add(Number(db.prepare('INSERT INTO cost_items (name, hours, cost, sort) VALUES (?, ?, ?, ?)').run(i.name, i.hours, i.cost, i.sort).lastInsertRowid));
+        }
+      }
+      db.prepare('SELECT id FROM cost_items WHERE active = 1').all().forEach((r) => { if (!keep.has(r.id)) db.prepare('UPDATE cost_items SET active = 0 WHERE id = ?').run(r.id); });
+      db.exec('COMMIT');
+    } catch (e) { db.exec('ROLLBACK'); throw e; }
+    console.log('cosmetic price list updated by ' + u.display + ' (' + clean.length + ' items)');
+    bump();
+    return sendJson(res, 200, { showCost: true, items: q.costItems.all() });
   }
 
   /* ---------- data health (administrators) ---------- */

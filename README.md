@@ -158,6 +158,12 @@ Under **How prep is going**, **Still to do, by department** shows a box for each
 
 Tap a box to show only those cars in the stock list; tap it again (or **Show all**) to see everything. The **Quality Check** box counts only cars where everything else is ticked and the final quality check is still to do. A car moves to **Completed** once that last box is ticked. This replaces the old stage drop-down.
 
+## Cosmetic estimate
+
+Under the cosmetic notes on the Bodywork stage, staff build a **Cosmetic estimate** by picking repairs from the price list (with a quantity). The car shows each line and the total time and internal cost. The **Paint and cosmetic work** list in Reports shows each car's estimate and the total for all outstanding cosmetic work.
+
+The price list started from the cosmetic matrix spreadsheet (Area of Repair, Time in hours, Internal cost; "New Pannel" was renamed "New Panel"). Administrators change it under **Account -> Edit cosmetic price list**: edit names, hours and prices, add or remove repairs, then **Save price list**. Estimates always use the current prices. Staff and administrators see prices; technicians and advisors see the repairs and hours only.
+
 ## Cosmetic notes
 
 Under **Cosmetic check complete** on the Bodywork stage there is a box for what cosmetic work needs doing (up to 1,000 characters). It saves as you type and everyone can see it; advisors see it read-only. The tick box still marks the cosmetic check as done.

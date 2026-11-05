@@ -215,6 +215,7 @@
     $('#rep-btn').hidden = !state.user || state.user.role !== 'admin';
     render();
     refresh(true);
+    loadCosts();
     startPolling();
   }
 
@@ -486,6 +487,31 @@
     $('#ov-car').hidden = true; state.open = null;
     if (location.pathname !== '/') { try { history.replaceState(null, '', '/'); } catch (e) { /* ignore */ } }
   }
+  /* ---------- cosmetic estimate ---------- */
+  var costs = { items: [], showCost: false };
+  function loadCosts() { return api('GET', '/api/costs').then(function (r) { costs = r; if (state.open) renderSheet(); }).catch(function () { /* estimate just hides */ }); }
+  function costItem(id) { return costs.items.filter(function (i) { return i.id === id; })[0]; }
+  var gbp = function (n) { return '\u00a3' + (Math.round(n * 100) / 100).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+  var hrs = function (n) { return (Math.round(n * 100) / 100) + (n === 1 ? ' hr' : ' hrs'); };
+  function estTotals(c) {
+    var t = { hours: 0, cost: 0, lines: (c.estimate || []).length };
+    (c.estimate || []).forEach(function (l) { var it = costItem(l.id); if (it) { t.hours += it.hours * l.qty; t.cost += (it.cost || 0) * l.qty; } });
+    return t;
+  }
+  function estimateHtml(c) {
+    if (!costs.items.length && !(c.estimate || []).length) return '';
+    var ro = readOnly(), t = estTotals(c);
+    var lines = (c.estimate || []).map(function (l, i) {
+      var it = costItem(l.id);
+      return '<div class="est-line"><span class="est-n">' + esc(l.name) + (l.qty > 1 ? ' &times; ' + l.qty : '') + '</span><span class="est-v num">' + (it ? hrs(it.hours * l.qty) + (costs.showCost ? ' &middot; ' + gbp(it.cost * l.qty) : '') : 'no longer on price list') + '</span>'
+        + (ro ? '' : '<button type="button" class="linkbtn" data-est-rm="' + i + '" aria-label="Remove ' + esc(l.name) + '">Remove</button>') + '</div>';
+    }).join('');
+    var add = ro ? '' : '<div class="est-add"><select class="field" id="est-item" aria-label="Repair">' + '<option value="">Add a repair\u2026</option>' + costs.items.map(function (i) {
+      return '<option value="' + i.id + '">' + esc(i.name) + ' (' + hrs(i.hours) + (costs.showCost ? ', ' + gbp(i.cost) : '') + ')</option>';
+    }).join('') + '</select><input class="field num" id="est-qty" type="number" inputmode="numeric" min="1" max="20" value="1" aria-label="Quantity"><button type="button" class="btn" data-est-add>Add</button></div>';
+    return '<div class="est"><div class="est-head"><b>Cosmetic estimate</b>' + (t.lines ? '<span class="est-tot num">' + hrs(t.hours) + (costs.showCost ? ' &middot; <b>' + gbp(t.cost) + '</b>' : '') + '</span>' : '') + '</div>'
+      + (lines || '<p class="muted-s">No repairs added yet.</p>') + add + '</div>';
+  }
   function fmtSize(n) { return n >= 1073741824 ? (Math.round(n / 107374182.4) / 10) + ' GB' : n >= 1048576 ? (Math.round(n / 104857.6) / 10) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
   // The 145 point check is completed by uploading the paperwork, not by a tick box.
   function uploadRowHtml(c, tid, label, on) {
@@ -550,7 +576,7 @@
         var x = t[2], ex = '', signed = '';
         if (x && x.type === 'note') {
           return '<div class="chkrow colrow"><label class="chk' + (on ? ' done' : '') + '"><input type="checkbox" data-t="' + tid + '"' + (on ? ' checked' : '') + '><span>' + esc(t[1]) + '</span></label>'
-            + '<textarea class="field cosn" data-x="' + x.f + '" maxlength="1000" rows="3" placeholder="What cosmetic work is needed? e.g. scuffed rear bumper, door ding, wheel refurb" aria-label="' + esc(x.label) + '">' + esc(c[x.f] || '') + '</textarea></div>';
+            + '<textarea class="field cosn" data-x="' + x.f + '" maxlength="1000" rows="3" placeholder="What cosmetic work is needed? e.g. scuffed rear bumper, door ding, wheel refurb" aria-label="' + esc(x.label) + '">' + esc(c[x.f] || '') + '</textarea>' + estimateHtml(c) + '</div>';
         }
         if (x) {
           var xv = c[x.f];
@@ -648,6 +674,19 @@
     upd(state.open, o, extra);
   });
   $('#m-checks').addEventListener('click', function (e) {
+    var ea = e.target.closest && e.target.closest('[data-est-add]'), er = e.target.closest && e.target.closest('[data-est-rm]');
+    if ((ea || er) && state.open) {
+      var c0 = state.cars.get(state.open); if (!c0) return;
+      var list = (c0.estimate || []).map(function (l) { return { id: l.id, name: l.name, qty: l.qty }; });
+      if (ea) {
+        var id = Number($('#est-item').value), qty = Math.max(1, Math.min(20, parseInt($('#est-qty').value, 10) || 1)), it = costItem(id);
+        if (!it) { toast('Choose a repair from the list first.'); return; }
+        var ex = list.filter(function (l) { return l.id === id; })[0];
+        if (ex) ex.qty = Math.min(20, ex.qty + qty); else list.push({ id: id, name: it.name, qty: qty });
+      } else list.splice(Number(er.dataset.estRm), 1);
+      upd(state.open, { estimate: list.map(function (l) { return { id: l.id, qty: l.qty }; }) }, { estimate: list });
+      return;
+    }
     var b = e.target.closest && e.target.closest('[data-rmfile]'); if (!b || !state.open) return;
     if (!b.classList.contains('armed')) {
       b.classList.add('armed'); b.textContent = 'Tap again to remove';
@@ -804,6 +843,31 @@
       if (!ex || ex.code !== 'unauth') $('#hl-body').innerHTML = '<div class="block"><p class="formerr light">' + esc((ex && ex.message) || 'Could not check the data.') + '</p></div>';
     });
   }
+  function renderCostEditor() {
+    $('#cl-rows').innerHTML = costs.items.map(function (i) {
+      return '<div class="cl-row" data-id="' + i.id + '"><input class="field" data-cl="name" maxlength="60" value="' + esc(i.name) + '" aria-label="Repair"><input class="field num" data-cl="hours" type="number" step="0.25" min="0" value="' + i.hours + '" aria-label="Hours"><input class="field num" data-cl="cost" type="number" step="0.01" min="0" value="' + i.cost + '" aria-label="Cost in pounds"><button type="button" class="linkbtn" data-cl-rm aria-label="Remove ' + esc(i.name) + '">Remove</button></div>';
+    }).join('');
+  }
+  $('#ac-costs').addEventListener('click', function () {
+    $('#ov-acct').hidden = true; $('#cl-err').hidden = true;
+    loadCosts().then(function () { renderCostEditor(); $('#ov-costs').hidden = false; $('#cl-close').focus(); });
+  });
+  $('#cl-close').addEventListener('click', function () { $('#ov-costs').hidden = true; });
+  $('#cl-add').addEventListener('click', function () {
+    var d = document.createElement('div'); d.className = 'cl-row';
+    d.innerHTML = '<input class="field" data-cl="name" maxlength="60" placeholder="New repair" aria-label="Repair"><input class="field num" data-cl="hours" type="number" step="0.25" min="0" value="0" aria-label="Hours"><input class="field num" data-cl="cost" type="number" step="0.01" min="0" value="0" aria-label="Cost in pounds"><button type="button" class="linkbtn" data-cl-rm>Remove</button>';
+    $('#cl-rows').appendChild(d); d.querySelector('input').focus();
+  });
+  $('#cl-rows').addEventListener('click', function (e) { var b = e.target.closest('[data-cl-rm]'); if (b) b.closest('.cl-row').remove(); });
+  $('#cl-save').addEventListener('click', function () {
+    var items = Array.prototype.map.call(document.querySelectorAll('#cl-rows .cl-row'), function (r) {
+      var v = function (k) { return r.querySelector('[data-cl="' + k + '"]').value; };
+      return { id: r.dataset.id ? Number(r.dataset.id) : null, name: v('name'), hours: Number(v('hours')), cost: Number(v('cost')) };
+    });
+    var err = $('#cl-err'); err.hidden = true;
+    api('PUT', '/api/costs', { items: items }).then(function (r) { costs = r; renderCostEditor(); toast('Price list saved.'); if (state.open) renderSheet(); })
+      .catch(function (ex) { if (!ex || ex.code !== 'unauth') { err.textContent = (ex && ex.message) || 'Could not save the price list.'; err.hidden = false; } });
+  });
   $('#ac-health').addEventListener('click', function () {
     $('#ov-acct').hidden = true; $('#ov-health').hidden = false; $('#hl-status').textContent = ''; loadHealth(); $('#hl-close').focus();
   });
@@ -1113,17 +1177,21 @@
     var wheels = cars.filter(function (c) { return !done(c, 'body_wheels') && Number(c.bodyWheels) > 0; }).sort(byTag);
     var wtotal = wheels.reduce(function (n, c) { return n + Number(c.bodyWheels); }, 0);
     var PAINT = /paint|respray|spray|refinish|lacquer|colour match/i;
-    var paint = cars.filter(function (c) { return !done(c, 'body_paint') && String(c.cosmeticNotes || '').trim(); })
+    var paint = cars.filter(function (c) { return !done(c, 'body_paint') && (String(c.cosmeticNotes || '').trim() || (c.estimate || []).length); })
       .sort(function (a, b) { return (PAINT.test(b.cosmeticNotes) - PAINT.test(a.cosmeticNotes)) || byTag(a, b); });
     var wh = '<div class="rp-card full"><h3>Alloy wheels to refine</h3><p class="sub">' + (wheels.length ? wtotal + ' wheel' + (wtotal === 1 ? '' : 's') + ' on ' + wheels.length + ' car' + (wheels.length === 1 ? '' : 's') : 'Nothing to do') + '</p>'
       + wheels.map(function (c) {
         var n = Number(c.bodyWheels);
         return '<button type="button" class="rp-row" data-open="' + c.id + '"><span class="l"><b>' + tagOf(c) + '</b><small>' + name(c) + '</small></span><span class="r">' + n + (n === 1 ? ' wheel' : ' wheels') + '</span></button>';
       }).join('') + '</div>';
-    var pt = '<div class="rp-card full"><h3>Paint and cosmetic work</h3><p class="sub">' + (paint.length ? paint.length + ' car' + (paint.length === 1 ? '' : 's') + ' with notes and paint work not yet done. Cars whose notes mention paint are listed first.' : 'No cosmetic notes to show.') + '</p>'
+    var estAll = paint.reduce(function (t, c) { var e = estTotals(c); t.hours += e.hours; t.cost += e.cost; return t; }, { hours: 0, cost: 0 });
+    var pt = '<div class="rp-card full"><h3>Paint and cosmetic work</h3><p class="sub">' + (paint.length ? paint.length + ' car' + (paint.length === 1 ? '' : 's') + ' with cosmetic work and paint not yet done' + (estAll.hours || estAll.cost ? ': estimated ' + hrs(estAll.hours) + (costs.showCost ? ', ' + gbp(estAll.cost) : '') + ' in total' : '') + '. Cars whose notes mention paint are listed first.' : 'No cosmetic work to show.') + '</p>'
       + paint.map(function (c) {
-        var isP = PAINT.test(c.cosmeticNotes);
-        return '<button type="button" class="rp-row cmrow" data-open="' + c.id + '"><span class="l"><b>' + tagOf(c) + (isP ? ' <span class="pill">Paint</span>' : '') + '</b><small>' + name(c) + '</small><span class="cmnote">' + esc(c.cosmeticNotes) + '</span></span></button>';
+        var isP = PAINT.test(c.cosmeticNotes || ''), et = estTotals(c);
+        return '<button type="button" class="rp-row cmrow" data-open="' + c.id + '"><span class="l"><b>' + tagOf(c) + (isP ? ' <span class="pill">Paint</span>' : '') + '</b><small>' + name(c) + '</small>'
+          + (c.cosmeticNotes ? '<span class="cmnote">' + esc(c.cosmeticNotes) + '</span>' : '')
+          + (et.lines ? '<span class="cmest">' + esc((c.estimate || []).map(function (l) { return l.name + (l.qty > 1 ? ' \u00d7 ' + l.qty : ''); }).join(', ')) + '</span>' : '') + '</span>'
+          + (et.lines ? '<span class="r">' + (costs.showCost ? gbp(et.cost) : hrs(et.hours)) + '</span>' : '') + '</button>';
       }).join('') + '</div>';
     var open = state.rpBody, chip = function (k, label, n) {
       return '<button type="button" class="tab" data-rpb="' + k + '" aria-pressed="' + (open === k) + '" aria-selected="' + (open === k) + '">' + label + ' <span class="num">' + n + '</span></button>';

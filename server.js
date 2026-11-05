@@ -116,8 +116,9 @@ db.exec(`
 
 // Cosmetic repair price list from the cosmetic matrix spreadsheet (Area of Repair, Time in hours, Internal cost).
 // Version 2 (5 Nov 2026): adds Alloy Wheel; Dent now 1 hour.
+// Version 3 (5 Nov 2026): Alloy Wheel and Dent are 0 hours (priced per item, no paint-shop time).
 const COST_SEED = [
-  ['Alloy Wheel', 1, 35], ['Bonnet', 4, 174], ['Bumper Corner', 2, 94], ['Dent', 1, 35], ['Diamond Cut Alloy', 1.5, 76.5], ['Door', 4, 174],
+  ['Alloy Wheel', 0, 35], ['Bonnet', 4, 174], ['Bumper Corner', 2, 94], ['Dent', 0, 35], ['Diamond Cut Alloy', 1.5, 76.5], ['Door', 4, 174],
   ['Filler', 1.5, 76.5], ['Flat & Polish P/P', 0.5, 41.5], ['Front Wing', 2, 104], ['Full bumper', 4, 174], ['Full Car Flat & Polish', 5, 217],
   ['Half Bumper', 3, 129], ['Large Smart', 2, 112], ['Mirror Cover', 0.75, 50.25], ['New Panel', 3.5, 156.5], ['Painted Alloy', 1, 59],
   ['Panel Blend', 1, 59], ['Rear Quarter', 4, 174], ['Retexture', 1.5, 86.5], ['Roof', 6, 252], ['Sensors PK of 4', 1.5, 76.5], ['Sill', 2, 104],
@@ -142,6 +143,19 @@ if (db.prepare('SELECT COUNT(*) AS c FROM cost_items').get().c === 0) {
     });
     db.exec('COMMIT');
     console.log('cosmetic price list updated to version 2 (Alloy Wheel added, Dent 1 hour)');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
+})();
+
+// Version 3, applied once: Alloy Wheel and Dent to 0 hours, unless someone has already changed them from the version 2 values.
+db.exec('CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)');
+(function costListV3() {
+  if (db.prepare("SELECT v FROM meta WHERE k = 'costs_v3'").get()) return;
+  db.exec('BEGIN');
+  try {
+    const n = db.prepare("UPDATE cost_items SET hours = 0 WHERE name IN ('Alloy Wheel', 'Dent') AND hours = 1 AND cost = 35 AND active = 1").run().changes;
+    db.prepare("INSERT INTO meta (k, v) VALUES ('costs_v3', ?)").run(new Date().toISOString());
+    db.exec('COMMIT');
+    if (n) console.log('cosmetic price list updated to version 3 (Alloy Wheel and Dent 0 hours)');
   } catch (e) { db.exec('ROLLBACK'); throw e; }
 })();
 

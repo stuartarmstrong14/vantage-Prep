@@ -114,18 +114,36 @@ db.exec(`
   if (!cols.includes('deleted_by')) db.exec('ALTER TABLE files ADD COLUMN deleted_by TEXT');
 })();
 
-// Cosmetic repair price list, loaded once from the matrix supplied in November 2026 (Area of Repair, Time in hours, Internal cost).
+// Cosmetic repair price list from the cosmetic matrix spreadsheet (Area of Repair, Time in hours, Internal cost).
+// Version 2 (5 Nov 2026): adds Alloy Wheel; Dent now 1 hour.
 const COST_SEED = [
-  ['Bonnet', 4, 174], ['Bumper Corner', 2, 94], ['Diamond Cut Alloy', 1.5, 76.5], ['Door', 4, 174], ['Filler', 1.5, 76.5],
-  ['Flat & Polish P/P', 0.5, 41.5], ['Front Wing', 2, 104], ['Full bumper', 4, 174], ['Full Car Flat & Polish', 5, 217], ['Half Bumper', 3, 129],
-  ['Large Smart', 2, 112], ['Mirror Cover', 0.75, 50.25], ['New Panel', 3.5, 156.5], ['Painted Alloy', 1, 59], ['Panel Blend', 1, 59],
-  ['Rear Quarter', 4, 174], ['Retexture', 1.5, 86.5], ['Roof', 6, 252], ['Sensors PK of 4', 1.5, 76.5], ['Sill', 2, 104],
-  ['Small Smart', 1.5, 76.5], ['Spoiler', 2, 94], ['Tailgate', 4, 174], ['Touch-in', 0.5, 41.5], ['Tow Cover', 0.5, 41.5], ['Dent', 0, 35],
+  ['Alloy Wheel', 1, 35], ['Bonnet', 4, 174], ['Bumper Corner', 2, 94], ['Dent', 1, 35], ['Diamond Cut Alloy', 1.5, 76.5], ['Door', 4, 174],
+  ['Filler', 1.5, 76.5], ['Flat & Polish P/P', 0.5, 41.5], ['Front Wing', 2, 104], ['Full bumper', 4, 174], ['Full Car Flat & Polish', 5, 217],
+  ['Half Bumper', 3, 129], ['Large Smart', 2, 112], ['Mirror Cover', 0.75, 50.25], ['New Panel', 3.5, 156.5], ['Painted Alloy', 1, 59],
+  ['Panel Blend', 1, 59], ['Rear Quarter', 4, 174], ['Retexture', 1.5, 86.5], ['Roof', 6, 252], ['Sensors PK of 4', 1.5, 76.5], ['Sill', 2, 104],
+  ['Small Smart', 1.5, 76.5], ['Spoiler', 2, 94], ['Tailgate', 4, 174], ['Touch-in', 0.5, 41.5], ['Tow Cover', 0.5, 41.5],
 ];
 if (db.prepare('SELECT COUNT(*) AS c FROM cost_items').get().c === 0) {
   const ins = db.prepare('INSERT INTO cost_items (name, hours, cost, sort) VALUES (?, ?, ?, ?)');
   COST_SEED.forEach((r, i) => ins.run(r[0], r[1], r[2], i));
 }
+// Bring a list loaded from version 1 up to version 2 once: add Alloy Wheel, set Dent to 1 hour (only if nobody has changed it), sort as the sheet.
+(function costListV2() {
+  const has = (n) => db.prepare('SELECT id FROM cost_items WHERE name = ? AND active = 1').get(n);
+  if (has('Alloy Wheel')) return;
+  db.exec('BEGIN');
+  try {
+    db.prepare('INSERT INTO cost_items (name, hours, cost, sort) VALUES (?, ?, ?, ?)').run('Alloy Wheel', 1, 35, 0);
+    db.prepare("UPDATE cost_items SET hours = 1 WHERE name = 'Dent' AND hours = 0 AND cost = 35 AND active = 1").run();
+    const order = COST_SEED.map((r) => r[0]);
+    db.prepare('SELECT id, name, sort FROM cost_items WHERE active = 1').all().forEach((r) => {
+      const i = order.indexOf(r.name);
+      db.prepare('UPDATE cost_items SET sort = ? WHERE id = ?').run(i >= 0 ? i : 100 + r.sort, r.id);
+    });
+    db.exec('COMMIT');
+    console.log('cosmetic price list updated to version 2 (Alloy Wheel added, Dent 1 hour)');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
+})();
 
 const q = {
   countUsers: db.prepare('SELECT COUNT(*) AS c FROM users'),

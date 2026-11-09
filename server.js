@@ -496,12 +496,16 @@ function applyCarPatch(cur, body, user) {
   return next;
 }
 
-// MOT runs out within 60 days (or has expired): the workshop should book it before the car is advertised.
-const MOT_DUE_DAYS = 60;
+// MOT runs out within 6 months (or has expired): it needs doing as part of prep.
+const MOT_DUE_MONTHS = 6;
+function addMonths(iso, n) {
+  let y = +iso.slice(0, 4), m = +iso.slice(5, 7) - 1 + n; const d = +iso.slice(8, 10);
+  y += Math.floor(m / 12); m = ((m % 12) + 12) % 12;
+  const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  return y + '-' + String(m + 1).padStart(2, '0') + '-' + String(Math.min(d, last)).padStart(2, '0');
+}
 function motSoon(mot) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(mot || '')) return false;
-  const day = (s) => Math.floor(Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)) / 86400000);
-  return day(mot) - day(todayStr()) <= MOT_DUE_DAYS;
+  return /^\d{4}-\d{2}-\d{2}$/.test(mot || '') && mot <= addMonths(todayStr(), MOT_DUE_MONTHS);
 }
 // Adds MOT to Prep requested when due. Skipped for finished or archived cars, once the MOT is ticked as passed,
 // and when a person has removed it for this same MOT date. Returns true if it changed the car.

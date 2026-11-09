@@ -272,7 +272,6 @@ html{scroll-behavior:smooth}
         <li>Tap <b>Bodywork</b> and the <b>Bodywork jobs</b> buttons open underneath, counting cars still needing Dents, Alloy wheels and Paint. Tap one to go straight to that job; tap it again to go back to all Bodywork.</li>
         <li>Tap a box to show only those cars. The box turns navy and the stock list says what you are viewing.</li>
         <li>Tap the box again, or tap <b>Show all</b>, to see every car.</li>
-        <li>The last box, <b>MOT due</b>, counts cars whose MOT runs out within 60 days or has expired. Its number is red, and each of those cars has a red <b>MOT due</b> or <b>MOT expired</b> tag on its card.</li>
       </ul>
     </div>
     <figure class="shot"><img src="{{dept}}" alt="Department boxes with Bodywork selected and its job buttons open underneath" width="716" height="758"></figure>
@@ -331,7 +330,7 @@ html{scroll-behavior:smooth}
     <div class="stack">
       <h3>By hand</h3>
       <p>Tap <span class="btnlike">Add car</span> and type the registration. Tap <b>Look up</b> (or just move to the next box) and the make, model, colour and MOT expiry fill in from the DVLA. Check them, add the tag number and mileage, tap the <b>Prep requested</b> buttons that apply, then <b>Add to prep</b>. The car starts at Inbound.</p>
-      <p class="note">New cars, including ones added by email, are checked with the DVSA straight away, and every car in prep is re-checked each morning, so a new MOT updates the card by itself. If the MOT runs out within 60 days, <b>MOT</b> is added to Prep requested for you so the workshop can book it. If it isn't needed, tap MOT to take it off and it stays off.</p>
+      <p class="note">New cars, including ones added by email, are checked with the DVSA straight away, and every car in prep is re-checked each morning, so a new MOT updates the card by itself. If the MOT runs out within 6 months, <b>MOT</b> is added to Prep requested for you, the card shows a red <b>MOT due</b> tag, and a note under Prep requested says when it runs out. If it isn't needed, tap MOT to take it off and it stays off.</p>
       <figure class="shot"><img src="{{add}}" alt="The Add a car form with TAC and Service selected" width="780" height="700"></figure>
     </div>
     <div class="stack">
@@ -425,7 +424,7 @@ MILEAGE 13442</pre>
     <div class="stack"><h3>Backups</h3>
       <p>Every night a full copy (cars, history, logins and every 145 point check) is sent to the company's own cloud storage and kept for 30 days. <b>Data health</b> shows when the last one went and has a <b>Back up to the cloud now</b> button. The app also keeps its own copy every day and before every update, and <b>Account</b>, <b>Download backup</b> saves a copy to your computer. Keep downloaded files somewhere private, because they include staff logins.</p></div>
     <div class="stack"><h3>Daily prep email</h3>
-      <p>Tap <b>Account</b>, then <b>Daily prep email</b>. Add who should get it (one email per line), pick the time and days, tick <b>Send the daily prep email</b> and <b>Save</b>. It shows cars in prep, what each department still has to do, cars over 7 days, cars awaiting QC, cars completed and MOTs running out. Use <b>Preview today's email</b> to see it and <b>Send test now</b> to try it.</p></div>
+      <p>Tap <b>Account</b>, then <b>Daily prep email</b>. Add who should get it (one email per line), pick the time and days, tick <b>Send the daily prep email</b> and <b>Save</b>. It shows cars in prep, what each department still has to do, cars over 7 days, cars awaiting QC, cars completed and MOTs due within 6 months. Use <b>Preview today's email</b> to see it and <b>Send test now</b> to try it.</p></div>
     <div class="stack"><h3>Deleting a car</h3>
       <p>Open it and tap <b>Delete car</b> twice. This also deletes its 145 point check files and cannot be undone, so archive instead unless the car was added by mistake.</p></div>
   </div>
@@ -443,7 +442,7 @@ MILEAGE 13442</pre>
       <tr><td>Car in the wrong stage</td><td>A car sits at the first stage with an unticked box. Look for the unticked box in an earlier stage.</td></tr>
       <tr><td>Notice prints on two pages</td><td>Choose Landscape, margins Default, scale 100%.</td></tr>
       <tr><td>Check MOT shows an error</td><td>Type the MOT expiry by hand for now and tell an administrator. The message says what went wrong.</td></tr>
-      <tr><td>MOT appeared under Prep requested</td><td>The MOT runs out within 60 days. If the car doesn't need one, tap MOT to take it off.</td></tr>
+      <tr><td>MOT appeared under Prep requested</td><td>The MOT runs out within 6 months, so it needs doing in prep. If the car doesn't need one, tap MOT to take it off.</td></tr>
       <tr><td>Forgot password</td><td>Ask an administrator to reset it under Manage staff logins.</td></tr>
     </tbody>
   </table></div>

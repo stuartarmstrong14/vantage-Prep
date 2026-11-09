@@ -303,9 +303,7 @@ input.field,select.field,textarea.field,input[type="search"],input[type="text"],
 /* Department boxes: cars still needing each department */
 .dept{display:flex;flex-direction:column;gap:12px}
 .dept h3{font-size:20px;font-weight:600}
-.dboxes{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px}
-.dbox.motdue:not(.zero):not(.on) b{color:var(--bad)}
-.dbox.motdue.on{border-color:var(--bad)}
+.dboxes{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
 .dbox{background:var(--surface);color:var(--ink);border:2px solid transparent;border-radius:20px;padding:14px 14px 12px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0;text-align:left;font:inherit;cursor:pointer;box-shadow:var(--shadow)}
 .dbox b{font-size:34px;font-weight:700;line-height:1;letter-spacing:-.02em}
 .dbox span{font-size:14px;font-weight:700;color:var(--muted);overflow-wrap:anywhere}
@@ -323,8 +321,7 @@ input.field,select.field,textarea.field,input[type="search"],input[type="text"],
 .dhint{font-size:14px;color:var(--on-bg-soft)}
 .flabel{margin:0;font-size:16px;color:var(--on-bg)}
 .flabel .linkbtn{color:var(--on-bg);text-decoration:underline;margin-left:6px}
-@media (max-width:900px){.dboxes{grid-template-columns:repeat(4,minmax(0,1fr))}}
-@media (max-width:520px){.dboxes{grid-template-columns:repeat(3,minmax(0,1fr))}.dboxes .dbox.motdue{grid-column:span 3;flex-direction:row;align-items:center;gap:10px}}
+@media (max-width:900px){.dboxes{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (max-width:420px){.dbox{padding:12px}.dbox b{font-size:28px}}
 
 /* Status pill on cards in search results */
@@ -404,3 +401,5 @@ button.flink{font-family:inherit;cursor:pointer}
 #dg-days{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
 .chipck{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-weight:600;cursor:pointer}
 .dg-test{display:flex;gap:10px;flex-wrap:wrap}.dg-test .field{flex:1 1 220px;font-size:16px}
+
+.motnote{margin:2px 0 0;font-size:14px;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:6px}.motnote b{color:var(--bad)}

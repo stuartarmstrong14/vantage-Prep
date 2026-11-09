@@ -485,11 +485,41 @@ function applyCarPatch(cur, body, user) {
   }
   if ('estimate' in body) estimateDrivesJobs(cur, next);
   // Completed means every box ticked, including the final quality check. readyAt is the day that happened.
+  // MOT due: put MOT on Prep requested, unless someone has taken it off for this MOT date.
+  const tookOff = body.prep !== undefined && (cur.prep || []).includes('MOT') && !(next.prep || []).includes('MOT');
+  if (tookOff && motSoon(next.mot)) next.motPrepOff = next.mot;
+  else autoMotPrep(next);
   const finished = (d) => !!d && d.ready_qc === true && stageFromDone(d) === 'ready';
   if (finished(next.done)) { if (!finished(cur.done) || !cur.readyAt) next.readyAt = todayStr(); }
   else next.readyAt = '';
   stampHistory(cur, next, user);
   return next;
+}
+
+// MOT runs out within 60 days (or has expired): the workshop should book it before the car is advertised.
+const MOT_DUE_DAYS = 60;
+function motSoon(mot) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(mot || '')) return false;
+  const day = (s) => Math.floor(Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)) / 86400000);
+  return day(mot) - day(todayStr()) <= MOT_DUE_DAYS;
+}
+// Adds MOT to Prep requested when due. Skipped for finished or archived cars, once the MOT is ticked as passed,
+// and when a person has removed it for this same MOT date. Returns true if it changed the car.
+function autoMotPrep(c) {
+  if (!motSoon(c.mot) || (c.prep || []).includes('MOT') || c.motPrepOff === c.mot || c.archived === true) return false;
+  const d = c.done || {};
+  if (d.mech_motbook === true || d.ready_qc === true) return false;
+  c.prep = PREP_ITEMS.filter((x) => (c.prep || []).concat('MOT').includes(x));
+  c.motPrepAuto = c.mot;
+  return true;
+}
+function motPrepPass() {
+  let n = 0;
+  for (const r of q.allCars.all()) {
+    const c = JSON.parse(r.data);
+    if (autoMotPrep(c)) { q.updateCar.run(JSON.stringify(c), new Date().toISOString(), 'MOT due', r.id); n++; }
+  }
+  if (n) { bump(); console.log('MOT due: added MOT to Prep requested on ' + n + ' car(s)'); }
 }
 
 // Records when a car entered each stage, who ticked each box and how often it was sent back. Used for reports.
@@ -608,6 +638,7 @@ async function handleApi(req, res, url) {
       const car = { reg: f.reg, make: f.make, model: f.model, tag: f.tag, prep: f.prep || [], mileage: f.mileage, mot: f.mot,
         notes: 'Added from email. Check the details are right.', stage: 'arrived', added: todayStr(), readyAt: '', done: {},
         history: [{ s: 'arrived', at: new Date().toISOString(), by: 'Email' }] };
+      autoMotPrep(car);
       const newId = crypto.randomBytes(6).toString('hex');
       q.insertCar.run(newId, JSON.stringify(car), new Date().toISOString(), 'Email');
       created.push(f.reg); createdIds.push(newId);
@@ -1187,6 +1218,7 @@ async function refreshCar(id) {
   if (v.history) q.motHistPut.run(id, JSON.stringify(v.history), v.checkedAt);
   let changed = false;
   if (v.mot && v.mot !== cur.mot) { next.mot = v.mot; changed = true; }
+  if (autoMotPrep(next)) changed = true;
   if (!cur.make && v.make) { next.make = v.make; changed = true; }
   if (!cur.model && v.model) { next.model = v.model; changed = true; }
   if (!cur.colour && v.colour) { next.colour = v.colour; changed = true; }
@@ -1538,6 +1570,7 @@ setInterval(() => {
 // Every start (which is every update) and every day: back up first, then empty the recycle bin of anything older than 30 days.
 function dailyCare(reason) {
   autoBackup(reason);
+  try { motPrepPass(); } catch (e) { console.log('MOT due pass failed: ' + e.message); }
   const cutoff = new Date(Date.now() - 30 * 86400000).toISOString();
   const r = q.purgeBin.run(cutoff);
   if (r.changes) console.log('recycle bin: ' + r.changes + ' check(s) older than 30 days removed for good');

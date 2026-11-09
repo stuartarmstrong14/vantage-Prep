@@ -245,12 +245,14 @@
     var d = carDays(c);
     return d > TARGET ? 'bad' : (d >= TARGET - 1 ? 'warn' : '');
   }
+  // MOT due: expires within 60 days (or has expired). Shown in red on the card and counted in the MOT due box.
+  var MOT_DUE_DAYS = 60;
+  function motDue(c) { return !!c.mot && /^\d{4}-\d{2}-\d{2}$/.test(c.mot) && dayNum(c.mot) - dayNum(todayStr()) <= MOT_DUE_DAYS; }
   function motInfo(c) {
-    if (!c.mot) return null;
+    if (!motDue(c)) return null;
     var diff = dayNum(c.mot) - dayNum(todayStr());
     if (diff < 0) return { cls: 'bad', t: 'MOT expired' };
-    if (diff <= 30) return { cls: 'warn', t: 'MOT in ' + diff + 'd' };
-    return null;
+    return { cls: 'bad', t: 'MOT due ' + new Date(c.mot + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }) };
   }
   function trackHtml(c) {
     var cur = stageIdx(c), h = '';
@@ -289,8 +291,9 @@
   var JOBS = [['body_dent', 'Dents'], ['body_wheels', 'Alloy wheels'], ['body_paint', 'Paint']];
   function needsWork(c, f) {
     if (!f || f === 'all') return true;
-    var m = /^(need|job):(.+)$/.exec(f); if (!m) return true;
+    var m = /^(need|job|mot):(.+)$/.exec(f); if (!m) return true;
     if (m[1] === 'job') return (c.done || {})[m[2]] !== true;
+    if (m[1] === 'mot') return motDue(c);
     if (m[2] === 'ready') return awaitingQc(c);
     var st = STAGES.filter(function (x) { return x.k === m[2]; })[0];
     return st ? !stageDone(c, st) : true;
@@ -344,12 +347,14 @@
     $('#tab-prep').setAttribute('aria-selected', !srch && state.tab === 'prep');
     $('#tab-done').setAttribute('aria-selected', !srch && state.tab === 'done');
     // department boxes: how many cars still need each department (tap to filter the stock list)
-    if (!/^(all|need:\w+|job:\w+)$/.test(state.f)) state.f = 'all';
+    if (!/^(all|need:\w+|job:\w+|mot:due)$/.test(state.f)) state.f = 'all';
     var cnt = function (f) { return active.filter(function (c) { return needsWork(c, f); }).length; };
     var dHtml = STAGES.map(function (s) {
       var f = 'need:' + s.k, n = cnt(f), on = state.f === f;
       return '<button type="button" class="dbox' + (on ? ' on' : '') + (n ? '' : ' zero') + '" data-f="' + f + '" aria-pressed="' + on + '"><b class="num">' + n + '</b><span>' + esc(s.l) + '</span></button>';
     }).join('');
+    var mn = cnt('mot:due'), mon = state.f === 'mot:due';
+    dHtml += '<button type="button" class="dbox motdue' + (mon ? ' on' : '') + (mn ? '' : ' zero') + '" data-f="mot:due" aria-pressed="' + mon + '"><b class="num">' + mn + '</b><span>MOT due</span></button>';
     var jHtml = '<span class="djl">Bodywork jobs</span>' + JOBS.map(function (j) {
       var f = 'job:' + j[0], n = cnt(f), on = state.f === f;
       return '<button type="button" class="djob' + (on ? ' on' : '') + '" data-f="' + f + '" aria-pressed="' + on + '">' + esc(j[1]) + ' <b class="num">' + n + '</b></button>';
@@ -363,8 +368,11 @@
       fl.innerHTML = 'Search results for <b>' + esc(state.q.trim()) + '</b> across all cars, including completed and archived <button type="button" class="linkbtn" id="q-clear">Clear search</button>';
       fl.hidden = false;
     } else if (state.f !== 'all' && state.tab === 'prep') {
-      var lbl = state.f.indexOf('need:') === 0 ? STAGES.filter(function (x) { return 'need:' + x.k === state.f; })[0].l : JOBS.filter(function (x) { return 'job:' + x[0] === state.f; })[0][1];
-      fl.innerHTML = 'Showing cars that still need <b>' + esc(lbl) + '</b> <button type="button" class="linkbtn" id="f-clear">Show all</button>';
+      if (state.f === 'mot:due') fl.innerHTML = 'Showing cars whose <b>MOT runs out within ' + MOT_DUE_DAYS + ' days</b> <button type="button" class="linkbtn" id="f-clear">Show all</button>';
+      else {
+        var lbl = state.f.indexOf('need:') === 0 ? STAGES.filter(function (x) { return 'need:' + x.k === state.f; })[0].l : JOBS.filter(function (x) { return 'job:' + x[0] === state.f; })[0][1];
+        fl.innerHTML = 'Showing cars that still need <b>' + esc(lbl) + '</b> <button type="button" class="linkbtn" id="f-clear">Show all</button>';
+      }
       fl.hidden = false;
     } else fl.hidden = true;
 

@@ -230,3 +230,7 @@ Set up once:
 3. In Render -> Environment add `R2_ENDPOINT`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`. Optional: `BACKUP_TIME` (HH:MM, UK time), `BACKUP_KEEP_DAYS` (default 30), `R2_REGION` (default `auto`; set it for Backblaze B2 or AWS S3, which also work).
 
 To use a cloud backup: download the `.db.gz` file from the bucket in Cloudflare. **Data health -> Recover checks from a backup** accepts it directly to put back any missing 145 checks. To rebuild the whole site from it, unzip it and replace `prep.db` on the Render disk (ask for help with this).
+
+### MOT due
+
+A car whose MOT runs out within 60 days (or has expired) shows a red **MOT due** (or **MOT expired**) tag on its card, and the **MOT due** box on the board counts them; tap it to list them. MOT is also added to **Prep requested** automatically, so the workshop books it before the car is advertised. This happens when a car is added (including from email), when its MOT date changes, after an MOT check, and every day. It is not added once **MOT passed** is ticked, for completed or archived cars, or if someone has taken MOT off that car for the same MOT date. It uses the dates typed in, and the DVSA dates once the MOT lookup is working.

@@ -455,12 +455,11 @@
     $('#m-fields').innerHTML = FIELDS.map(function (f) {
       var v = c[f[0]];
       if (f[2] === 'shortdate') return '<label for="f-' + f[0] + '">' + f[1] + '<input class="field" id="f-' + f[0] + '" data-f="' + f[0] + '" data-sd="1" type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/yy" value="' + esc(isoToShort(v)) + '" autocomplete="off"></label>'
-        + (f[0] === 'mot' ? '<div class="mot-look" id="m-look-row" hidden><button class="btn" id="m-look" type="button">Check MOT</button><span class="muted-s" id="m-look-msg" role="status"></span></div>' : '');
+        + (f[0] === 'mot' ? '<div class="mot-look" id="m-look-row" hidden><span class="mot-sp" aria-hidden="true">&nbsp;</span><button class="btn" id="m-look" type="button" aria-expanded="false" aria-controls="m-mot">Check MOT</button></div>' : '');
       return '<label for="f-' + f[0] + '">' + f[1] + '<input class="field' + (f[2] === 'number' ? ' num' : '') + '" id="f-' + f[0] + '" data-f="' + f[0] + '" type="' + f[2] + '"' + (f[2] === 'number' ? ' inputmode="numeric" min="0" max="2000000" step="1"' : '') + ' value="' + esc(v == null ? '' : v) + '" autocomplete="off"></label>';
     }).join('');
     $('#m-notes').value = c.notes || '';
-    $('#m-mot').innerHTML = '';
-    if (c.dvla && c.dvla.tests) loadMotHistory(id, false);
+    $('#m-mot').innerHTML = ''; $('#m-mot').hidden = true;
     renderPrepChips(c);
     $('#m-del').hidden = state.user.role !== 'admin';
     $('#m-body').disabled = readOnly();
@@ -576,7 +575,7 @@
         + (dv.lastMot && dv.lastMot.date ? ' Last MOT ' + fmtDate(dv.lastMot.date) + ', ' + String(dv.lastMot.result).toLowerCase() + (dv.lastMot.advisories ? ' with ' + dv.lastMot.advisories + (dv.lastMot.advisories === 1 ? ' advisory' : ' advisories') : '') + '.' : '') + ' Checked again every morning.';
     }
     var lr = $('#m-look-row');
-    if (lr) { lr.hidden = !lookupOn || readOnly(); if (lr.dataset.car !== c.id) { lr.dataset.car = c.id; $('#m-look-msg').textContent = ''; } }
+    if (lr) lr.hidden = !lookupOn || readOnly();
     $('#m-upd').textContent = c.updatedBy ? ('Last updated by ' + c.updatedBy + ', ' + new Date(c.updatedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })) : '';
 
     var ab = $('#m-arch'), arch = isArchived(c);
@@ -787,9 +786,10 @@
   $('#n-look').addEventListener('click', function () { lookupReg(true); });
   // Full MOT history: saved on the server at each check, shown under the car details.
   var MOT_TYPES = { DANGEROUS: ['Dangerous', 'bad'], MAJOR: ['Major', 'bad'], FAIL: ['Fail', 'bad'], PRS: ['Fixed at test', 'warn'], MINOR: ['Minor', 'warn'], ADVISORY: ['Advisory', ''], 'USER ENTERED': ['Note', ''] };
-  function motHistoryHtml(h, open) {
-    if (!h || !h.tests) return '';
-    if (!h.tests.length) return '<p class="muted-s mh-none">No MOT tests on record yet' + (h.dueDate ? '. First MOT due ' + esc(fmtDate(h.dueDate)) : '') + '.</p>';
+  function motHistoryHtml(h, car) {
+    var head = '<div class="mh-head"><b>' + (car.mot ? 'MOT valid until ' + esc(fmtDate(car.mot)) : 'No MOT expiry on record') + '</b>';
+    if (!h || !h.tests) return '<div class="mh">' + head + '<span class="muted-s">Full MOT history needs the DVSA MOT history keys in Render.</span></div></div>';
+    if (!h.tests.length) return '<div class="mh">' + head + '<span class="muted-s">No MOT tests on record yet' + (h.dueDate ? '. First MOT due ' + esc(fmtDate(h.dueDate)) : '') + '.</span></div></div>';
     var rows = h.tests.map(function (t, i) {
       var pass = /^PASS/i.test(t.result), prev = h.tests[i + 1];
       var drop = prev && t.mileage != null && prev.mileage != null && t.mileage < prev.mileage;
@@ -803,27 +803,23 @@
         + (defs ? '<ul class="mh-defs">' + defs + '</ul>' : '<p class="muted-s">No advisories or defects.</p>') + '</li>';
     }).join('');
     var fails = h.tests.filter(function (t) { return !/^PASS/i.test(t.result); }).length;
-    return '<details class="mh"' + (open ? ' open' : '') + '><summary>MOT history <span class="muted-s">' + h.tests.length + (h.tests.length === 1 ? ' test' : ' tests') + (fails ? ', ' + fails + ' failed' : '') + (h.checkedAt ? ', checked ' + esc(new Date(h.checkedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: TZ })) : '') + '</span></summary><ol class="mh-list">' + rows + '</ol></details>';
-  }
-  function loadMotHistory(id, open) {
-    api('GET', '/api/cars/' + id + '/mot').then(function (r) {
-      if (state.open === id) $('#m-mot').innerHTML = motHistoryHtml(r.history, open);
-    }).catch(function () { /* history is extra; the car still works without it */ });
+    return '<div class="mh">' + head + '<span class="muted-s">MOT history: ' + h.tests.length + (h.tests.length === 1 ? ' test' : ' tests') + (fails ? ', ' + fails + ' failed' : '') + (h.checkedAt ? '. Checked ' + esc(new Date(h.checkedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: TZ })) : '') + '</span></div><ol class="mh-list">' + rows + '</ol></div>';
   }
   $('#m-fields').addEventListener('click', function (ev) {
     if (!ev.target.closest('#m-look')) return;
     var id = state.open, c = id && state.cars.get(id); if (!c) return;
-    var b = $('#m-look'), msg = $('#m-look-msg');
-    b.disabled = true; msg.textContent = 'Checking…';
+    var b = $('#m-look'), box = $('#m-mot');
+    var show = function (html, open) { box.innerHTML = html; box.hidden = !open; b.setAttribute('aria-expanded', open ? 'true' : 'false'); b.classList.toggle('on', open); };
+    if (!box.hidden) { show('', false); return; }          // second press hides the MOT information again
+    b.disabled = true; show('<div class="mh"><div class="mh-head"><span class="muted-s">Checking the MOT…</span></div></div>', true);
     api('POST', '/api/cars/' + id + '/lookup', {}).then(function (r) {
       var car = r.car || r;
       state.cars.set(id, car); render();
       if (state.open !== id) return;
       renderSheet();
       var fm = $('#f-mot'); if (fm && document.activeElement !== fm) fm.value = isoToShort(car.mot);
-      msg.textContent = car.mot ? 'MOT valid until ' + fmtDate(car.mot) + '.' : 'Checked. No MOT expiry on record.';
-      $('#m-mot').innerHTML = r.history ? motHistoryHtml(r.history, true) : '<p class="muted-s">Full MOT history needs the DVSA MOT history keys in Render.</p>';
-    }).catch(function (e) { msg.textContent = e.message || 'Could not check the MOT.'; })
+      show(motHistoryHtml(r.history, car), true);
+    }).catch(function (e) { if (state.open === id) show('<div class="mh"><div class="mh-head"><b class="bad">Could not check the MOT</b><span class="muted-s">' + esc(e.message || 'Try again.') + '</span></div></div>', true); })
       .then(function () { b.disabled = false; });
   });
   $('#n-form').addEventListener('submit', function (e) {

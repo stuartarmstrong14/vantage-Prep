@@ -763,7 +763,14 @@ async function handleApi(req, res, url) {
   const lkMatch = p.match(/^\/api\/cars\/([a-f0-9]{12})\/lookup$/);
   if (lkMatch && method === 'POST') {
     requireStaff(req);
-    if (!lookupReady()) throw new HttpError(501, 'MOT lookup is not set up yet. Add the MOT history keys in Render.');
+    if (!lookupReady()) {
+      const want = ['MOT_CLIENT_ID', 'MOT_CLIENT_SECRET', 'MOT_API_KEY', 'MOT_TOKEN_URL'];
+      const missing = want.filter((k) => !envGet(k));
+      const near = Object.keys(process.env).filter((k) => /mot|dvla|dvsa/i.test(k) && !want.includes(k.trim().toUpperCase()) && k !== 'DVLA_API_KEY' && !/^(npm_|NODE_|PATH$)/i.test(k));
+      throw new HttpError(501, 'The site cannot see the MOT keys. Missing in Render: ' + missing.join(', ') + '.'
+        + (near.length ? ' Found these names instead, which may be spelled differently: ' + near.join(', ') + '.' : '')
+        + ' (Or add DVLA_API_KEY if you have the single DVLA key.) Save in Render, then let it redeploy.');
+    }
     const row = q.carById.get(lkMatch[1]);
     if (!row) throw new HttpError(404, 'That car no longer exists.');
     let r;
@@ -1015,12 +1022,18 @@ async function handleApi(req, res, url) {
 /* ---------- registration lookup ---------- */
 // DVLA Vehicle Enquiry Service: make, colour, year, fuel and MOT expiry (no model). Tax is not used.
 // DVSA MOT History API (optional): model, and the latest MOT result. Keys come from Render's Environment settings.
-const DVLA_KEY = process.env.DVLA_API_KEY || '';
+// Read a setting forgivingly: stray spaces or lower case in the name or value in Render are ignored.
+const envGet = (name) => {
+  if (process.env[name] != null && String(process.env[name]).trim()) return String(process.env[name]).trim();
+  const k = Object.keys(process.env).find((x) => x.trim().toUpperCase().replace(/[\s-]+/g, '_') === name);
+  return k ? String(process.env[k]).trim() : '';
+};
+const DVLA_KEY = envGet('DVLA_API_KEY');
 const DVLA_URL = process.env.DVLA_API_URL || 'https://driver-vehicle-licensing.api.gov.uk/vehicle-enquiry/v1/vehicles';
 const MOT = {
-  clientId: process.env.MOT_CLIENT_ID || '', secret: process.env.MOT_CLIENT_SECRET || '', apiKey: process.env.MOT_API_KEY || '',
-  tokenUrl: process.env.MOT_TOKEN_URL || '', scope: process.env.MOT_SCOPE || 'https://tapi.dvsa.gov.uk/.default',
-  base: process.env.MOT_API_URL || 'https://history.mot.api.gov.uk/v1/trade/vehicles/registration/',
+  clientId: envGet('MOT_CLIENT_ID'), secret: envGet('MOT_CLIENT_SECRET'), apiKey: envGet('MOT_API_KEY'),
+  tokenUrl: envGet('MOT_TOKEN_URL'), scope: envGet('MOT_SCOPE') || 'https://tapi.dvsa.gov.uk/.default',
+  base: envGet('MOT_API_URL') || 'https://history.mot.api.gov.uk/v1/trade/vehicles/registration/',
 };
 const motReady = () => !!(MOT.clientId && MOT.secret && MOT.apiKey && MOT.tokenUrl);
 const lookupReady = () => !!DVLA_KEY || motReady();
@@ -1247,7 +1260,7 @@ function healthReport() {
   return {
     dataDir: DATA_DIR, separateDisk: onSeparateDisk(), disk: diskSpace(),
     lookup: { dvla: !!DVLA_KEY, motHistory: motReady(), lastRun: lookupStats.lastRun, checked: lookupStats.checked, updated: lookupStats.updated, failed: lookupStats.failed, lastError: lookupStats.lastError, lastErrorAt: lookupStats.lastErrorAt, lastOk: lookupStats.lastOk,
-      missing: motReady() || DVLA_KEY ? [] : ['MOT_CLIENT_ID', 'MOT_CLIENT_SECRET', 'MOT_API_KEY', 'MOT_TOKEN_URL'].filter((k) => !process.env[k]) },
+      missing: motReady() || DVLA_KEY ? [] : ['MOT_CLIENT_ID', 'MOT_CLIENT_SECRET', 'MOT_API_KEY', 'MOT_TOKEN_URL'].filter((k) => !envGet(k)) },
     pdfShrink: { available: !!gsVersion, version: gsVersion, shrunk: pdfStats.shrunk, kept: pdfStats.kept, savedBytes: pdfStats.savedBytes },
     cars: cars.length, checkFiles: live.length, checksOnCars: linked,
     unattached: orphanFiles(), tickedNoFile, bin, backups: listBackups(),

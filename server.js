@@ -1052,7 +1052,7 @@ async function reach(what, setting, url, opts) {
     const why = code === 'ENOTFOUND' || code === 'EAI_AGAIN' ? 'the address ' + host + ' does not exist, so check ' + setting + ' for a typo'
       : code === 'ECONNREFUSED' ? host + ' refused the connection'
       : code === 'TimeoutError' || code === 'UND_ERR_CONNECT_TIMEOUT' || code === 'ETIMEDOUT' ? host + ' did not answer in time. Try again in a minute'
-      : /CERT|SSL|TLS|SELF_SIGNED|EXPIRED/i.test(code) ? 'a security certificate problem with ' + host + ': ' + code
+      : /CERT|SSL|TLS|SELF_SIGNED|EXPIRED/i.test(code) ? 'a security problem with ' + host + ': ' + code + (c.message && c.message.startsWith('tried ') ? '. ' + c.message : '')
       : (c.message || code || (e && e.message) || 'unknown error');
     throw new Error(what + ' could not be reached (' + why + ').');
   }

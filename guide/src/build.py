@@ -41,7 +41,7 @@ html{scroll-behavior:auto}
 body{background:#FFFFFF}
 .sec{break-before:page;box-shadow:none}
 #start{break-before:auto}
-.role,.shot,.phone,figure,tr,.steps li,.points li,.note,.mail,.line>li,.stack>h3{break-inside:avoid}
+.role,.shot,.phone,figure,tr,.steps li,.points li,.note,.mail,.line>li,.stack>h3,#admin .trio:last-child>.stack{break-inside:avoid}
 h2,h3{break-after:avoid}
 .toc-link{font-size:13px;font-weight:700;color:var(--muted);text-decoration:none;align-self:flex-start}
 .band .url a{color:inherit;text-decoration:none}

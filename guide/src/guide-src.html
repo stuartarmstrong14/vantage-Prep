@@ -272,6 +272,7 @@ html{scroll-behavior:smooth}
         <li>Tap <b>Bodywork</b> and the <b>Bodywork jobs</b> buttons open underneath, counting cars still needing Dents, Alloy wheels and Paint. Tap one to go straight to that job; tap it again to go back to all Bodywork.</li>
         <li>Tap a box to show only those cars. The box turns navy and the stock list says what you are viewing.</li>
         <li>Tap the box again, or tap <b>Show all</b>, to see every car.</li>
+        <li>The last box, <b>MOT due</b>, counts cars whose MOT runs out within 60 days or has expired. Its number is red, and each of those cars has a red <b>MOT due</b> or <b>MOT expired</b> tag on its card.</li>
       </ul>
     </div>
     <figure class="shot"><img src="{{dept}}" alt="Department boxes with Bodywork selected and its job buttons open underneath" width="716" height="758"></figure>
@@ -289,6 +290,7 @@ html{scroll-behavior:smooth}
         <li><b>Sign-offs</b>: ticking Bodywork <b>QC complete</b> or the final <b>Quality check completed</b> adds your initials and the date.</li>
         <li><b>Who and when</b>: every ticked box shows the date and the person who ticked it.</li>
         <li><b>Car details</b>: correct the registration, make, model, tag, mileage or MOT expiry at the top. Type the MOT date as digits, for example <code>250527</code>, and it becomes 25/05/27.</li>
+        <li><b>Check MOT</b>: the button next to MOT expiry looks the car up with the DVSA, updates the expiry and opens the car's full MOT history: every test with pass or fail, mileage and each advisory or defect. A mileage lower than the test before shows in red. Tap it again to hide the history.</li>
         <li><b>Notes</b>: faults, parts on order, who has the keys.</li>
       </ul>
       <p class="note">When all prep is done, the car waits at <b>Quality Check</b> (it shows in the Quality Check department box). Once the final <b>Quality check completed</b> box is ticked, it moves to the <b>Completed</b> tab by itself.</p>
@@ -316,7 +318,7 @@ html{scroll-behavior:smooth}
       <p>Under <b>Cosmetic check complete</b> on the Bodywork stage, write what cosmetic work the car needs, for example "respray rear bumper, door ding nearside". Tick the box when the check is done.</p>
       <p>Next to <b>Alloy wheels completed</b>, enter how many alloys need refining (0 to 5).</p>
       <p>Under the notes, build a <b>Cosmetic estimate</b>: choose a repair from the list (for example Bumper Corner or Touch-in), set how many, and tap <b>Add</b>. The estimate shows the total time and internal cost. Technicians see the repairs and hours but not prices.</p>
-      <p class="note">The estimate sets the bodywork jobs for you. Add a <b>Dent</b> line and the Dents job shows how many; leave it off and Dents is ticked as <b>Not needed</b>. Alloy lines (Alloy Wheel, Diamond Cut Alloy, Painted Alloy) set the wheels to refine the same way. Everything else on the estimate goes to the Cosmetics list.</p>
+      <p class="note">The estimate sets the bodywork jobs for you. Add a <b>Dent</b> line and the Dents job shows how many; leave it off and Dents is ticked as <b>Not needed</b>. Alloy lines (Alloy Wheel, Diamond Cut Alloy, Painted Alloy) set the wheels to refine the same way. Everything else on the estimate goes to the Cosmetics list. If a Dent or alloy line is added later, or the estimate is cleared, the job goes back to a normal box to tick.</p>
       <p>The notes and wheel counts feed the <b>Outstanding bodywork</b> lists in Reports, so painters and managers can see every job by tag number.</p>
       <figure class="shot"><img src="{{cosmetics}}" alt="Outstanding bodywork list in Reports showing cosmetic notes by tag number" width="780" height="980"></figure>
     </div>
@@ -329,7 +331,7 @@ html{scroll-behavior:smooth}
     <div class="stack">
       <h3>By hand</h3>
       <p>Tap <span class="btnlike">Add car</span> and type the registration. Tap <b>Look up</b> (or just move to the next box) and the make, model, colour and MOT expiry fill in from the DVLA. Check them, add the tag number and mileage, tap the <b>Prep requested</b> buttons that apply, then <b>Add to prep</b>. The car starts at Inbound.</p>
-      <p class="note">Every morning the app re-checks the MOT expiry of every car in prep with the DVLA, so a new MOT updates the card by itself.</p>
+      <p class="note">New cars, including ones added by email, are checked with the DVSA straight away, and every car in prep is re-checked each morning, so a new MOT updates the card by itself. If the MOT runs out within 60 days, <b>MOT</b> is added to Prep requested for you so the workshop can book it. If it isn't needed, tap MOT to take it off and it stays off.</p>
       <figure class="shot"><img src="{{add}}" alt="The Add a car form with TAC and Service selected" width="780" height="700"></figure>
     </div>
     <div class="stack">
@@ -421,7 +423,9 @@ MILEAGE 13442</pre>
     <div class="stack"><h3>Data health</h3>
       <p>Tap <b>Account</b>, then <b>Data health and recovery</b>. It shows that every 145 point check is stored and attached to its car. If a check is stored but not showing, tap <b>Reattach to their cars</b>. Removed checks stay in the <b>Recycle bin</b> for 30 days and can be restored. To bring back checks from an older copy, choose a downloaded backup under <b>Recover checks from a backup</b>.</p></div>
     <div class="stack"><h3>Backups</h3>
-      <p>Tap <b>Account</b>, then <b>Download backup</b>. It saves one file with everything: cars, history, logins and uploaded 145 point checks. Do it once a week and keep the file somewhere private, such as a work drive, because it includes staff logins. The app also saves its own copy every day and before every update.</p></div>
+      <p>Every night a full copy (cars, history, logins and every 145 point check) is sent to the company's own cloud storage and kept for 30 days. <b>Data health</b> shows when the last one went and has a <b>Back up to the cloud now</b> button. The app also keeps its own copy every day and before every update, and <b>Account</b>, <b>Download backup</b> saves a copy to your computer. Keep downloaded files somewhere private, because they include staff logins.</p></div>
+    <div class="stack"><h3>Daily prep email</h3>
+      <p>Tap <b>Account</b>, then <b>Daily prep email</b>. Add who should get it (one email per line), pick the time and days, tick <b>Send the daily prep email</b> and <b>Save</b>. It shows cars in prep, what each department still has to do, cars over 7 days, cars awaiting QC, cars completed and MOTs running out. Use <b>Preview today's email</b> to see it and <b>Send test now</b> to try it.</p></div>
     <div class="stack"><h3>Deleting a car</h3>
       <p>Open it and tap <b>Delete car</b> twice. This also deletes its 145 point check files and cannot be undone, so archive instead unless the car was added by mistake.</p></div>
   </div>
@@ -438,6 +442,8 @@ MILEAGE 13442</pre>
       <tr><td>Upload refused</td><td>Files must be a PDF or photo under 15 MB. Take the photo at a lower quality or send a PDF.</td></tr>
       <tr><td>Car in the wrong stage</td><td>A car sits at the first stage with an unticked box. Look for the unticked box in an earlier stage.</td></tr>
       <tr><td>Notice prints on two pages</td><td>Choose Landscape, margins Default, scale 100%.</td></tr>
+      <tr><td>Check MOT shows an error</td><td>Type the MOT expiry by hand for now and tell an administrator. The message says what went wrong.</td></tr>
+      <tr><td>MOT appeared under Prep requested</td><td>The MOT runs out within 60 days. If the car doesn't need one, tap MOT to take it off.</td></tr>
       <tr><td>Forgot password</td><td>Ask an administrator to reset it under Manage staff logins.</td></tr>
     </tbody>
   </table></div>

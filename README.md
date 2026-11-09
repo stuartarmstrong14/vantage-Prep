@@ -202,3 +202,7 @@ There is no stage dropdown. A car's stage follows its ticks: it is "at" the firs
 ## Changing the checklist
 
 The stages and tick boxes are listed at the top of `public/app.js` (`STAGES`). Edit the names there. Ticks are stored against the stage and item ids, so renaming a label keeps existing ticks, while removing an item hides its old ticks.
+
+### Check MOT and MOT history
+
+Next to **MOT expiry** on each car, **Check MOT** looks the car up straight away and fills in the expiry (and the colour if blank). With the DVSA MOT history keys it also saves the car's full MOT history: every test with its date, pass or fail, mileage, expiry and each advisory, minor, major or dangerous item. The history shows under the car details (collapsed when the car is opened, open after Check MOT); a mileage lower than the test before is shown in red. Histories are kept in their own table so the board stays quick, and are refreshed by the daily MOT check. Cars added by email are checked as soon as they arrive. If a check fails the button shows the reason, and **Data health** shows the last error.

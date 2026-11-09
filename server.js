@@ -86,6 +86,11 @@ db.exec(`
     updated_at TEXT NOT NULL,
     updated_by TEXT NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS mot_history (
+    car_id TEXT PRIMARY KEY,
+    data TEXT NOT NULL,
+    checked_at TEXT NOT NULL
+  );
   CREATE TABLE IF NOT EXISTS cost_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -171,6 +176,9 @@ const q = {
   insertCar: db.prepare('INSERT INTO cars (id, data, updated_at, updated_by) VALUES (?, ?, ?, ?)'),
   updateCar: db.prepare('UPDATE cars SET data = ?, updated_at = ?, updated_by = ? WHERE id = ?'),
   deleteCar: db.prepare('DELETE FROM cars WHERE id = ?'),
+  motHistGet: db.prepare('SELECT data, checked_at FROM mot_history WHERE car_id = ?'),
+  motHistPut: db.prepare('INSERT INTO mot_history (car_id, data, checked_at) VALUES (?, ?, ?) ON CONFLICT(car_id) DO UPDATE SET data = excluded.data, checked_at = excluded.checked_at'),
+  motHistDel: db.prepare('DELETE FROM mot_history WHERE car_id = ?'),
   insertFile: db.prepare('INSERT INTO files (id, car_id, name, type, size, data, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'),
   fileById: db.prepare('SELECT * FROM files WHERE id = ?'),
   costItems: db.prepare('SELECT id, name, hours, cost, sort FROM cost_items WHERE active = 1 ORDER BY sort, id'),
@@ -761,7 +769,15 @@ async function handleApi(req, res, url) {
     let r;
     try { r = await refreshCar(lkMatch[1]); } catch (e) { noteLookupError(e); throw new HttpError(502, String(e.message || e)); }
     if (r === 'missing') throw new HttpError(404, 'No MOT record found for ' + normRegKey(JSON.parse(row.data).reg) + '. Check the registration.');
-    return sendJson(res, 200, carOut(q.carById.get(lkMatch[1])));
+    const h = q.motHistGet.get(lkMatch[1]);
+    return sendJson(res, 200, { car: carOut(q.carById.get(lkMatch[1])), history: h ? Object.assign(JSON.parse(h.data), { checkedAt: h.checked_at }) : null });
+  }
+  // The car's full MOT history, as saved at the last check (read when the car is opened).
+  const mhMatch = p.match(/^\/api\/cars\/([a-f0-9]{12})\/mot$/);
+  if (mhMatch && method === 'GET') {
+    requireUser(req);
+    const h = q.motHistGet.get(mhMatch[1]);
+    return sendJson(res, 200, { history: h ? Object.assign(JSON.parse(h.data), { checkedAt: h.checked_at }) : null });
   }
 
   /* ---------- cosmetic price list ---------- */
@@ -904,6 +920,7 @@ async function handleApi(req, res, url) {
       const gone = q.carById.get(id);
       q.binFilesForCar.run(new Date().toISOString(), adm.display, id);
       q.deleteCar.run(id);
+      q.motHistDel.run(id);
       console.log('car deleted: ' + (gone ? JSON.parse(gone.data).reg : id) + ' by ' + adm.display + ' (its 145 checks are in the recycle bin for 30 days)');
       bump();
       return sendJson(res, 200, { ok: true });
@@ -1045,6 +1062,15 @@ async function lookupVehicle(reg) {
         out.make = out.make || titleCase(v.make);
         out.colour = out.colour || titleCase(v.primaryColour);
         const tests = Array.isArray(v.motTests) ? v.motTests.slice().sort((a, b) => String(b.completedDate).localeCompare(String(a.completedDate))) : [];
+        out.history = {
+          firstUsed: String(v.firstUsedDate || v.registrationDate || '').slice(0, 10), dueDate: String(v.motTestDueDate || '').slice(0, 10),
+          tests: tests.slice(0, 40).map((x) => ({
+            date: String(x.completedDate || '').slice(0, 10), result: String(x.testResult || ''), expiry: String(x.expiryDate || '').slice(0, 10),
+            mileage: x.odometerValue && /^\d+$/.test(String(x.odometerValue)) ? Number(x.odometerValue) : null, unit: x.odometerUnit === 'MI' || x.odometerUnit === 'mi' ? 'mi' : (x.odometerUnit ? String(x.odometerUnit).toLowerCase() : 'mi'),
+            number: String(x.motTestNumber || ''),
+            defects: (Array.isArray(x.defects) ? x.defects : []).slice(0, 60).map((d) => ({ type: String(d.type || '').toUpperCase(), text: String(d.text || '').slice(0, 300), dangerous: d.dangerous === true })),
+          })),
+        };
         const t = tests[0];
         if (t) {
           out.lastMot = { date: String(t.completedDate || '').slice(0, 10), result: t.testResult || '', mileage: t.odometerValue ? Number(t.odometerValue) : null,
@@ -1074,7 +1100,8 @@ async function refreshCar(id) {
   if (!row) return false;
   if (!v) return 'missing';
   const cur = JSON.parse(row.data);
-  const next = Object.assign({}, cur, { dvla: { mot: v.mot, lastMot: v.lastMot, checkedAt: v.checkedAt } });
+  const next = Object.assign({}, cur, { dvla: { mot: v.mot, lastMot: v.lastMot, checkedAt: v.checkedAt, tests: v.history ? v.history.tests.length : ((cur.dvla || {}).tests || 0) } });
+  if (v.history) q.motHistPut.run(id, JSON.stringify(v.history), v.checkedAt);
   let changed = false;
   if (v.mot && v.mot !== cur.mot) { next.mot = v.mot; changed = true; }
   if (!cur.make && v.make) { next.make = v.make; changed = true; }

@@ -1040,9 +1040,25 @@ const lookupReady = () => !!DVLA_KEY || motReady();
 const lookupStats = { lastRun: null, checked: 0, updated: 0, failed: 0, lastError: '', lastErrorAt: null, lastOk: null };
 const noteLookupError = (e) => { lookupStats.lastError = String((e && e.message) || e).slice(0, 300); lookupStats.lastErrorAt = new Date().toISOString(); };
 let motToken = null;
+// fetch() only says "fetch failed" when it cannot reach a site; say which address, and why, so the setting can be fixed.
+async function reach(what, setting, url, opts) {
+  let host = '';
+  try { const u = new URL(url); if (!/^https?:$/.test(u.protocol)) throw new Error('x'); host = u.host; } catch (e) {
+    throw new Error(setting + ' is not a web address. It should start with https:// (it starts "' + String(url).slice(0, 12) + '…").');
+  }
+  try { return await fetch(url, opts); } catch (e) {
+    const c = (e && e.cause) || {}, code = c.code || c.name || (e && e.name) || '';
+    const why = code === 'ENOTFOUND' || code === 'EAI_AGAIN' ? 'the address ' + host + ' does not exist, so check ' + setting + ' for a typo'
+      : code === 'ECONNREFUSED' ? host + ' refused the connection'
+      : code === 'TimeoutError' || code === 'UND_ERR_CONNECT_TIMEOUT' || code === 'ETIMEDOUT' ? host + ' did not answer in time. Try again in a minute'
+      : /CERT|SSL|TLS/i.test(code) ? 'a security certificate problem with ' + host
+      : (c.message || code || (e && e.message) || 'unknown error');
+    throw new Error(what + ' could not be reached (' + why + ').');
+  }
+}
 async function getMotToken() {
   if (motToken && motToken.exp > Date.now() + 60000) return motToken.value;
-  const r = await fetch(MOT.tokenUrl, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  const r = await reach('The MOT sign-in address', 'MOT_TOKEN_URL', MOT.tokenUrl, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ grant_type: 'client_credentials', client_id: MOT.clientId, client_secret: MOT.secret, scope: MOT.scope }), signal: AbortSignal.timeout(15000) });
   if (!r.ok) {
     let why = '';
@@ -1058,7 +1074,7 @@ async function lookupVehicle(reg) {
   const out = { reg, make: '', model: '', colour: '', mot: '', motStatus: '', year: null, fuel: '', lastMot: null, checkedAt: new Date().toISOString(), source: [] };
   let found = false;
   if (DVLA_KEY) {
-    const r = await fetch(DVLA_URL, { method: 'POST', headers: { 'x-api-key': DVLA_KEY, 'Content-Type': 'application/json', Accept: 'application/json' },
+    const r = await reach('The DVLA service', 'DVLA_API_URL', DVLA_URL, { method: 'POST', headers: { 'x-api-key': DVLA_KEY, 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({ registrationNumber: reg }), signal: AbortSignal.timeout(15000) });
     if (r.status === 200) {
       const v = await r.json(); found = true; out.source.push('DVLA');
@@ -1068,7 +1084,7 @@ async function lookupVehicle(reg) {
   }
   if (motReady()) {
     try {
-      const r = await fetch(MOT.base + encodeURIComponent(reg), { headers: { Authorization: 'Bearer ' + await getMotToken(), 'X-API-Key': MOT.apiKey, Accept: 'application/json' }, signal: AbortSignal.timeout(15000) });
+      const r = await reach('The MOT history service', 'MOT_API_URL', MOT.base + encodeURIComponent(reg), { headers: { Authorization: 'Bearer ' + await getMotToken(), 'X-API-Key': MOT.apiKey, Accept: 'application/json' }, signal: AbortSignal.timeout(15000) });
       if (r.status === 200) {
         const v = await r.json(); found = true; out.source.push('DVSA');
         out.model = out.model || titleCase(v.model);

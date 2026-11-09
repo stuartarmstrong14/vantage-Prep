@@ -12,6 +12,7 @@ const { DatabaseSync } = require('node:sqlite');
 const { execFile, execFileSync } = require('node:child_process');
 const { hashPassword, verifyPassword } = require('./lib/passwords');
 const inbound = require('./lib/inbound');
+const { fetchWithChain } = require('./lib/tlsfix');
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -1046,12 +1047,12 @@ async function reach(what, setting, url, opts) {
   try { const u = new URL(url); if (!/^https?:$/.test(u.protocol)) throw new Error('x'); host = u.host; } catch (e) {
     throw new Error(setting + ' is not a web address. It should start with https:// (it starts "' + String(url).slice(0, 12) + '…").');
   }
-  try { return await fetch(url, opts); } catch (e) {
-    const c = (e && e.cause) || {}, code = c.code || c.name || (e && e.name) || '';
+  try { return await fetchWithChain(url, opts); } catch (e) {
+    const c = (e && e.cause) || (e && e.code ? e : {}), code = c.code || c.name || (e && e.name) || '';
     const why = code === 'ENOTFOUND' || code === 'EAI_AGAIN' ? 'the address ' + host + ' does not exist, so check ' + setting + ' for a typo'
       : code === 'ECONNREFUSED' ? host + ' refused the connection'
       : code === 'TimeoutError' || code === 'UND_ERR_CONNECT_TIMEOUT' || code === 'ETIMEDOUT' ? host + ' did not answer in time. Try again in a minute'
-      : /CERT|SSL|TLS/i.test(code) ? 'a security certificate problem with ' + host
+      : /CERT|SSL|TLS|SELF_SIGNED|EXPIRED/i.test(code) ? 'a security certificate problem with ' + host + ': ' + code
       : (c.message || code || (e && e.message) || 'unknown error');
     throw new Error(what + ' could not be reached (' + why + ').');
   }

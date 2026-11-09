@@ -587,7 +587,7 @@ async function handleApi(req, res, url) {
     }
     const found = inbound.parseCars(inbound.emailText(b)).slice(0, 100);
     const have = new Set(q.allCars.all().map((r) => inbound.normReg(JSON.parse(r.data).reg)));
-    const created = [], skipped = [];
+    const created = [], skipped = [], createdIds = [];
     for (const f of found) {
       const key = inbound.normReg(f.reg);
       if (have.has(key)) { skipped.push(f.reg); continue; }
@@ -595,10 +595,12 @@ async function handleApi(req, res, url) {
       const car = { reg: f.reg, make: f.make, model: f.model, tag: f.tag, prep: f.prep || [], mileage: f.mileage, mot: f.mot,
         notes: 'Added from email. Check the details are right.', stage: 'arrived', added: todayStr(), readyAt: '', done: {},
         history: [{ s: 'arrived', at: new Date().toISOString(), by: 'Email' }] };
-      q.insertCar.run(crypto.randomBytes(6).toString('hex'), JSON.stringify(car), new Date().toISOString(), 'Email');
-      created.push(f.reg);
+      const newId = crypto.randomBytes(6).toString('hex');
+      q.insertCar.run(newId, JSON.stringify(car), new Date().toISOString(), 'Email');
+      created.push(f.reg); createdIds.push(newId);
     }
     if (created.length) bump();
+    if (createdIds.length && lookupReady()) (async () => { for (const id of createdIds) { await refreshCar(id).catch(noteLookupError); await new Promise((ok) => setTimeout(ok, 400)); } })();
     console.log('inbound email from', sender || '(unknown)', '- added:', created.join(', ') || 'none', '- already in stock:', skipped.join(', ') || 'none');
     return sendJson(res, 200, { created, skipped });
   }
@@ -700,7 +702,7 @@ async function handleApi(req, res, url) {
     const now = new Date().toISOString();
     q.insertCar.run(id, JSON.stringify(filled), now, u.display);
     bump();
-    if (lookupReady()) refreshCar(id).catch(() => {});
+    if (lookupReady()) refreshCar(id).catch(noteLookupError);
     return sendJson(res, 201, carOut(q.carById.get(id)));
   }
 
@@ -747,6 +749,19 @@ async function handleApi(req, res, url) {
     const v = await lookupVehicle(reg);
     if (!v) throw new HttpError(404, 'No vehicle found for ' + reg + '. Check the registration.');
     return sendJson(res, 200, v);
+  }
+
+  // Check one car's MOT now (the button on the car), with the real reason if it fails.
+  const lkMatch = p.match(/^\/api\/cars\/([a-f0-9]{12})\/lookup$/);
+  if (lkMatch && method === 'POST') {
+    requireStaff(req);
+    if (!lookupReady()) throw new HttpError(501, 'MOT lookup is not set up yet. Add the MOT history keys in Render.');
+    const row = q.carById.get(lkMatch[1]);
+    if (!row) throw new HttpError(404, 'That car no longer exists.');
+    let r;
+    try { r = await refreshCar(lkMatch[1]); } catch (e) { noteLookupError(e); throw new HttpError(502, String(e.message || e)); }
+    if (r === 'missing') throw new HttpError(404, 'No MOT record found for ' + normRegKey(JSON.parse(row.data).reg) + '. Check the registration.');
+    return sendJson(res, 200, carOut(q.carById.get(lkMatch[1])));
   }
 
   /* ---------- cosmetic price list ---------- */
@@ -992,13 +1007,18 @@ const MOT = {
 };
 const motReady = () => !!(MOT.clientId && MOT.secret && MOT.apiKey && MOT.tokenUrl);
 const lookupReady = () => !!DVLA_KEY || motReady();
-const lookupStats = { lastRun: null, checked: 0, updated: 0, failed: 0 };
+const lookupStats = { lastRun: null, checked: 0, updated: 0, failed: 0, lastError: '', lastErrorAt: null, lastOk: null };
+const noteLookupError = (e) => { lookupStats.lastError = String((e && e.message) || e).slice(0, 300); lookupStats.lastErrorAt = new Date().toISOString(); };
 let motToken = null;
 async function getMotToken() {
   if (motToken && motToken.exp > Date.now() + 60000) return motToken.value;
   const r = await fetch(MOT.tokenUrl, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ grant_type: 'client_credentials', client_id: MOT.clientId, client_secret: MOT.secret, scope: MOT.scope }), signal: AbortSignal.timeout(15000) });
-  if (!r.ok) throw new Error('MOT history sign-in failed (' + r.status + ')');
+  if (!r.ok) {
+    let why = '';
+    try { const j = await r.json(); why = String(j.error_description || j.error || '').split(/\r?\n/)[0].slice(0, 200); } catch (e) { /* not JSON */ }
+    throw new Error('MOT history sign-in failed (' + r.status + ')' + (why ? ': ' + why : '') + '. Check MOT_CLIENT_ID, MOT_CLIENT_SECRET, MOT_TOKEN_URL and MOT_SCOPE.');
+  }
   const j = await r.json();
   motToken = { value: j.access_token, exp: Date.now() + (Number(j.expires_in) || 3600) * 1000 };
   return motToken.value;
@@ -1032,9 +1052,15 @@ async function lookupVehicle(reg) {
           const exp = String(t.expiryDate || '').slice(0, 10);
           if (/^\d{4}-\d{2}-\d{2}$/.test(exp) && exp > out.mot) out.mot = exp;
         } else if (/^\d{4}-\d{2}-\d{2}/.test(v.motTestDueDate || '') && !out.mot) out.mot = String(v.motTestDueDate).slice(0, 10);
+      } else if (r.status !== 404) {
+        let why = '';
+        try { why = (await r.text()).replace(/\s+/g, ' ').slice(0, 160); } catch (e) { /* no body */ }
+        if (r.status === 401 || r.status === 403) motToken = null;
+        throw new Error('MOT history lookup failed (' + r.status + ')' + (why ? ': ' + why : '') + (r.status === 401 || r.status === 403 ? '. Check MOT_API_KEY (and that the keys are for the MOT history API).' : ''));
       }
-    } catch (e) { if (!out.source.length) throw e; }
+    } catch (e) { noteLookupError(e); if (!out.source.length) throw e; }
   }
+  if (found) lookupStats.lastOk = out.checkedAt;
   return found ? out : null;
 }
 // Re-check one car and save what changed: the MOT expiry always follows the official record; make, model and colour are only filled in when empty.
@@ -1045,7 +1071,8 @@ async function refreshCar(id) {
   if (reg.length < 2) return false;
   const v = await lookupVehicle(reg);
   const row = q.carById.get(id);              // read again after the lookup so nothing saved meanwhile is overwritten
-  if (!row || !v) return false;
+  if (!row) return false;
+  if (!v) return 'missing';
   const cur = JSON.parse(row.data);
   const next = Object.assign({}, cur, { dvla: { mot: v.mot, lastMot: v.lastMot, checkedAt: v.checkedAt } });
   let changed = false;
@@ -1068,7 +1095,7 @@ async function dailyLookup() {
       const c = JSON.parse(r.data);
       const finished = (c.done || {}).ready_qc === true && c.stage === 'ready';
       if (finished || c.archived === true) continue;
-      try { if (await refreshCar(r.id)) s.updated++; s.checked++; } catch (e) { s.failed++; }
+      try { if ((await refreshCar(r.id)) === true) s.updated++; s.checked++; } catch (e) { s.failed++; noteLookupError(e); }
       await new Promise((ok) => setTimeout(ok, 400));
     }
   } finally {
@@ -1192,7 +1219,8 @@ function healthReport() {
     .sort((a, b) => (a.deletedAt < b.deletedAt ? 1 : -1));
   return {
     dataDir: DATA_DIR, separateDisk: onSeparateDisk(), disk: diskSpace(),
-    lookup: { dvla: !!DVLA_KEY, motHistory: motReady(), lastRun: lookupStats.lastRun, checked: lookupStats.checked, updated: lookupStats.updated, failed: lookupStats.failed },
+    lookup: { dvla: !!DVLA_KEY, motHistory: motReady(), lastRun: lookupStats.lastRun, checked: lookupStats.checked, updated: lookupStats.updated, failed: lookupStats.failed, lastError: lookupStats.lastError, lastErrorAt: lookupStats.lastErrorAt, lastOk: lookupStats.lastOk,
+      missing: motReady() || DVLA_KEY ? [] : ['MOT_CLIENT_ID', 'MOT_CLIENT_SECRET', 'MOT_API_KEY', 'MOT_TOKEN_URL'].filter((k) => !process.env[k]) },
     pdfShrink: { available: !!gsVersion, version: gsVersion, shrunk: pdfStats.shrunk, kept: pdfStats.kept, savedBytes: pdfStats.savedBytes },
     cars: cars.length, checkFiles: live.length, checksOnCars: linked,
     unattached: orphanFiles(), tickedNoFile, bin, backups: listBackups(),

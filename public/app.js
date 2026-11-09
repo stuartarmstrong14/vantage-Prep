@@ -572,6 +572,8 @@
         + (dv.mot ? ': valid until ' + fmtDate(dv.mot) + '.' : ': no MOT expiry on record.')
         + (dv.lastMot && dv.lastMot.date ? ' Last MOT ' + fmtDate(dv.lastMot.date) + ', ' + String(dv.lastMot.result).toLowerCase() + (dv.lastMot.advisories ? ' with ' + dv.lastMot.advisories + (dv.lastMot.advisories === 1 ? ' advisory' : ' advisories') : '') + '.' : '') + ' Checked again every morning.';
     }
+    var lr = $('#m-look-row');
+    if (lr) { lr.hidden = !lookupOn || readOnly(); if (lr.dataset.car !== c.id) { lr.dataset.car = c.id; $('#m-look-msg').textContent = ''; } }
     $('#m-upd').textContent = c.updatedBy ? ('Last updated by ' + c.updatedBy + ', ' + new Date(c.updatedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })) : '';
 
     var ab = $('#m-arch'), arch = isArchived(c);
@@ -780,6 +782,16 @@
   }
   $('#n-reg').addEventListener('blur', function () { lookupReg(false); });
   $('#n-look').addEventListener('click', function () { lookupReg(true); });
+  $('#m-look').addEventListener('click', function () {
+    var id = state.open, c = id && state.cars.get(id); if (!c) return;
+    var b = $('#m-look'), msg = $('#m-look-msg');
+    b.disabled = true; msg.textContent = 'Checking…';
+    api('POST', '/api/cars/' + id + '/lookup', {}).then(function (car) {
+      state.cars.set(id, car); render(); if (state.open === id) renderSheet();
+      msg.textContent = car.mot ? 'MOT valid until ' + fmtDate(car.mot) + '.' : 'Checked. No MOT expiry on record.';
+    }).catch(function (e) { msg.textContent = e.message || 'Could not check the MOT.'; })
+      .then(function () { b.disabled = false; });
+  });
   $('#n-form').addEventListener('submit', function (e) {
     e.preventDefault();
     var miles = $('#n-miles').value;
@@ -857,7 +869,9 @@
       + '<p class="muted-s">Data folder ' + esc(h.dataDir) + (h.separateDisk === true ? ' on its own disk (kept through updates).' : h.separateDisk === false ? ' is <b>not</b> on a separate disk. Updates could wipe it. Check the Render disk.' : '.')
       + (h.disk ? ' Free space ' + fmtSize(h.disk.free) + ' of ' + fmtSize(h.disk.total) + '.' : '')
       + (last ? ' Last automatic backup ' + esc(fmtWhen(last.at)) + '.' : ' No automatic backup yet.') + '</p>'
-      + (h.lookup ? '<p class="muted-s">Registration lookup: ' + (h.lookup.dvla || h.lookup.motHistory ? '<b>on</b> (' + [h.lookup.dvla ? 'DVLA' : '', h.lookup.motHistory ? 'DVSA MOT history' : ''].filter(Boolean).join(' and ') + ').' + (h.lookup.lastRun ? ' Last daily MOT check ' + esc(fmtWhen(h.lookup.lastRun)) + ': ' + h.lookup.checked + ' cars checked, ' + h.lookup.updated + ' updated' + (h.lookup.failed ? ', ' + h.lookup.failed + ' failed' : '') + '.' : ' The first daily MOT check runs within a few minutes of a restart, then every morning.') : '<b>off</b>. Add DVLA_API_KEY in Render to switch it on.') + '</p>' : '')
+      + (h.lookup ? '<p class="muted-s">Registration lookup: ' + (h.lookup.dvla || h.lookup.motHistory ? '<b>on</b> (' + [h.lookup.dvla ? 'DVLA' : '', h.lookup.motHistory ? 'DVSA MOT history' : ''].filter(Boolean).join(' and ') + ').' + (h.lookup.lastRun ? ' Last daily MOT check ' + esc(fmtWhen(h.lookup.lastRun)) + ': ' + h.lookup.checked + ' cars checked, ' + h.lookup.updated +  ' updated' + (h.lookup.failed ? ', ' + h.lookup.failed + ' failed' : '') + '.' : ' The first daily MOT check runs within a few minutes of a restart, then every morning.')
+          + (h.lookup.lastError && (!h.lookup.lastOk || h.lookup.lastErrorAt > h.lookup.lastOk) ? '<br><b class="bad">Last error</b> (' + esc(fmtWhen(h.lookup.lastErrorAt)) + '): ' + esc(h.lookup.lastError) : '')
+          : '<b>off</b>.' + (h.lookup.missing && h.lookup.missing.length ? ' Missing in Render: ' + esc(h.lookup.missing.join(', ')) + '.' : ' Add the MOT history keys in Render to switch it on.')) + '</p>' : '')
       + (h.pdfShrink ? '<p class="muted-s">PDF shrinking: ' + (h.pdfShrink.available ? '<b>on</b> (Ghostscript ' + esc(h.pdfShrink.version) + '). Since the last restart ' + h.pdfShrink.shrunk + ' PDF' + (h.pdfShrink.shrunk === 1 ? '' : 's') + ' reduced, saving ' + fmtSize(h.pdfShrink.savedBytes) + '.' : '<b>off</b>. PDFs are stored at their original size.') + '</p>' : '')
       + '</div>';
     html += '<div class="block"><h3>Unattached checks (' + h.unattached.length + ')</h3>'

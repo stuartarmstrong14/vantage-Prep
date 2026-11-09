@@ -206,3 +206,15 @@ The stages and tick boxes are listed at the top of `public/app.js` (`STAGES`). E
 ### Check MOT and MOT history
 
 Next to **MOT expiry** on each car, **Check MOT** looks the car up straight away and fills in the expiry (and the colour if blank). With the DVSA MOT history keys it also saves the car's full MOT history: every test with its date, pass or fail, mileage, expiry and each advisory, minor, major or dangerous item. Pressing Check MOT opens a panel under the car details: "MOT valid until …" at the top, then the history; pressing it again hides the panel. A mileage lower than the test before is shown in red. Histories are kept in their own table so the board stays quick, and are refreshed by the daily MOT check. Cars added by email are checked as soon as they arrive. If a check fails the panel shows the reason, and **Data health** shows the last error.
+
+### Daily prep email
+
+Administrators can have a snapshot of prep emailed automatically: **Account -> Daily prep email**. Choose who gets it (up to 30 addresses), the time (UK) and the days, tick **Send the daily prep email** and **Save**. **Preview today's email** shows it in a new tab; **Send test now** sends it straight away to one address. The email shows cars in prep, the average days in prep, what each department still has to do (with the Dents, Alloy wheels and Paint jobs), cars over the 7 day target (oldest first, with where they are now), cars waiting for Quality Check, cars completed since the last working day (Friday to Sunday on a Monday), and cars whose MOT runs out within 30 days. It is sent once a day; if the site was off at the set time it is sent when it comes back, up to three hours late, otherwise it waits until the next day.
+
+It is sent through Postmark, the same account as the email feed. Add in Render -> Environment:
+
+- `POSTMARK_SERVER_TOKEN`: the **Server API token** (Postmark -> your server -> API Tokens).
+- `MAIL_FROM`: the address it comes from, such as `145 Prepped <prep@yourdomain.co.uk>`. It must be confirmed in Postmark under **Sender Signatures** (a single address, or the whole domain).
+- Optional `CENTRE_NAME`: shown at the top of the email and in the subject.
+
+While a Postmark account is still awaiting approval it can only send to addresses on the sender's own domain.

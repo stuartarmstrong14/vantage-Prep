@@ -392,3 +392,12 @@ button.flink{font-family:inherit;cursor:pointer}
 .mh-ty.warn{background:var(--warn-bg);color:var(--warn)}
 .mh .pill.good{background:var(--ok-bg);color:var(--ok)}
 .mh-drop{color:var(--bad);font-weight:700}
+
+/* Daily prep email */
+.dg-on{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;margin-bottom:12px}
+.dg-on input,.chipck input{width:20px;height:20px;accent-color:var(--navy)}
+#dg-to{resize:vertical;min-height:96px;font-size:16px}
+.dg-days{border:0;padding:0;margin:12px 0 0}
+#dg-days{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.chipck{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-weight:600;cursor:pointer}
+.dg-test{display:flex;gap:10px;flex-wrap:wrap}.dg-test .field{flex:1 1 220px;font-size:16px}

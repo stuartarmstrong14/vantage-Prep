@@ -929,6 +929,45 @@
       return '<div class="cl-row" data-id="' + i.id + '"><input class="field" data-cl="name" maxlength="60" value="' + esc(i.name) + '" aria-label="Repair"><input class="field num" data-cl="hours" type="number" step="0.25" min="0" value="' + i.hours + '" aria-label="Hours"><input class="field num" data-cl="cost" type="number" step="0.01" min="0" value="' + i.cost + '" aria-label="Cost in pounds"><button type="button" class="linkbtn" data-cl-rm aria-label="Remove ' + esc(i.name) + '">Remove</button></div>';
     }).join('');
   }
+  // Daily prep email settings (administrators)
+  var DG_DAYS = [[1, 'Mon'], [2, 'Tue'], [3, 'Wed'], [4, 'Thu'], [5, 'Fri'], [6, 'Sat'], [0, 'Sun']];
+  function renderDigest(d) {
+    var st = d.settings, s = d.status || {};
+    $('#dg-enabled').checked = !!st.enabled;
+    $('#dg-to').value = (st.to || []).join('\n');
+    $('#dg-time').value = st.time || '07:30';
+    $('#dg-days').innerHTML = DG_DAYS.map(function (x) { return '<label class="chipck"><input type="checkbox" value="' + x[0] + '"' + (st.days.indexOf(x[0]) >= 0 ? ' checked' : '') + '> ' + x[1] + '</label>'; }).join('');
+    var h = d.ready
+      ? '<p><span class="pill ok">Ready to send</span> <span class="muted-s">from ' + esc(d.from) + '</span></p>'
+      : '<p><span class="pill warn">Not set up yet</span></p><p class="muted-s">Add ' + esc(d.missing.join(' and ')) + ' in Render (Environment). POSTMARK_SERVER_TOKEN is the Server API token from your Postmark server (API Tokens tab). MAIL_FROM is the address it comes from, for example 145 Prepped &lt;prep@yourdomain.co.uk&gt;, and must be confirmed under Sender Signatures in Postmark.</p>';
+    h += '<p class="muted-s">Today\'s email would say: <b>' + esc(d.subject) + '</b></p>';
+    if (d.lastSentDay) h += '<p class="muted-s">Last sent automatically on ' + esc(fmtDate(d.lastSentDay)) + '.</p>';
+    if (s.lastError) h += '<p class="muted-s"><b class="bad">Last problem</b> (' + esc(fmtWhen(s.lastErrorAt)) + '): ' + esc(s.lastError) + '</p>';
+    $('#dg-status').innerHTML = h;
+  }
+  function loadDigest() { return api('GET', '/api/digest').then(renderDigest); }
+  $('#ac-digest').addEventListener('click', function () {
+    $('#ov-acct').hidden = true; $('#dg-err').hidden = true; $('#dg-test-msg').textContent = '';
+    loadDigest().then(function () { $('#ov-digest').hidden = false; $('#dg-close').focus(); }).catch(function (e) { toast(e.message || 'Could not open the email settings.'); });
+  });
+  $('#dg-close').addEventListener('click', function () { $('#ov-digest').hidden = true; });
+  $('#dg-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var days = Array.prototype.map.call(document.querySelectorAll('#dg-days input:checked'), function (i) { return Number(i.value); });
+    $('#dg-err').hidden = true;
+    api('PUT', '/api/digest', { enabled: $('#dg-enabled').checked, to: $('#dg-to').value, time: $('#dg-time').value, days: days })
+      .then(function () { toast('Daily prep email saved.'); return loadDigest(); })
+      .catch(function (er) { $('#dg-err').textContent = er.message || 'Could not save.'; $('#dg-err').hidden = false; });
+  });
+  $('#dg-testform').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var msg = $('#dg-test-msg'), to = $('#dg-test-to').value.trim();
+    if (!to) { msg.textContent = 'Enter an email address to send the test to.'; return; }
+    msg.textContent = 'Sending…';
+    api('POST', '/api/digest/test', { to: to }).then(function () { msg.textContent = 'Sent. Check the inbox (and junk folder) for ' + to + '.'; })
+      .catch(function (er) { msg.textContent = er.message || 'Could not send the test.'; loadDigest().catch(function () {}); });
+  });
+
   $('#ac-costs').addEventListener('click', function () {
     $('#ov-acct').hidden = true; $('#cl-err').hidden = true;
     loadCosts().then(function () { renderCostEditor(); $('#ov-costs').hidden = false; $('#cl-close').focus(); });

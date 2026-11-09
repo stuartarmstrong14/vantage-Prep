@@ -13,6 +13,7 @@ const { execFile, execFileSync } = require('node:child_process');
 const { hashPassword, verifyPassword } = require('./lib/passwords');
 const inbound = require('./lib/inbound');
 const { fetchWithChain } = require('./lib/tlsfix');
+const digest = require('./lib/digest');
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -788,6 +789,50 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, { history: h ? Object.assign(JSON.parse(h.data), { checkedAt: h.checked_at }) : null });
   }
 
+  /* ---------- daily prep snapshot email (administrators) ---------- */
+  if (p === '/api/digest' && method === 'GET') {
+    requireAdmin(req);
+    const d = buildDigest();
+    return sendJson(res, 200, { settings: digestSettings(), ready: mailReady(), from: MAIL.from || null,
+      missing: ['POSTMARK_SERVER_TOKEN', 'MAIL_FROM'].filter((k) => !envGet(k)), lastSentDay: metaGet('digest_last'),
+      status: digestStatus, subject: d.subject, counts: d.counts });
+  }
+  if (p === '/api/digest' && method === 'PUT') {
+    requireAdmin(req);
+    const b = await readJson(req) || {};
+    const to = [...new Set(String(Array.isArray(b.to) ? b.to.join(',') : b.to || '').split(/[\s,;]+/).map((x) => x.trim().toLowerCase()).filter(Boolean))];
+    const bad = to.filter((x) => !EMAIL_RE.test(x) || x.length > 120);
+    if (bad.length) throw new HttpError(400, 'Not a valid email address: ' + bad.join(', '));
+    if (to.length > 30) throw new HttpError(400, 'Up to 30 people can get the email.');
+    const time = String(b.time || '');
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new HttpError(400, 'Choose a time such as 07:30.');
+    const days = [...new Set((Array.isArray(b.days) ? b.days : []).map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6))].sort();
+    if (b.enabled && !days.length) throw new HttpError(400, 'Choose at least one day.');
+    if (b.enabled && !to.length) throw new HttpError(400, 'Add at least one email address.');
+    const st = { enabled: !!b.enabled, to, time, days };
+    metaSet('digest', JSON.stringify(st));
+    return sendJson(res, 200, { settings: st });
+  }
+  if (p === '/api/digest/test' && method === 'POST') {
+    const u = requireAdmin(req);
+    const b = await readJson(req) || {};
+    const to = String(b.to || '').split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean).slice(0, 30);
+    if (!to.length || to.some((x) => !EMAIL_RE.test(x))) throw new HttpError(400, 'Enter the email address(es) to send the test to.');
+    try { await sendMail(to, buildDigest()); } catch (e) {
+      Object.assign(digestStatus, { lastError: String(e.message || e).slice(0, 300), lastErrorAt: new Date().toISOString() });
+      throw new HttpError(502, String(e.message || e));
+    }
+    console.log('test prep snapshot sent by ' + u.display + ' to ' + to.length + ' address(es)');
+    return sendJson(res, 200, { sent: to.length });
+  }
+  if (p === '/api/digest/preview' && method === 'GET') {
+    requireAdmin(req);
+    const html = buildDigest().html;
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; img-src data:; frame-ancestors 'self'" });
+    return res.end(html);
+  }
+
   /* ---------- cosmetic price list ---------- */
   // Staff and administrators see prices; technicians and advisors see the repairs and hours only.
   if (method === 'GET' && p === '/api/costs') {
@@ -1169,6 +1214,64 @@ function scheduleLookup() {
   setTimeout(dailyLookup, Number(process.env.LOOKUP_FIRST_RUN_MS) || 5 * 60 * 1000).unref();
 }
 scheduleLookup();
+
+/* ---------- daily prep snapshot email ---------- */
+// Sent through Postmark (the same account as the email feed). Needs POSTMARK_SERVER_TOKEN and MAIL_FROM (a sender
+// address or domain confirmed in Postmark). Who gets it, what time and which days are set by an administrator.
+const MAIL = { token: envGet('POSTMARK_SERVER_TOKEN'), from: envGet('MAIL_FROM') };
+const mailReady = () => !!(MAIL.token && MAIL.from);
+const DIGEST_DEFAULT = { enabled: false, to: [], time: '07:30', days: [1, 2, 3, 4, 5] };
+const metaGet = (k) => { const r = db.prepare('SELECT v FROM meta WHERE k = ?').get(k); return r ? r.v : null; };
+const metaSet = (k, v) => db.prepare('INSERT INTO meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v').run(k, v);
+function digestSettings() { try { return Object.assign({}, DIGEST_DEFAULT, JSON.parse(metaGet('digest') || '{}')); } catch (e) { return Object.assign({}, DIGEST_DEFAULT); } }
+const digestStatus = { lastSent: null, lastTo: 0, lastError: '', lastErrorAt: null };
+const EMAIL_RE = /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/;
+function buildDigest() {
+  const cars = q.allCars.all().map((r) => JSON.parse(r.data));
+  return digest.build(cars, todayStr(), { url: PUBLIC_URL || '', centre: envGet('CENTRE_NAME') });
+}
+async function sendMail(to, msg) {
+  if (!mailReady()) throw new Error('Sending email is not set up. Add POSTMARK_SERVER_TOKEN and MAIL_FROM in Render.');
+  const r = await reach('Postmark', 'POSTMARK_SERVER_TOKEN', envGet('POSTMARK_API_URL') || 'https://api.postmarkapp.com/email', {
+    method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-Postmark-Server-Token': MAIL.token },
+    body: JSON.stringify({ From: MAIL.from, To: to.join(', '), Subject: msg.subject, HtmlBody: msg.html, TextBody: msg.text, MessageStream: 'outbound', Tag: 'daily-snapshot' }),
+    signal: AbortSignal.timeout(20000) });
+  let j = {}; try { j = await r.json(); } catch (e) { /* no body */ }
+  if (!r.ok || (j.ErrorCode && j.ErrorCode !== 0)) {
+    const m = String(j.Message || ('Postmark answered ' + r.status));
+    const hint = j.ErrorCode === 10 ? ' Check POSTMARK_SERVER_TOKEN (use the Server API token).'
+      : j.ErrorCode === 400 || /sender signature/i.test(m) ? ' MAIL_FROM must be an address or domain confirmed under Sender Signatures in Postmark.'
+      : j.ErrorCode === 412 ? ' Your Postmark account is still pending approval, so it can only send to addresses on your own domain.' : '';
+    throw new Error('Postmark: ' + m + hint);
+  }
+}
+function londonNow() {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: TZ_NAME, weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date()).map((p) => [p.type, p.value]));
+  return { day: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(parts.weekday), time: parts.hour + ':' + parts.minute };
+}
+let digestBusy = false, digestTries = 0, digestTryDay = '';
+async function digestTick() {
+  const st = digestSettings();
+  if (!st.enabled || !st.to.length || !mailReady() || digestBusy) return;
+  const now = londonNow(), today = todayStr();
+  if (!st.days.includes(now.day) || now.time < st.time || metaGet('digest_last') === today) return;
+  // Don't send a late one: if the site was off at the set time, wait until tomorrow rather than send at teatime.
+  const [h, m] = st.time.split(':').map(Number), [nh, nm] = now.time.split(':').map(Number);
+  if ((nh * 60 + nm) - (h * 60 + m) > 180) return;
+  if (digestTryDay !== today) { digestTryDay = today; digestTries = 0; }
+  if (digestTries >= 3) return;
+  digestBusy = true; digestTries++;
+  try {
+    await sendMail(st.to, buildDigest());
+    metaSet('digest_last', today);
+    Object.assign(digestStatus, { lastSent: new Date().toISOString(), lastTo: st.to.length });
+    console.log('daily prep snapshot sent to ' + st.to.length + ' address(es)');
+  } catch (e) {
+    Object.assign(digestStatus, { lastError: String(e.message || e).slice(0, 300), lastErrorAt: new Date().toISOString() });
+    console.log('daily prep snapshot failed: ' + digestStatus.lastError);
+  } finally { digestBusy = false; }
+}
+setInterval(() => { digestTick().catch(() => {}); }, 60 * 1000).unref();
 
 /* ---------- smaller PDFs ---------- */
 // Scanned 145 checks are mostly big images. Ghostscript re-saves them at 150 dpi (still easy to read and print),

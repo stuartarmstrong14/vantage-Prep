@@ -802,7 +802,8 @@ async function handleApi(req, res, url) {
   // Check one car's MOT now (the button on the car), with the real reason if it fails.
   const lkMatch = p.match(/^\/api\/cars\/([a-f0-9]{12})\/lookup$/);
   if (lkMatch && method === 'POST') {
-    requireStaff(req);
+    const lu = requireUser(req);
+    if (!['admin', 'staff', 'advisor'].includes(lu.role)) throw new HttpError(403, 'Your login cannot check the MOT.');
     if (!lookupReady()) {
       const want = ['MOT_CLIENT_ID', 'MOT_CLIENT_SECRET', 'MOT_API_KEY', 'MOT_TOKEN_URL'];
       const missing = want.filter((k) => !envGet(k));

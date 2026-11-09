@@ -66,12 +66,15 @@
   function specialist() { return !!state.user && SPECIALIST[state.user.role] || null; }
   function readOnly() { return !!state.user && (state.user.role === 'advisor' || !!SPECIALIST[state.user.role]); }
   // For a specialist, switch on only their own tick box (and wheels to refine for alloys); everything else stays locked.
+  // Advisors can't change anything except use Check MOT.
   function lockForRole() {
-    var sp = specialist(); if (!sp) return;
+    var sp = specialist(), adv = !!state.user && state.user.role === 'advisor';
+    if (!sp && !adv) return;
     $('#m-body').disabled = false;
     document.querySelectorAll('#m-body input, #m-body textarea, #m-body select, #m-body button').forEach(function (el) {
+      if (el.id === 'm-look') return;                       // Check MOT manages its own state
       var t = el.dataset && el.dataset.t, x = el.dataset && el.dataset.x;
-      el.disabled = !((t && sp.done.indexOf(t) >= 0) || (x && sp.fields.indexOf(x) >= 0));
+      el.disabled = adv || !((t && sp.done.indexOf(t) >= 0) || (x && sp.fields.indexOf(x) >= 0));
     });
   }
 
@@ -254,7 +257,7 @@
     var last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
     return y + '-' + String(m + 1).padStart(2, '0') + '-' + String(Math.min(d, last)).padStart(2, '0');
   }
-  function motDue(c) { return !!c.mot && /^\d{4}-\d{2}-\d{2}$/.test(c.mot) && c.mot <= addMonths(todayStr(), MOT_DUE_MONTHS); }
+  function motDue(c) { return !!c.mot && /^\d{4}-\d{2}-\d{2}$/.test(c.mot) && c.mot <= addMonths(todayStr(), MOT_DUE_MONTHS) && (c.done || {}).mech_motbook !== true; }
   function motInfo(c) {
     if (!motDue(c)) return null;
     var diff = dayNum(c.mot) - dayNum(todayStr());
@@ -593,7 +596,7 @@
         + (dv.lastMot && dv.lastMot.date ? ' Last MOT ' + fmtDate(dv.lastMot.date) + ', ' + String(dv.lastMot.result).toLowerCase() + (dv.lastMot.advisories ? ' with ' + dv.lastMot.advisories + (dv.lastMot.advisories === 1 ? ' advisory' : ' advisories') : '') + '.' : '') + ' Checked again every morning.';
     }
     var lr = $('#m-look-row');
-    if (lr) lr.hidden = readOnly();
+    if (lr) lr.hidden = !!specialist();                 // admin, staff and advisors can check the MOT
     $('#m-upd').textContent = c.updatedBy ? ('Last updated by ' + c.updatedBy + ', ' + new Date(c.updatedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })) : '';
 
     var ab = $('#m-arch'), arch = isArchived(c);

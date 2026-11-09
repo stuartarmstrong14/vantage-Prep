@@ -904,6 +904,19 @@
           : '<b>off</b>.' + (h.lookup.missing && h.lookup.missing.length ? ' Missing in Render: ' + esc(h.lookup.missing.join(', ')) + '.' : ' Add the MOT history keys in Render to switch it on.')) + '</p>' : '')
       + (h.pdfShrink ? '<p class="muted-s">PDF shrinking: ' + (h.pdfShrink.available ? '<b>on</b> (Ghostscript ' + esc(h.pdfShrink.version) + '). Since the last restart ' + h.pdfShrink.shrunk + ' PDF' + (h.pdfShrink.shrunk === 1 ? '' : 's') + ' reduced, saving ' + fmtSize(h.pdfShrink.savedBytes) + '.' : '<b>off</b>. PDFs are stored at their original size.') + '</p>' : '')
       + '</div>';
+    var cl = h.cloud;
+    if (cl) {
+      var stale = cl.lastOk && (Date.now() - Date.parse(cl.lastOk)) > 36 * 3600 * 1000;
+      html += '<div class="block"><h3>Off-site backup</h3>'
+        + (cl.ready
+          ? '<p>' + (cl.lastOk && !stale && !(cl.lastErrorAt && cl.lastErrorAt > cl.lastOk) ? '<span class="pill ok">Backed up</span>' : '<span class="pill warn">' + (cl.lastOk ? 'Needs attention' : 'Waiting for first backup') + '</span>') + '</p>'
+            + '<p class="muted-s">Every night at ' + esc(cl.time) + ' a full copy (cars, logins, settings and every 145 check) goes to the cloud storage bucket <b>' + esc(cl.bucket) + '</b>. Copies are kept for ' + cl.keepDays + ' days.'
+            + (cl.lastOk ? ' Last backup ' + esc(fmtWhen(cl.lastOk)) + ', ' + fmtSize(cl.lastSize) + (cl.copies != null ? '. ' + cl.copies + ' copies stored.' : '.') : ' No backup has been uploaded yet.') + '</p>'
+            + (cl.lastError && (!cl.lastOk || cl.lastErrorAt > cl.lastOk) ? '<p class="muted-s"><b class="bad">Last problem</b> (' + esc(fmtWhen(cl.lastErrorAt)) + '): ' + esc(cl.lastError) + '</p>' : '')
+            + '<div class="uplact"><button class="btn" id="hl-cloud" type="button"' + (cl.running ? ' disabled' : '') + '>' + (cl.running ? 'Backing up…' : 'Back up to the cloud now') + '</button><span class="muted-s" id="hl-cloud-msg" role="status"></span></div>'
+          : '<p><span class="pill warn">Not set up</span></p><p class="muted-s">Backups are only kept on this server. Add ' + esc(cl.missing.join(', ')) + ' in Render to send a full copy to your own cloud storage every night.</p>')
+        + '</div>';
+    }
     html += '<div class="block"><h3>Unattached checks (' + h.unattached.length + ')</h3>'
       + (h.unattached.length ? '<p class="muted-s">These files are stored safely but are not showing on their car.</p><div class="rp-list">' + h.unattached.map(function (o) {
         return '<div class="rp-row plain"><span class="l"><b>' + esc(o.reg || 'Car deleted') + '</b><small>' + esc(o.name) + ' · uploaded ' + esc(fmtWhen(o.at)) + ' by ' + esc(o.by) + '</small></span><span class="flinks"><a class="flink" href="/api/files/' + esc(o.id) + '" target="_blank" rel="noopener">View</a></span></div>';
@@ -993,6 +1006,13 @@
   });
   $('#hl-close').addEventListener('click', function () { $('#ov-health').hidden = true; });
   $('#hl-body').addEventListener('click', function (e) {
+    if (e.target.closest('#hl-cloud')) {
+      var cb = $('#hl-cloud'), cm = $('#hl-cloud-msg');
+      cb.disabled = true; cb.textContent = 'Backing up…'; cm.textContent = 'This can take a minute.';
+      api('POST', '/api/health/cloud', {}).then(function (r) { renderHealth(r.health); toast('Backup uploaded to the cloud.'); })
+        .catch(function (ex) { cb.disabled = false; cb.textContent = 'Back up to the cloud now'; cm.textContent = (ex && ex.message) || 'The backup could not be uploaded.'; });
+      return;
+    }
     if (e.target.closest('#hl-reattach')) {
       e.target.disabled = true;
       api('POST', '/api/health/reattach', {}).then(function (r) { renderHealth(r.health); toast(r.reattached + (r.reattached === 1 ? ' check reattached.' : ' checks reattached.')); refresh(true); })

@@ -218,3 +218,15 @@ It is sent through Postmark, the same account as the email feed. Add in Render -
 - Optional `CENTRE_NAME`: shown at the top of the email and in the subject.
 
 While a Postmark account is still awaiting approval it can only send to addresses on the sender's own domain.
+
+### Off-site backup (Cloudflare R2)
+
+Every night (02:30 UK by default) the whole database, including every uploaded 145 point check, is compressed and uploaded to a private bucket in your own cloud storage. Copies older than 30 days are removed, always keeping at least the newest 7. **Data health** shows the last backup, its size, how many copies are stored and any problem, and has a **Back up to the cloud now** button.
+
+Set up once:
+
+1. In Cloudflare, open **R2 Object Storage** and **Create bucket**, for example `145prepped-backups` (location Europe if offered).
+2. **Manage API tokens -> Create API token**, permission **Object Read & Write**, limited to that bucket. Copy the Access Key ID, Secret Access Key and the S3 endpoint (`https://<account id>.r2.cloudflarestorage.com`).
+3. In Render -> Environment add `R2_ENDPOINT`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`. Optional: `BACKUP_TIME` (HH:MM, UK time), `BACKUP_KEEP_DAYS` (default 30), `R2_REGION` (default `auto`; set it for Backblaze B2 or AWS S3, which also work).
+
+To use a cloud backup: download the `.db.gz` file from the bucket in Cloudflare. **Data health -> Recover checks from a backup** accepts it directly to put back any missing 145 checks. To rebuild the whole site from it, unzip it and replace `prep.db` on the Render disk (ask for help with this).

@@ -14,6 +14,9 @@ const { hashPassword, verifyPassword } = require('./lib/passwords');
 const inbound = require('./lib/inbound');
 const { fetchWithChain } = require('./lib/tlsfix');
 const digest = require('./lib/digest');
+const s3 = require('./lib/s3');
+const zlib = require('node:zlib');
+const { pipeline } = require('node:stream/promises');
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -893,6 +896,11 @@ async function handleApi(req, res, url) {
     bump();
     return sendJson(res, 200, { ok: true, health: healthReport() });
   }
+  if (method === 'POST' && p === '/api/health/cloud') {
+    requireAdmin(req);
+    try { await cloudBackup('manual'); } catch (e) { throw new HttpError(502, String(e.message || e)); }
+    return sendJson(res, 200, { health: healthReport() });
+  }
   if (method === 'POST' && p === '/api/health/recover') {
     const u = requireAdmin(req);
     const result = await recoverFromBackup(req, u);
@@ -1383,7 +1391,7 @@ function healthReport() {
       missing: motReady() || DVLA_KEY ? [] : ['MOT_CLIENT_ID', 'MOT_CLIENT_SECRET', 'MOT_API_KEY', 'MOT_TOKEN_URL'].filter((k) => !envGet(k)) },
     pdfShrink: { available: !!gsVersion, version: gsVersion, shrunk: pdfStats.shrunk, kept: pdfStats.kept, savedBytes: pdfStats.savedBytes },
     cars: cars.length, checkFiles: live.length, checksOnCars: linked,
-    unattached: orphanFiles(), tickedNoFile, bin, backups: listBackups(),
+    unattached: orphanFiles(), tickedNoFile, bin, backups: listBackups(), cloud: cloudReport(),
   };
 }
 // An administrator uploads a downloaded backup; any 145 check in it that is missing here is put back on the same car (matched by registration).
@@ -1403,9 +1411,15 @@ function saveUpload(req, limit) {
   });
 }
 async function recoverFromBackup(req, u) {
-  const tmp = await saveUpload(req, 900 * 1024 * 1024);
+  let tmp = await saveUpload(req, 900 * 1024 * 1024);
   let old;
   try {
+    const magic = Buffer.alloc(2); { const fd = fs.openSync(tmp, 'r'); fs.readSync(fd, magic, 0, 2, 0); fs.closeSync(fd); }
+    if (magic[0] === 0x1f && magic[1] === 0x8b) {           // a .db.gz from the cloud backup: unzip it first
+      const plain = tmp + '.db';
+      try { await pipeline(fs.createReadStream(tmp), zlib.createGunzip(), fs.createWriteStream(plain)); } catch (e) { fs.unlink(plain, () => {}); throw new HttpError(400, 'That compressed file could not be opened.'); }
+      fs.unlink(tmp, () => {}); tmp = plain;
+    }
     const head = Buffer.alloc(16); const fd = fs.openSync(tmp, 'r'); fs.readSync(fd, head, 0, 16, 0); fs.closeSync(fd);
     if (head.toString('latin1') !== 'SQLite format 3\u0000') throw new HttpError(400, 'That is not a 145 Prepped backup file.');
     old = new DatabaseSync(tmp, { readOnly: true });
@@ -1449,6 +1463,78 @@ async function recoverFromBackup(req, u) {
     fs.unlink(tmp, () => {});
   }
 }
+/* ---------- nightly off-site backup (Cloudflare R2 or any S3-compatible storage) ---------- */
+// Every night the whole database, including every uploaded 145 check, is compressed and uploaded to a private
+// bucket in the owner's own storage account. Copies older than BACKUP_KEEP_DAYS (30) are removed, always keeping the newest 7.
+const CLOUD = (() => {
+  let endpoint = envGet('R2_ENDPOINT'), bucket = envGet('R2_BUCKET');
+  try {                                                     // the endpoint is sometimes copied with the bucket on the end
+    const u = new URL(endpoint); const tail = u.pathname.replace(/^\/+|\/+$/g, '');
+    if (tail) { if (!bucket) bucket = tail.split('/')[0]; endpoint = u.origin; }
+  } catch (e) { /* reported as a problem below */ }
+  return { endpoint, bucket, keyId: envGet('R2_ACCESS_KEY_ID'), secret: envGet('R2_SECRET_ACCESS_KEY'), region: envGet('R2_REGION') || 'auto',
+    keep: Math.max(7, Number(envGet('BACKUP_KEEP_DAYS')) || 30), time: /^\d{2}:\d{2}$/.test(envGet('BACKUP_TIME')) ? envGet('BACKUP_TIME') : '02:30' };
+})();
+const cloudReady = () => !!(CLOUD.endpoint && CLOUD.bucket && CLOUD.keyId && CLOUD.secret);
+const cloudStatus = { running: false, nightlyDay: '', lastOk: null, lastName: '', lastSize: 0, copies: null, lastError: '', lastErrorAt: null };
+try { Object.assign(cloudStatus, JSON.parse(metaGetSafe('cloud_status') || '{}'), { running: false }); } catch (e) { /* first run */ }
+function metaGetSafe(k) { try { const r = db.prepare('SELECT v FROM meta WHERE k = ?').get(k); return r ? r.v : null; } catch (e) { return null; } }
+function cloudReport() {
+  return Object.assign({ ready: cloudReady(), bucket: CLOUD.bucket || null, keepDays: CLOUD.keep, time: CLOUD.time,
+    missing: ['R2_ENDPOINT', 'R2_BUCKET', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY'].filter((k) => !envGet(k) && !(k === 'R2_BUCKET' && CLOUD.bucket)) }, cloudStatus);
+}
+async function cloudBackup(reason) {
+  if (!cloudReady()) throw new Error('Cloud backup is not set up. Add the R2 settings in Render.');
+  if (cloudStatus.running) throw new Error('A cloud backup is already running.');
+  cloudStatus.running = true;
+  const stamp = new Date().toISOString().replace(/[:]/g, '-').replace(/\.\d{3}Z$/, 'Z');
+  const raw = path.join(os.tmpdir(), 'cloud-' + crypto.randomBytes(5).toString('hex') + '.db'), gz = raw + '.gz';
+  const name = 'backups/145prepped-' + stamp + '-' + reason + '.db.gz';
+  try {
+    db.exec("VACUUM INTO '" + raw.replace(/'/g, "''") + "'");
+    await pipeline(fs.createReadStream(raw), zlib.createGzip({ level: 6 }), fs.createWriteStream(gz));
+    const size = fs.statSync(gz).size;
+    const c = s3.client(CLOUD);
+    await c.putFile(name, gz, 'application/gzip');
+    // Tidy up: keep BACKUP_KEEP_DAYS days, but never fewer than the newest 7 copies.
+    let copies = null;
+    try {
+      const all = (await c.list('backups/')).filter((o) => /\.db\.gz$/.test(o.key)).sort((a, b) => (a.key < b.key ? 1 : -1));
+      const cutoff = Date.now() - CLOUD.keep * 86400000;
+      for (const o of all.slice(7)) if (o.modified && Date.parse(o.modified) < cutoff) { await c.del(o.key); }
+      copies = (await c.list('backups/')).filter((o) => /\.db\.gz$/.test(o.key)).length;
+    } catch (e) { console.log('cloud backup tidy-up skipped: ' + e.message); }
+    if (reason === 'nightly') cloudStatus.nightlyDay = todayStr();
+    Object.assign(cloudStatus, { lastOk: new Date().toISOString(), lastName: name, lastSize: size, copies: copies == null ? cloudStatus.copies : copies, lastError: '' });
+    console.log('cloud backup uploaded: ' + name + ' (' + size + ' bytes)');
+    return { name, size, copies };
+  } catch (e) {
+    const m = String(e.message || e);
+    const hint = /SignatureDoesNotMatch|InvalidAccessKeyId|Unauthorized|AccessDenied|403|401/.test(m) ? ' Check R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY, and that the token can write to this bucket.'
+      : /NoSuchBucket|404/.test(m) ? ' Check R2_BUCKET matches the bucket name exactly.'
+      : /ENOTFOUND|getaddrinfo/.test(m) ? ' Check R2_ENDPOINT (https://<account id>.r2.cloudflarestorage.com).' : '';
+    Object.assign(cloudStatus, { lastError: (m + hint).slice(0, 300), lastErrorAt: new Date().toISOString() });
+    console.log('cloud backup failed: ' + cloudStatus.lastError);
+    throw new Error(cloudStatus.lastError);
+  } finally {
+    cloudStatus.running = false;
+    fs.unlink(raw, () => {}); fs.unlink(gz, () => {});
+    try { db.prepare('INSERT INTO meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v').run('cloud_status', JSON.stringify(Object.assign({}, cloudStatus, { running: false }))); } catch (e) { /* ignore */ }
+  }
+}
+// Once a night at BACKUP_TIME (UK). If the site was off at that time, it runs as soon as it is back (same day only).
+let cloudTriesDay = '', cloudTries = 0;
+setInterval(() => {
+  if (!cloudReady() || cloudStatus.running) return;
+  const now = londonNow(), today = todayStr();
+  if (now.time < CLOUD.time) return;
+  if (cloudStatus.nightlyDay === today) return;
+  if (cloudTriesDay !== today) { cloudTriesDay = today; cloudTries = 0; }
+  if (cloudTries >= 3) return;
+  cloudTries++;
+  cloudBackup('nightly').catch(() => {});
+}, 5 * 60 * 1000).unref();
+
 // Every start (which is every update) and every day: back up first, then empty the recycle bin of anything older than 30 days.
 function dailyCare(reason) {
   autoBackup(reason);

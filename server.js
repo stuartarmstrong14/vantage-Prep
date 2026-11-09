@@ -766,7 +766,7 @@ async function handleApi(req, res, url) {
     if (!lookupReady()) {
       const want = ['MOT_CLIENT_ID', 'MOT_CLIENT_SECRET', 'MOT_API_KEY', 'MOT_TOKEN_URL'];
       const missing = want.filter((k) => !envGet(k));
-      const near = Object.keys(process.env).filter((k) => /mot|dvla|dvsa/i.test(k) && !want.includes(k.trim().toUpperCase()) && k !== 'DVLA_API_KEY' && !/^(npm_|NODE_|PATH$)/i.test(k));
+      const near = Object.keys(process.env).filter((k) => /(^|[_\s-])(mot|dvla|dvsa)([_\s-]|$)/i.test(k) && !want.includes(k.trim().toUpperCase()) && k !== 'DVLA_API_KEY' && !/^(npm_|NODE_|PATH$)/i.test(k));
       throw new HttpError(501, 'The site cannot see the MOT keys. Missing in Render: ' + missing.join(', ') + '.'
         + (near.length ? ' Found these names instead, which may be spelled differently: ' + near.join(', ') + '.' : '')
         + ' (Or add DVLA_API_KEY if you have the single DVLA key.) Save in Render, then let it redeploy.');

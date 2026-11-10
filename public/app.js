@@ -53,8 +53,8 @@
   var linkMatch = location.pathname.match(/^\/c\/([a-f0-9]{12})$/);
   state.deepLink = linkMatch ? linkMatch[1] : null;
 
-  var ROLE_LABELS = { admin: 'Administrator', staff: 'Staff', advisor: 'Advisor (view only)', valet: 'Valet Technician (valet and photos only)', paint: 'Paint Technician (paint only)', alloy: 'Alloy Technician (alloys only)', dent: 'Dent Technician (dents only)' };
-  var ROLE_ORDER = ['staff', 'valet', 'paint', 'alloy', 'dent', 'advisor', 'admin'];
+  var ROLE_LABELS = { admin: 'Administrator', staff: 'Staff', advisor: 'Advisor (view only)', viewer: 'View only (sees everything, changes nothing)', valet: 'Valet Technician (valet and photos only)', paint: 'Paint Technician (paint only)', alloy: 'Alloy Technician (alloys only)', dent: 'Dent Technician (dents only)' };
+  var ROLE_ORDER = ['staff', 'valet', 'paint', 'alloy', 'dent', 'advisor', 'viewer', 'admin'];
   // Specialist logins see everything but can only tick their own bodywork job.
   var SPECIALIST = {
     paint: { done: ['body_paint'], fields: [], job: 'job:body_paint' },
@@ -64,11 +64,11 @@
   };
   function roleLabel(r) { return ROLE_LABELS[r] || r; }
   function specialist() { return !!state.user && SPECIALIST[state.user.role] || null; }
-  function readOnly() { return !!state.user && (state.user.role === 'advisor' || !!SPECIALIST[state.user.role]); }
+  function readOnly() { return !!state.user && (state.user.role === 'advisor' || state.user.role === 'viewer' || !!SPECIALIST[state.user.role]); }
   // For a specialist, switch on only their own tick box (and wheels to refine for alloys); everything else stays locked.
   // Advisors can't change anything except use Check MOT.
   function lockForRole() {
-    var sp = specialist(), adv = !!state.user && state.user.role === 'advisor';
+    var sp = specialist(), adv = !!state.user && (state.user.role === 'advisor' || state.user.role === 'viewer');
     if (!sp && !adv) return;
     $('#m-body').disabled = false;
     document.querySelectorAll('#m-body input, #m-body textarea, #m-body select, #m-body button').forEach(function (el) {
@@ -215,7 +215,7 @@
     $('#app').hidden = false;
     $('#a-user').value = '';
     $('#add-btn').hidden = readOnly();
-    $('#rep-btn').hidden = !state.user || state.user.role !== 'admin';
+    $('#rep-btn').hidden = !state.user || (state.user.role !== 'admin' && state.user.role !== 'viewer');
     render();
     refresh(true);
     loadCosts();

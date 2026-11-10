@@ -52,7 +52,7 @@ db.exec('PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;');
 // Older databases allowed fewer roles. Rebuild the users table once so the CHECK lists every role.
 (function migrateRoles() {
   const t = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'").get();
-  if (t && t.sql.indexOf("'valet'") < 0) {
+  if (t && t.sql.indexOf("'viewer'") < 0) {
     db.exec(`
       BEGIN;
       ALTER TABLE users RENAME TO users_old;
@@ -61,7 +61,7 @@ db.exec('PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;');
         username TEXT NOT NULL UNIQUE COLLATE NOCASE,
         display TEXT NOT NULL,
         initials TEXT NOT NULL,
-        role TEXT NOT NULL CHECK (role IN ('admin','staff','advisor','paint','alloy','dent','valet')),
+        role TEXT NOT NULL CHECK (role IN ('admin','staff','advisor','paint','alloy','dent','valet','viewer')),
         pass_hash TEXT NOT NULL,
         ver INTEGER NOT NULL DEFAULT 1,
         active INTEGER NOT NULL DEFAULT 1,
@@ -79,7 +79,7 @@ db.exec(`
     username TEXT NOT NULL UNIQUE COLLATE NOCASE,
     display TEXT NOT NULL,
     initials TEXT NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('admin','staff','advisor','paint','alloy','dent','valet')),
+    role TEXT NOT NULL CHECK (role IN ('admin','staff','advisor','paint','alloy','dent','valet','viewer')),
     pass_hash TEXT NOT NULL,
     ver INTEGER NOT NULL DEFAULT 1,
     active INTEGER NOT NULL DEFAULT 1,
@@ -273,7 +273,7 @@ function requireUser(req) {
   return u;
 }
 // Technician logins can only tick their own job (the alloy login can also set wheels to refine).
-const ROLES = ['admin', 'staff', 'advisor', 'paint', 'alloy', 'dent', 'valet'];
+const ROLES = ['admin', 'staff', 'advisor', 'paint', 'alloy', 'dent', 'valet', 'viewer'];
 const SPECIALIST = {
   paint: { done: ['body_paint'], fields: [], name: 'Paint' },
   alloy: { done: ['body_wheels'], fields: ['bodyWheels'], name: 'Alloys' },
@@ -291,6 +291,7 @@ function stageFromDone(done) {
 function requireStaff(req) {
   const u = requireUser(req);
   if (u.role === 'advisor') throw new HttpError(403, 'Advisors can view progress but not change it.');
+  if (u.role === 'viewer') throw new HttpError(403, 'View-only logins can see everything but not change it.');
   if (SPECIALIST[u.role]) throw new HttpError(403, 'Your login can only update ' + SPECIALIST[u.role].name.toLowerCase() + '.');
   return u;
 }
@@ -803,7 +804,7 @@ async function handleApi(req, res, url) {
   const lkMatch = p.match(/^\/api\/cars\/([a-f0-9]{12})\/lookup$/);
   if (lkMatch && method === 'POST') {
     const lu = requireUser(req);
-    if (!['admin', 'staff', 'advisor'].includes(lu.role)) throw new HttpError(403, 'Your login cannot check the MOT.');
+    if (!['admin', 'staff', 'advisor', 'viewer'].includes(lu.role)) throw new HttpError(403, 'Your login cannot check the MOT.');
     if (!lookupReady()) {
       const want = ['MOT_CLIENT_ID', 'MOT_CLIENT_SECRET', 'MOT_API_KEY', 'MOT_TOKEN_URL'];
       const missing = want.filter((k) => !envGet(k));
@@ -876,7 +877,7 @@ async function handleApi(req, res, url) {
   // Staff and administrators see prices; technicians and advisors see the repairs and hours only.
   if (method === 'GET' && p === '/api/costs') {
     const u = requireUser(req);
-    const showCost = u.role === 'admin' || u.role === 'staff';
+    const showCost = u.role === 'admin' || u.role === 'staff' || u.role === 'viewer';
     return sendJson(res, 200, { showCost, items: q.costItems.all().map((i) => (showCost ? i : { id: i.id, name: i.name, hours: i.hours, sort: i.sort })) });
   }
   if (method === 'PUT' && p === '/api/costs') {
@@ -987,6 +988,7 @@ async function handleApi(req, res, url) {
     if (method === 'PATCH') {
       const u = requireUser(req);
       if (u.role === 'advisor') throw new HttpError(403, 'Advisors can view progress but not change it.');
+      if (u.role === 'viewer') throw new HttpError(403, 'View-only logins can see everything but not change it.');
       let b = await readJson(req);
       // read the car only after the change has arrived, so nothing saved meanwhile (like a 145 check) is overwritten
       const row = q.carById.get(id);

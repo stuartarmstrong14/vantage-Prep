@@ -885,8 +885,24 @@
           + (d.lastError ? '<br><b class="bad">Last problem</b> (' + esc(fmtWhen(d.lastErrorAt)) + '): ' + esc(d.lastError) : '')
         : 'Not set up yet. Add CRM_BRANCH (your branch code, e.g. 0012) in Render to switch it on.';
       $('#crm-file').disabled = !d.ready;
+      var ut = d.untagged || [], box = $('#crm-untag'), b = $('#crm-untag-btn');
+      box.hidden = !ut.length; b.classList.remove('armed');
+      if (ut.length) {
+        $('#crm-untag-txt').innerHTML = '<b>' + ut.length + (ut.length === 1 ? ' car' : ' cars') + '</b> added by the stock list still ' + (ut.length === 1 ? 'has' : 'have') + ' no tag number: ' + esc(ut.map(function (x) { return x.reg; }).join(', '))
+          + '. Removing them takes them off the app; they will not be added again while they stay on the CRM list. Cars with a tag, anything ticked, a 145 check or edited notes are always kept.';
+        b.textContent = 'Remove ' + ut.length + ' untagged ' + (ut.length === 1 ? 'car' : 'cars');
+      }
     }).catch(function () { /* the rest of the panel still works */ });
   }
+  $('#crm-untag-btn').addEventListener('click', function () {
+    var b = $('#crm-untag-btn');
+    if (!b.classList.contains('armed')) { b.classList.add('armed'); b.dataset.label = b.textContent; b.textContent = 'Tap again to remove them'; return; }
+    b.disabled = true;
+    api('POST', '/api/crm/remove-untagged', {}).then(function (r) {
+      toast(r.removed.length + (r.removed.length === 1 ? ' car removed.' : ' cars removed.')); loadCrm(); refresh(true);
+    }).catch(function (ex) { toast((ex && ex.message) || 'Could not remove them.'); })
+      .then(function () { b.disabled = false; });
+  });
   $('#crm-file').addEventListener('change', function (e) {
     var f = e.target.files && e.target.files[0]; if (!f) return;
     var m = $('#crm-msg'); m.textContent = 'Importing ' + f.name + '…';

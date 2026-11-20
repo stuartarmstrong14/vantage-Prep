@@ -842,7 +842,22 @@ async function handleApi(req, res, url) {
   if (p === '/api/crm' && method === 'GET') {
     requireAdmin(req);
     return sendJson(res, 200, { ready: !!CRM.branch, branch: CRM.branch || null, kinds: CRM.kinds, progress: CRM.progress, firstDays: CRM.firstDays,
-      firstRunDone: metaGet('crm_seen') != null, last: crmLast(), lastError: crmStatus.lastError, lastErrorAt: crmStatus.lastErrorAt });
+      firstRunDone: metaGet('crm_seen') != null, last: crmLast(), lastError: crmStatus.lastError, lastErrorAt: crmStatus.lastErrorAt,
+      untagged: untaggedCrmCars() });
+  }
+  // Remove the cars the stock list added that never had a tag. They are not added again while they stay on the list.
+  if (p === '/api/crm/remove-untagged' && method === 'POST') {
+    const u = requireAdmin(req);
+    const list = untaggedCrmCars();
+    const now = new Date().toISOString();
+    db.exec('BEGIN');
+    try {
+      for (const x of list) { q.binFilesForCar.run(now, u.display, x.id); q.deleteCar.run(x.id); q.motHistDel.run(x.id); }
+      db.exec('COMMIT');
+    } catch (e) { db.exec('ROLLBACK'); throw e; }
+    if (list.length) bump();
+    console.log('removed ' + list.length + ' untagged CRM car(s) by ' + u.display + ': ' + list.map((x) => x.reg).join(', '));
+    return sendJson(res, 200, { removed: list.map((x) => x.reg) });
   }
   if (p === '/api/crm/import' && method === 'POST') {
     const u = requireAdmin(req);
@@ -1302,6 +1317,14 @@ const CRM = {
   firstDays: Number(envGet('CRM_FIRST_DAYS')) || 14,
 };
 const crmStatus = { lastError: '', lastErrorAt: null };
+// Cars the stock list added that still have no tag and no work started (nothing ticked, no 145 check, notes untouched).
+function untaggedCrmCars() {
+  return q.allCars.all().map((r) => ({ id: r.id, c: JSON.parse(r.data) })).filter(({ c }) =>
+    (c.history && c.history[0] && c.history[0].by === 'CRM') && !String(c.tag || '').trim() && c.archived !== true
+    && !Object.values(c.done || {}).some((v) => v === true) && !(c.checks || []).length
+    && String(c.notes || '').trim() === 'Added from the CRM stock list.')
+    .map(({ id, c }) => ({ id, reg: c.reg, name: [c.make, c.model].filter(Boolean).join(' '), added: c.added }));
+}
 function crmLast() { try { return JSON.parse(metaGet('crm_last') || 'null'); } catch (e) { return null; } }
 function importCrm(buf, source) {
   if (!CRM.branch) throw new Error('CRM import is not set up. Add CRM_BRANCH (e.g. 0012) in Render.');

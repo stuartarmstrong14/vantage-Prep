@@ -240,7 +240,7 @@ A car whose MOT runs out within 6 months (or has expired) needs an MOT during pr
 
 The dealer CRM emails its used-stock export (`UsedExportAll.csv`) each day. Forward it to the Postmark inbound address and the CSV attachment is read automatically; an administrator can also import a file by hand under **Account -> CRM stock list -> Import CRM stock file**.
 
-- Only cars for this branch (`CRM_BRANCH`, e.g. `0012`) are used.
+- Only cars for this branch (`CRM_BRANCH`, e.g. `0042` for Toyota Leeds) are used.
 - New **Used vehicles** and **Ex Demo** cars marked **Arr** are added at Inbound with make, model, colour and mileage filled in (`CRM_KINDS` and `CRM_PROGRESS` change this). A demonstrator or sale-or-return car is added the first time it appears as Used or Ex Demo.
 - The very first import only adds cars that came into stock in the last 14 days (`CRM_FIRST_DAYS`); older stock is left alone.
 - Cars already in the app (matched by registration) get a blank make, model or colour filled in and the mileage kept up to date. Tags, ticks and notes are never touched.

@@ -887,7 +887,7 @@
       $('#crm-status').innerHTML = d.ready
         ? 'Branch <b>' + esc(d.branch) + '</b>: adds ' + esc(d.kinds.join(' and ')) + ' cars marked ' + esc(d.progress.join(', ')) + '. ' + crmSummary(d.last)
           + (d.lastError ? '<br><b class="bad">Last problem</b> (' + esc(fmtWhen(d.lastErrorAt)) + '): ' + esc(d.lastError) : '')
-        : 'Not set up yet. Add CRM_BRANCH (your branch code, e.g. 0012) in Render to switch it on.';
+        : 'Not set up yet. Add CRM_BRANCH (your branch code, e.g. 0042 for Toyota Leeds) in Render to switch it on.';
       $('#crm-file').disabled = !d.ready;
       var ut = d.untagged || [], box = $('#crm-untag'), b = $('#crm-untag-btn');
       box.hidden = !ut.length; b.classList.remove('armed');

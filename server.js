@@ -1356,7 +1356,7 @@ function untaggedCrmCars() {
 }
 function crmLast() { try { return JSON.parse(metaGet('crm_last') || 'null'); } catch (e) { return null; } }
 function importCrm(buf, source) {
-  if (!CRM.branch) throw new Error('CRM import is not set up. Add CRM_BRANCH (e.g. 0012) in Render.');
+  if (!CRM.branch) throw new Error('CRM import is not set up. Add CRM_BRANCH (e.g. 0042) in Render.');
   const all = crm.rows(buf);
   if (!all.length) throw new Error('The CRM file has no cars in it.');
   let seenRaw = metaGet('crm_seen');

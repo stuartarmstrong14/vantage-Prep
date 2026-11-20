@@ -235,3 +235,15 @@ To use a cloud backup: download the `.db.gz` file from the bucket in Cloudflare.
 ### MOT due
 
 A car whose MOT runs out within 6 months (or has expired) needs an MOT during prep. It shows a red **MOT due** (or **MOT expired**) tag on its card, and in the car, under **Prep requested**, a note says when the MOT runs out (and warns if MOT is not ticked). MOT is also added to **Prep requested** automatically, so the workshop books it before the car is advertised. This happens when a car is added (including from email), when its MOT date changes, after an MOT check, and every day. It is not added once **MOT passed** is ticked, for completed or archived cars, or if someone has taken MOT off that car for the same MOT date. The warning (card tag, note and email line) goes away once **MOT passed** is ticked under Mechanical. It uses the dates typed in, and the DVSA dates once the MOT lookup is working.
+
+### CRM stock list (sandbox)
+
+The dealer CRM emails its used-stock export (`UsedExportAll.csv`) each day. Forward it to the Postmark inbound address and the CSV attachment is read automatically; an administrator can also import a file by hand under **Account -> CRM stock list -> Import CRM stock file**.
+
+- Only cars for this branch (`CRM_BRANCH`, e.g. `0012`) are used.
+- New **Used vehicles** and **Ex Demo** cars marked **Arr** are added at Inbound with make, model, colour and mileage filled in (`CRM_KINDS` and `CRM_PROGRESS` change this). A demonstrator or sale-or-return car is added the first time it appears as Used or Ex Demo.
+- The very first import only adds cars that came into stock in the last 14 days (`CRM_FIRST_DAYS`); older stock is left alone.
+- Cars already in the app (matched by registration) get a blank make, model or colour filled in and the mileage kept up to date. Tags, ticks and notes are never touched.
+- A car deleted from the app is not added again while it stays on the list.
+- Cars that drop off the list are flagged on the car ("No longer on the CRM stock list since ...") rather than archived.
+- Each car shows its CRM stock number, stock type, date into stock and price. Purchase prices, costs, VIN and the other CRM columns are not imported.

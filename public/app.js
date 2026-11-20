@@ -595,6 +595,16 @@
         + (dv.mot ? ': valid until ' + fmtDate(dv.mot) + '.' : ': no MOT expiry on record.')
         + (dv.lastMot && dv.lastMot.date ? ' Last MOT ' + fmtDate(dv.lastMot.date) + ', ' + String(dv.lastMot.result).toLowerCase() + (dv.lastMot.advisories ? ' with ' + dv.lastMot.advisories + (dv.lastMot.advisories === 1 ? ' advisory' : ' advisories') : '') + '.' : '') + ' Checked again every morning.';
     }
+    var cr = c.crm, crEl = $('#m-crm');
+    if (crEl) {
+      crEl.hidden = !cr;
+      if (cr) {
+        var inStock = cr.adoption ? Math.max(0, dayNum(todayStr()) - dayNum(cr.adoption)) : null;
+        crEl.innerHTML = (cr.missingSince ? '<b class="bad">No longer on the CRM stock list since ' + esc(fmtDate(cr.missingSince)) + '.</b> If it has been sold or moved, archive it. ' : '')
+          + 'CRM: stock no. ' + esc(cr.stock || '–') + ' · ' + esc(cr.kind || 'stock') + (cr.adoption ? ' · in stock since ' + esc(fmtDate(cr.adoption)) + (inStock != null ? ' (' + inStock + (inStock === 1 ? ' day)' : ' days)') : '') : '')
+          + (cr.price ? ' · price £' + Number(cr.price).toLocaleString('en-GB') : '') + '.';
+      }
+    }
     var lr = $('#m-look-row');
     if (lr) lr.hidden = !!specialist();                 // admin, staff and advisors can check the MOT
     $('#m-upd').textContent = c.updatedBy ? ('Last updated by ' + c.updatedBy + ', ' + new Date(c.updatedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })) : '';
@@ -858,10 +868,43 @@
   });
 
   /* ---------- account ---------- */
+  // CRM stock list: status and a manual import (the same as the daily email attachment)
+  function crmSummary(r) {
+    if (!r) return 'Nothing imported yet.';
+    var bits = [r.added.length + ' added', r.updated.length + ' updated'];
+    if (r.flagged.length) bits.push(r.flagged.length + ' no longer listed');
+    return 'Last import ' + fmtWhen(r.at) + ' (' + esc(r.source) + '): ' + bits.join(', ') + '. '
+      + r.wanted + ' Used/Ex Demo cars on the list for this branch.'
+      + (r.firstRun && r.olderSkipped ? ' First import: ' + r.olderSkipped + ' cars already in stock over 14 days were left out.' : '')
+      + (r.added.length ? '<br>Added: ' + esc(r.added.join(', ')) : '');
+  }
+  function loadCrm() {
+    api('GET', '/api/crm').then(function (d) {
+      $('#crm-status').innerHTML = d.ready
+        ? 'Branch <b>' + esc(d.branch) + '</b>: adds ' + esc(d.kinds.join(' and ')) + ' cars marked ' + esc(d.progress.join(', ')) + '. ' + crmSummary(d.last)
+          + (d.lastError ? '<br><b class="bad">Last problem</b> (' + esc(fmtWhen(d.lastErrorAt)) + '): ' + esc(d.lastError) : '')
+        : 'Not set up yet. Add CRM_BRANCH (your branch code, e.g. 0012) in Render to switch it on.';
+      $('#crm-file').disabled = !d.ready;
+    }).catch(function () { /* the rest of the panel still works */ });
+  }
+  $('#crm-file').addEventListener('change', function (e) {
+    var f = e.target.files && e.target.files[0]; if (!f) return;
+    var m = $('#crm-msg'); m.textContent = 'Importing ' + f.name + '…';
+    fetch('/api/crm/import', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'text/csv' }, body: f })
+      .then(function (r) { return r.json().catch(function () { return null; }).then(function (d) { return { status: r.status, data: d }; }); })
+      .then(function (res) {
+        if (res.status >= 300) throw { message: (res.data && res.data.error) || 'Could not import that file.' };
+        m.innerHTML = crmSummary(res.data); loadCrm(); refresh(true);
+      })
+      .catch(function (ex) { m.textContent = (ex && ex.message) || 'Could not import that file.'; })
+      .then(function () { e.target.value = ''; });
+  });
+
   function openAccount() {
     $('#ac-h').textContent = state.user.display;
     $('#ac-sub').textContent = '@' + state.user.username + ' · ' + roleLabel(state.user.role) + ' · Initials ' + state.user.initials;
     $('#ac-admin').hidden = state.user.role !== 'admin';
+    if (state.user.role === 'admin') loadCrm();
     $('#pw-form').reset();
     $('#pw-err').hidden = true;
     $('#ov-acct').hidden = false;

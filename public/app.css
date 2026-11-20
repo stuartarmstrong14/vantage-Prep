@@ -405,5 +405,5 @@ button.flink{font-family:inherit;cursor:pointer}
 .motnote{margin:2px 0 0;font-size:14px;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:6px}.motnote b{color:var(--bad)}
 
 /* Test site banner (only when TEST_BANNER is set in Render) */
-.test-banner{position:sticky;top:0;z-index:9999;background:#E8590C;color:#fff;font-weight:800;text-align:center;letter-spacing:.06em;text-transform:uppercase;font-size:13px;padding:6px 12px}
+.test-banner{position:relative;background:#E8590C;color:#fff;font-weight:800;text-align:center;letter-spacing:.06em;text-transform:uppercase;font-size:13px;padding:6px 12px}
 @media print{.test-banner{display:none}}

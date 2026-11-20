@@ -14,6 +14,7 @@ const { hashPassword, verifyPassword } = require('./lib/passwords');
 const inbound = require('./lib/inbound');
 const { fetchWithChain } = require('./lib/tlsfix');
 const digest = require('./lib/digest');
+const crm = require('./lib/crm');
 const s3 = require('./lib/s3');
 const zlib = require('node:zlib');
 const { pipeline } = require('node:stream/promises');
@@ -592,7 +593,7 @@ function readInbound(req) {
     req.on('data', (c) => {
       if (failed) return;
       size += c.length;
-      if (size > 524288) { failed = true; reject(new HttpError(413, 'Request too large.')); return; }
+      if (size > 12 * 1024 * 1024) { failed = true; reject(new HttpError(413, 'Request too large.')); return; }   // room for a CRM stock file attached
       chunks.push(c);
     });
     req.on('end', () => {
@@ -633,6 +634,14 @@ async function handleApi(req, res, url) {
       console.log('inbound email ignored, sender not allowed:', sender || '(none)');
       return sendJson(res, 200, { created: [], skipped: [], ignored: 'sender not allowed' });
     }
+    // A CRM stock export attached to the email (UsedExportAll.csv) is imported first.
+    let crmResult = null;
+    const atts = Array.isArray(b.Attachments) ? b.Attachments : [];
+    for (const a of atts) {
+      if (!/\.csv$/i.test(String(a.Name || '')) && !/csv/i.test(String(a.ContentType || ''))) continue;
+      try { crmResult = importCrm(Buffer.from(String(a.Content || ''), 'base64'), 'email: ' + String(a.Name || 'attachment').slice(0, 60)); }
+      catch (e) { crmStatus.lastError = String(e.message || e).slice(0, 300); crmStatus.lastErrorAt = new Date().toISOString(); console.log('CRM import from email failed: ' + crmStatus.lastError); }
+    }
     const found = inbound.parseCars(inbound.emailText(b)).slice(0, 100);
     const have = new Set(q.allCars.all().map((r) => inbound.normReg(JSON.parse(r.data).reg)));
     const created = [], skipped = [], createdIds = [];
@@ -651,7 +660,7 @@ async function handleApi(req, res, url) {
     if (created.length) bump();
     if (createdIds.length && lookupReady()) (async () => { for (const id of createdIds) { await refreshCar(id).catch(noteLookupError); await new Promise((ok) => setTimeout(ok, 400)); } })();
     console.log('inbound email from', sender || '(unknown)', '- added:', created.join(', ') || 'none', '- already in stock:', skipped.join(', ') || 'none');
-    return sendJson(res, 200, { created, skipped });
+    return sendJson(res, 200, { created, skipped, crm: crmResult });
   }
 
   // Administrators: download a full copy of the database (cars, logins, history and uploaded files).
@@ -827,6 +836,25 @@ async function handleApi(req, res, url) {
     requireUser(req);
     const h = q.motHistGet.get(mhMatch[1]);
     return sendJson(res, 200, { history: h ? Object.assign(JSON.parse(h.data), { checkedAt: h.checked_at }) : null });
+  }
+
+  /* ---------- CRM stock import (administrators) ---------- */
+  if (p === '/api/crm' && method === 'GET') {
+    requireAdmin(req);
+    return sendJson(res, 200, { ready: !!CRM.branch, branch: CRM.branch || null, kinds: CRM.kinds, progress: CRM.progress, firstDays: CRM.firstDays,
+      firstRunDone: metaGet('crm_seen') != null, last: crmLast(), lastError: crmStatus.lastError, lastErrorAt: crmStatus.lastErrorAt });
+  }
+  if (p === '/api/crm/import' && method === 'POST') {
+    const u = requireAdmin(req);
+    const tmp = await saveUpload(req, 20 * 1024 * 1024);
+    try {
+      const r = importCrm(fs.readFileSync(tmp), 'uploaded by ' + u.display);
+      return sendJson(res, 200, r);
+    } catch (e) {
+      if (e instanceof HttpError) throw e;
+      crmStatus.lastError = String(e.message || e).slice(0, 300); crmStatus.lastErrorAt = new Date().toISOString();
+      throw new HttpError(400, crmStatus.lastError);
+    } finally { fs.unlink(tmp, () => {}); }
   }
 
   /* ---------- daily prep snapshot email (administrators) ---------- */
@@ -1261,6 +1289,74 @@ function scheduleLookup() {
   setTimeout(dailyLookup, Number(process.env.LOOKUP_FIRST_RUN_MS) || 5 * 60 * 1000).unref();
 }
 scheduleLookup();
+
+/* ---------- CRM stock list import ---------- */
+// The CRM emails its used-stock export (UsedExportAll.csv) each day. Cars for this branch (CRM_BRANCH) of the
+// chosen kinds (CRM_KINDS) and progress codes (CRM_PROGRESS) are added at Inbound; cars already in the app are
+// updated (blank make, model and colour filled in, mileage kept up to date); cars that drop off the list are flagged.
+// The very first import only adds cars that came into stock in the last CRM_FIRST_DAYS days (14).
+const CRM = {
+  branch: envGet('CRM_BRANCH'),
+  kinds: (envGet('CRM_KINDS') || 'Used vehicles,Ex Demo').split(',').map((x) => x.trim()).filter(Boolean),
+  progress: (envGet('CRM_PROGRESS') || 'Arr').split(',').map((x) => x.trim()).filter(Boolean),
+  firstDays: Number(envGet('CRM_FIRST_DAYS')) || 14,
+};
+const crmStatus = { lastError: '', lastErrorAt: null };
+function crmLast() { try { return JSON.parse(metaGet('crm_last') || 'null'); } catch (e) { return null; } }
+function importCrm(buf, source) {
+  if (!CRM.branch) throw new Error('CRM import is not set up. Add CRM_BRANCH (e.g. 0012) in Render.');
+  const all = crm.rows(buf);
+  if (!all.length) throw new Error('The CRM file has no cars in it.');
+  let seenRaw = metaGet('crm_seen');
+  const firstRun = seenRaw == null;
+  const seen = new Set(firstRun ? [] : JSON.parse(seenRaw));
+  const cars = q.allCars.all().map((r) => ({ id: r.id, data: JSON.parse(r.data) }));
+  const pl = crm.plan(all, cars, Object.assign({}, CRM, { firstRun, seen }));
+  const now = new Date().toISOString(), today = todayStr();
+  const crmInfo = (r, prev) => ({ stock: r.stock, branch: r.branch, kind: r.kind, progress: r.progress, adoption: r.adoption, price: r.price,
+    seenAt: today, missingSince: '' , firstSeen: (prev && prev.firstSeen) || today });
+  const added = [], updated = [], flagged = [], returned = [];
+  db.exec('BEGIN');
+  try {
+    for (const r of pl.add) {
+      const car = { reg: r.regShown, make: r.make, model: r.model, colour: r.colour, tag: '', prep: [], mileage: r.mileage != null ? String(r.mileage) : '', mot: '',
+        notes: 'Added from the CRM stock list.', stage: 'arrived', added: today, readyAt: '', done: {}, crm: crmInfo(r, null),
+        history: [{ s: 'arrived', at: now, by: 'CRM' }] };
+      autoMotPrep(car);
+      const id = crypto.randomBytes(6).toString('hex');
+      q.insertCar.run(id, JSON.stringify(car), now, 'CRM');
+      added.push({ id, reg: r.regShown });
+    }
+    for (const u of pl.update) {
+      const row = q.carById.get(u.id); if (!row) continue;
+      const c = JSON.parse(row.data), r = u.row, before = JSON.stringify(c);
+      if (!c.make && r.make) c.make = r.make;
+      if (!c.model && r.model) c.model = r.model;
+      if (!c.colour && r.colour) c.colour = r.colour;
+      const km = Number(String(c.mileage || '').replace(/[^\d]/g, '')) || 0;
+      if (r.mileage != null && r.mileage > km) c.mileage = String(r.mileage);
+      const wasMissing = c.crm && c.crm.missingSince;
+      c.crm = crmInfo(r, c.crm);
+      if (wasMissing) returned.push(c.reg);
+      if (JSON.stringify(c) !== before) { q.updateCar.run(JSON.stringify(c), now, 'CRM', u.id); updated.push(c.reg); }
+    }
+    for (const id of pl.missing) {
+      const row = q.carById.get(id); if (!row) continue;
+      const c = JSON.parse(row.data); c.crm = Object.assign({}, c.crm, { missingSince: today });
+      q.updateCar.run(JSON.stringify(c), row.updated_at, row.updated_by, id); flagged.push(c.reg);
+    }
+    metaSet('crm_seen', JSON.stringify([...new Set(pl.seen)]));
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
+  const result = { at: now, source, firstRun, rows: pl.counts.rows, branchRows: pl.counts.branch, wanted: pl.counts.wanted,
+    added: added.map((a) => a.reg), updated, flagged, returned, olderSkipped: pl.skippedOld.length };
+  metaSet('crm_last', JSON.stringify(result));
+  crmStatus.lastError = '';
+  if (added.length || updated.length || flagged.length) bump();
+  console.log('CRM import (' + source + '): added ' + added.length + ', updated ' + updated.length + ', no longer listed ' + flagged.length);
+  if (added.length && lookupReady()) (async () => { for (const a of added) { await refreshCar(a.id).catch(noteLookupError); await new Promise((ok) => setTimeout(ok, 400)); } })();
+  return result;
+}
 
 /* ---------- daily prep snapshot email ---------- */
 // Sent through Postmark (the same account as the email feed). Needs POSTMARK_SERVER_TOKEN and MAIL_FROM (a sender

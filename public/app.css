@@ -173,7 +173,17 @@ details.grp.complete .chkrow{border-top-color:var(--ok)}
 .formerr{margin:0;background:var(--surface);color:var(--bad);border-radius:16px;padding:10px 14px;font-weight:600;text-align:left}
 .formerr.light{background:var(--bad-bg)}
 
-/* ---------- staff list ---------- */
+/* ---------- team list ---------- */
+.ugrp{border:1px solid var(--line);border-radius:18px;background:var(--surface-2)}
+.ugrp>summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:52px;padding:10px 16px;font-weight:700;font-size:17px}
+.ugrp>summary::-webkit-details-marker{display:none}
+.ugrp>summary::after{content:"";width:14px;height:9px;flex:none;background:var(--caret) no-repeat center;transition:transform .15s}
+.ugrp[open]>summary::after{transform:rotate(180deg)}
+.ugrp>summary .ucount{margin-left:auto;font-size:14px;font-weight:700;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:2px 10px}
+.ugrp-body{display:flex;flex-direction:column;gap:10px;padding:0 12px 12px}
+.ugrp-body .urow{background:var(--surface)}
+.ugrp.off>summary{color:var(--muted)}
+.unone{color:var(--muted);font-weight:600;text-align:center;padding:12px}
 .ulist{display:flex;flex-direction:column;gap:10px}
 .urow{border:1px solid var(--line);border-radius:18px;background:var(--surface-2);padding:14px;display:flex;flex-direction:column;gap:10px}
 .urow-top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}

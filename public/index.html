@@ -198,8 +198,8 @@
       <button class="icon-btn" id="ac-close" type="button" aria-label="Close">&times;</button>
     </div>
     <div class="block" id="ac-admin" hidden>
-      <h3>Staff</h3>
-      <div><button class="btn primary" id="ac-users" type="button" style="min-height:48px;padding:0 24px">Manage staff logins</button></div>
+      <h3>Team</h3>
+      <div><button class="btn primary" id="ac-users" type="button" style="min-height:48px;padding:0 24px">Manage team logins</button></div>
       <h3 style="margin-top:14px">Backup</h3>
       <p class="muted-s">Download a full copy of everything: cars, history, logins and uploaded 145 point checks. Keep it somewhere safe, such as a work drive. Once a week is a good habit.</p>
       <h3 style="margin-top:14px">CRM stock list</h3>
@@ -240,7 +240,7 @@
 <div class="overlay" id="ov-costs" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="cl-h">
     <div class="sheet-head">
-      <div><h2 id="cl-h" style="font-size:28px;font-weight:700">Cosmetic price list</h2><p class="muted-s" style="margin-top:4px;font-size:15px">Repairs staff can add to a car's cosmetic estimate. Time in hours, internal cost in pounds. Changes apply to every estimate straight away.</p></div>
+      <div><h2 id="cl-h" style="font-size:28px;font-weight:700">Cosmetic price list</h2><p class="muted-s" style="margin-top:4px;font-size:15px">Repairs your team can add to a car's cosmetic estimate. Time in hours, internal cost in pounds. Changes apply to every estimate straight away.</p></div>
       <button class="icon-btn" id="cl-close" type="button" aria-label="Close">&times;</button>
     </div>
     <div class="block">
@@ -294,14 +294,14 @@
   </div>
 </div>
 
-<!-- Staff sheet (administrators) -->
+<!-- Team sheet (administrators) -->
 <div class="overlay" id="ov-users" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="us-h">
     <div class="sheet-head">
-      <h2 id="us-h" style="font-size:28px;font-weight:700">Staff logins</h2>
+      <h2 id="us-h" style="font-size:28px;font-weight:700">Team logins</h2>
       <button class="icon-btn" id="us-close" type="button" aria-label="Close">&times;</button>
     </div>
-    <div class="block"><div id="us-list" class="ulist"></div></div>
+    <div class="block"><input id="us-find" class="field" type="search" placeholder="Search the team by name, username or initials" aria-label="Search the team" autocomplete="off"><div id="us-list" class="ulist"></div></div>
     <form class="block" id="us-form" autocomplete="off">
       <h3>Add a person</h3>
       <div class="fields">
@@ -309,10 +309,10 @@
         <label for="u-user">Username<input class="field" id="u-user" maxlength="32" autocapitalize="none" spellcheck="false" required></label>
         <label for="u-pass">Starting password<input class="field" id="u-pass" type="text" minlength="8" maxlength="200" autocomplete="off" required></label>
         <label for="u-role">Role
-          <select class="field" id="u-role"><option value="staff">Staff</option><option value="valet">Valet Technician (valet and photos only)</option><option value="paint">Paint Technician (paint only)</option><option value="alloy">Alloy Technician (alloys only)</option><option value="dent">Dent Technician (dents only)</option><option value="advisor">Advisor (view only)</option><option value="viewer">View only (sees everything, changes nothing)</option><option value="admin">Administrator</option></select>
+          <select class="field" id="u-role"><option value="staff">Team member</option><option value="valet">Valet Technician (valet and photos only)</option><option value="paint">Paint Technician (paint only)</option><option value="alloy">Alloy Technician (alloys only)</option><option value="dent">Dent Technician (dents only)</option><option value="advisor">Advisor (view only)</option><option value="viewer">View only (sees everything, changes nothing)</option><option value="admin">Administrator</option></select>
         </label>
       </div>
-      <p class="muted-s">Staff can add cars and tick off prep. Valet, Paint, Alloy and Dent Technician logins can see every car but only tick their own job. Advisors can only look at progress, for example after scanning a car's QR sticker. Administrators can also delete cars and manage logins. Tell the person their starting password in person; they can change it under Account.</p>
+      <p class="muted-s">Team members can add cars and tick off prep. Valet, Paint, Alloy and Dent Technician logins can see every car but only tick their own job. Advisors can only look at progress, for example after scanning a car's QR sticker. Administrators can also delete cars and manage logins. Tell the person their starting password in person; they can change it under Account.</p>
       <p class="formerr light" id="u-err" role="alert" hidden></p>
       <div class="row"><button class="btn primary" type="submit" style="min-height:46px;padding:0 24px">Add person</button></div>
     </form>

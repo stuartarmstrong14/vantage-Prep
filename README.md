@@ -4,7 +4,7 @@ A web app for tracking used cars through preparation, with a username and passwo
 
 - **Staff** can add cars, tick off prep and sign off QC with their initials.
 - **Advisors** can look at progress but cannot change anything. This is the role for sales advisors who scan QR stickers.
-- **View only** sees everything a manager sees (every car, Reports, cosmetic costs, MOT history) but cannot tick, edit, upload, add or delete anything. Useful for directors and visitors. It can use Check MOT. Create it under Manage staff logins, role **View only**.
+- **View only** sees everything a manager sees (every car, Reports, cosmetic costs, MOT history) but cannot tick, edit, upload, add or delete anything. Useful for directors and visitors. It can use Check MOT. Create it under Manage team logins, role **View only**.
 - **Administrators** can also delete cars and add, deactivate or reset staff logins.
 - Everyone sees changes from other people within about 8 seconds.
 
@@ -31,7 +31,7 @@ It needs **Node.js 22.13 or newer** and nothing else. There are no packages to i
 npm start
 ```
 
-Open http://localhost:3000. The first time, you are asked to create the administrator account. After that, use **Account > Manage staff logins** to add everyone else.
+Open http://localhost:3000. The first time, you are asked to create the administrator account. After that, use **Account > Manage team logins** to add everyone else.
 
 ## Quick test deploy (Render)
 
@@ -104,7 +104,7 @@ The endpoint accepts Postmark, Mailgun and SendGrid style posts, or a plain JSON
 
 - **Backup:** an administrator taps **Account -> Download backup** to save a full copy of the database (cars, history, logins and uploaded 145 point checks) as `145prepped-backup-<date>.db`. Do this weekly and keep copies off the server, for example on a work drive. The file contains staff password hashes, so store it somewhere private. On the server, `npm run backup` also saves a copy to `data/backups`. To restore, replace `prep.db` in the data folder with a backup file while the app is stopped.
 - **Forgotten administrator password:** `npm run reset-password -- username NewPassword123`
-- **Leavers:** deactivate them under Manage staff logins. They are signed out straight away and their past sign-offs stay on record. Once deactivated, **Delete login** removes the login for good (it asks you to tap twice). Past sign-offs keep the person's name, because the name is stored on the car.
+- **Leavers:** deactivate them under Manage team logins. They are signed out straight away and their past sign-offs stay on record. Once deactivated, **Delete login** removes the login for good (it asks you to tap twice). Past sign-offs keep the person's name, because the name is stored on the car.
 
 ## What is built in
 
@@ -134,7 +134,7 @@ Uploaded PDFs over 150 KB are made smaller automatically with Ghostscript (image
 
 ## Technician logins
 
-Besides Staff, Advisor and Administrator, an administrator can give someone a technician login under Manage staff logins. Technicians see every car (read only) but can tick just their own job:
+Besides Staff, Advisor and Administrator, an administrator can give someone a technician login under Manage team logins. Technicians see every car (read only) but can tick just their own job:
 
 | Login | Can tick | Also |
 | --- | --- | --- |

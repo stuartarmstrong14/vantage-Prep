@@ -52,7 +52,7 @@
   var linkMatch = location.pathname.match(/^\/c\/([a-f0-9]{12})$/);
   state.deepLink = linkMatch ? linkMatch[1] : null;
 
-  var ROLE_LABELS = { admin: 'Administrator', staff: 'Staff', advisor: 'Advisor (view only)', viewer: 'View only (sees everything, changes nothing)', valet: 'Valet Technician (valet and photos only)', paint: 'Paint Technician (paint only)', alloy: 'Alloy Technician (alloys only)', dent: 'Dent Technician (dents only)' };
+  var ROLE_LABELS = { admin: 'Administrator', staff: 'Team member', advisor: 'Advisor (view only)', viewer: 'View only (sees everything, changes nothing)', valet: 'Valet Technician (valet and photos only)', paint: 'Paint Technician (paint only)', alloy: 'Alloy Technician (alloys only)', dent: 'Dent Technician (dents only)' };
   var ROLE_ORDER = ['staff', 'valet', 'paint', 'alloy', 'dent', 'advisor', 'viewer', 'admin'];
   // Specialist logins see everything but can only tick their own bodywork job.
   var SPECIALIST = {
@@ -104,7 +104,7 @@
     var setup = mode === 'setup';
     $('#auth-title').textContent = setup ? 'Create the first account' : '145 Prepped';
     $('#auth-sub').textContent = setup
-      ? 'This account will be the administrator. You can add staff logins afterwards.'
+      ? 'This account will be the administrator. You can add team logins afterwards.'
       : 'Use the username and password you were given.';
     $('#a-display').hidden = !setup;
     $('#a-display').required = setup;
@@ -990,13 +990,37 @@
     });
   });
 
-  /* ---------- staff logins (administrators) ---------- */
+  /* ---------- team logins (administrators) ---------- */
   var users = [];
   function loadUsers() {
     return api('GET', '/api/users').then(function (r) { users = r.users; renderUsers(); }).catch(fail);
   }
+  var usOpen = {};
+  function groupTitle(r) {
+    var t = { admin: 'Administrators', staff: 'Team members', advisor: 'Advisors', viewer: 'View only', valet: 'Valet Technicians', paint: 'Paint Technicians', alloy: 'Alloy Technicians', dent: 'Dent Technicians' };
+    return t[r] || roleLabel(r);
+  }
   function renderUsers() {
-    $('#us-list').innerHTML = users.map(function (u) {
+    var list = $('#us-list');
+    list.querySelectorAll('details.ugrp').forEach(function (d) { usOpen[d.dataset.grp] = d.open; });
+    var q = (($('#us-find') || {}).value || '').trim().toLowerCase();
+    var shown = users.filter(function (u) {
+      return !q || [u.display, u.username, u.initials].some(function (s) { return String(s || '').toLowerCase().indexOf(q) !== -1; });
+    });
+    var groups = ROLE_ORDER.slice(); users.forEach(function (u) { if (groups.indexOf(u.role) === -1) groups.push(u.role); });
+    groups.push('__off');
+    var html = groups.map(function (g) {
+      var members = shown.filter(function (u) { return g === '__off' ? !u.active : (u.active && u.role === g); })
+        .sort(function (a, b) { return String(a.display).localeCompare(String(b.display)); });
+      if (!members.length) return '';
+      var open = q ? true : !!usOpen[g];
+      return '<details class="ugrp' + (g === '__off' ? ' off' : '') + '" data-grp="' + esc(g) + '"' + (open ? ' open' : '') + '>'
+        + '<summary>' + esc(g === '__off' ? 'Deactivated' : groupTitle(g)) + '<span class="ucount num">' + members.length + '</span></summary>'
+        + '<div class="ugrp-body">' + members.map(userRow).join('') + '</div></details>';
+    }).join('');
+    list.innerHTML = html || '<p class="unone">' + (q ? 'No one matches that search.' : 'No team logins yet.') + '</p>';
+  }
+  function userRow(u) {
       var me = u.id === state.user.id;
       return '<div class="urow' + (u.active ? '' : ' off') + '" data-uid="' + u.id + '">'
         + '<div class="urow-top"><div><div class="urow-name">' + esc(u.display) + (me ? ' (you)' : '') + '</div><div class="urow-user">@' + esc(u.username) + ' · Initials ' + esc(u.initials) + '</div></div>'
@@ -1007,8 +1031,8 @@
         + (me ? '' : '<button class="btn ' + (u.active ? 'danger' : '') + '" type="button" data-toggle>' + (u.active ? 'Deactivate' : 'Reactivate') + '</button>')
         + (me || u.active ? '' : '<button class="btn danger" type="button" data-delete>Delete login</button>')
         + '</div></div>';
-    }).join('');
   }
+  $('#us-find').addEventListener('input', renderUsers);
   /* ---------- data health (administrators) ---------- */
   function fmtWhen(iso) { try { return new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: TZ }); } catch (e) { return iso; } }
   function renderHealth(h) {
@@ -1166,7 +1190,7 @@
   });
 
   $('#ac-users').addEventListener('click', function () {
-    $('#ov-acct').hidden = true; $('#us-form').reset(); $('#u-err').hidden = true;
+    $('#ov-acct').hidden = true; $('#us-form').reset(); $('#u-err').hidden = true; $('#us-find').value = '';
     $('#ov-users').hidden = false; loadUsers(); $('#us-close').focus();
   });
   $('#us-close').addEventListener('click', function () { $('#ov-users').hidden = true; });
@@ -1180,6 +1204,7 @@
   $('#us-list').addEventListener('change', function (e) {
     if (!e.target.matches('[data-role]')) return;
     var id = e.target.closest('.urow').dataset.uid;
+    usOpen[e.target.value] = true;
     patchUser(id, { role: e.target.value }, 'Role updated.');
   });
   $('#us-list').addEventListener('click', function (e) {

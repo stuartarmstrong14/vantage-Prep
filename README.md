@@ -246,5 +246,6 @@ The dealer CRM emails its used-stock export (`UsedExportAll.csv`) each day. Forw
 - Cars already in the app (matched by registration) get a blank make, model or colour filled in and the mileage kept up to date. Tags, ticks and notes are never touched.
 - A car deleted from the app is not added again while it stays on the list.
 - Cars that drop off the list are flagged on the car ("No longer on the CRM stock list since ...") rather than archived.
+- **No duplicate cards.** The stock list and the prep email both match cars by registration (ignoring spaces and capitals), including archived cars. If the prep email names a car the stock list already added, it fills in the tag, Prep requested and any blank details on that card instead of adding a second one; if the email came first, the stock list adds its details to the email's card. The same registration twice in one CRM file gives one card.
 - **Remove untagged cars** (Account -> CRM stock list) deletes cars the stock list added that still have no tag number. Cars with a tag, anything ticked, a 145 check or edited notes are kept, as are cars added by hand or by email. Removed cars are not added again while they stay on the CRM list.
 - Each car shows its CRM stock number, stock type, date into stock and price. Purchase prices, costs, VIN and the other CRM columns are not imported.

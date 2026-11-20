@@ -643,11 +643,28 @@ async function handleApi(req, res, url) {
       catch (e) { crmStatus.lastError = String(e.message || e).slice(0, 300); crmStatus.lastErrorAt = new Date().toISOString(); console.log('CRM import from email failed: ' + crmStatus.lastError); }
     }
     const found = inbound.parseCars(inbound.emailText(b)).slice(0, 100);
-    const have = new Set(q.allCars.all().map((r) => inbound.normReg(JSON.parse(r.data).reg)));
-    const created = [], skipped = [], createdIds = [];
+    // One card per registration: a car already on the app (for example added by the CRM stock list) is not added again.
+    // Instead the email fills in what the stock list doesn't have: the tag, Prep requested, and any blank details.
+    const byReg = new Map(q.allCars.all().map((r) => [inbound.normReg(JSON.parse(r.data).reg), r]));
+    const have = new Set(byReg.keys());
+    const created = [], skipped = [], createdIds = [], merged = [];
     for (const f of found) {
       const key = inbound.normReg(f.reg);
-      if (have.has(key)) { skipped.push(f.reg); continue; }
+      if (have.has(key)) {
+        const row = byReg.get(key);
+        if (row) {
+          const c = JSON.parse(row.data), before = JSON.stringify(c);
+          const live = c.archived !== true && !(c.done && c.done.ready_qc === true);
+          if (live) {
+            if (!String(c.tag || '').trim() && f.tag) c.tag = f.tag;
+            if (f.prep && f.prep.length) c.prep = PREP_ITEMS.filter((x) => (c.prep || []).concat(f.prep).includes(x));
+            for (const k of ['make', 'model', 'mileage', 'mot']) if (!String(c[k] || '').trim() && f[k]) c[k] = f[k];
+            if (c.notes === 'Added from the CRM stock list.') c.notes = 'Added from the CRM stock list. Tag and prep requested from email.';
+          }
+          if (JSON.stringify(c) !== before) { q.updateCar.run(JSON.stringify(c), new Date().toISOString(), 'Email', row.id); merged.push(f.reg); byReg.delete(key); continue; }
+        }
+        skipped.push(f.reg); continue;
+      }
       have.add(key);
       const car = { reg: f.reg, make: f.make, model: f.model, tag: f.tag, prep: f.prep || [], mileage: f.mileage, mot: f.mot,
         notes: 'Added from email. Check the details are right.', stage: 'arrived', added: todayStr(), readyAt: '', done: {},
@@ -657,10 +674,10 @@ async function handleApi(req, res, url) {
       q.insertCar.run(newId, JSON.stringify(car), new Date().toISOString(), 'Email');
       created.push(f.reg); createdIds.push(newId);
     }
-    if (created.length) bump();
+    if (created.length || merged.length) bump();
     if (createdIds.length && lookupReady()) (async () => { for (const id of createdIds) { await refreshCar(id).catch(noteLookupError); await new Promise((ok) => setTimeout(ok, 400)); } })();
-    console.log('inbound email from', sender || '(unknown)', '- added:', created.join(', ') || 'none', '- already in stock:', skipped.join(', ') || 'none');
-    return sendJson(res, 200, { created, skipped, crm: crmResult });
+    console.log('inbound email from', sender || '(unknown)', '- added:', created.join(', ') || 'none', '- details added to existing cards:', merged.join(', ') || 'none', '- already in stock:', skipped.join(', ') || 'none');
+    return sendJson(res, 200, { created, merged, skipped, crm: crmResult });
   }
 
   // Administrators: download a full copy of the database (cars, logins, history and uploaded files).

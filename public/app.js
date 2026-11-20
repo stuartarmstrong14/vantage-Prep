@@ -888,7 +888,6 @@
         ? 'Branch <b>' + esc(d.branch) + '</b>: adds ' + esc(d.kinds.join(' and ')) + ' cars marked ' + esc(d.progress.join(', ')) + '. ' + crmSummary(d.last)
           + (d.lastError ? '<br><b class="bad">Last problem</b> (' + esc(fmtWhen(d.lastErrorAt)) + '): ' + esc(d.lastError) : '')
         : 'Not set up yet. Add CRM_BRANCH (your branch code, e.g. 0042 for Toyota Leeds) in Render to switch it on.';
-      $('#crm-file').disabled = !d.ready;
       var ut = d.untagged || [], box = $('#crm-untag'), b = $('#crm-untag-btn');
       box.hidden = !ut.length; b.classList.remove('armed');
       if (ut.length) {
@@ -909,7 +908,9 @@
   });
   $('#crm-file').addEventListener('change', function (e) {
     var f = e.target.files && e.target.files[0]; if (!f) return;
-    var m = $('#crm-msg'); m.textContent = 'Importing ' + f.name + '…';
+    var m = $('#crm-msg');
+    if (/\.xlsx?$/i.test(f.name)) { m.textContent = f.name + ' is an Excel workbook. Choose the .csv file the CRM sends (UsedExportAll.csv).'; e.target.value = ''; return; }
+    m.textContent = 'Importing ' + f.name + '…';
     fetch('/api/crm/import', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'text/csv' }, body: f })
       .then(function (r) { return r.json().catch(function () { return null; }).then(function (d) { return { status: r.status, data: d }; }); })
       .then(function (res) {

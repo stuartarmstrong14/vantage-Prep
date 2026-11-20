@@ -137,7 +137,8 @@
   function signedOut(message) {
     stopPolling();
     state.user = null; state.cars = new Map(); state.rev = null; state.loaded = false; state.open = null; state.f = 'all'; state.q = ''; try { $('#q').value = ''; } catch (e) { /* ignore */ }
-    ['#ov-car', '#ov-new', '#ov-acct', '#ov-users', '#ov-reports'].forEach(function (s) { $(s).hidden = true; });
+    state.trade = new Map(); renderTradeBtn();
+    ['#ov-car', '#ov-new', '#ov-acct', '#ov-users', '#ov-reports', '#ov-trade'].forEach(function (s) { $(s).hidden = true; });
     showAuth('login', message || '');
   }
 
@@ -149,6 +150,34 @@
   function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
   document.addEventListener('visibilitychange', function () { if (!document.hidden && state.user) refresh(false); });
 
+  // Trade: cars with CRM Stock Type AUCTION. Managers (administrators and view-only) see them in Trade, nobody else sees them.
+  function isTrade(c) { return !!(c && c.crm && c.crm.stockType === 'AUCTION' && c.archived !== true); }
+  function isManagerUser() { return !!state.user && (state.user.role === 'admin' || state.user.role === 'viewer'); }
+  function renderTradeBtn() {
+    var b = $('#trade-btn'); if (!b) return;
+    var list = state.trade ? Array.from(state.trade.values()) : [];
+    b.hidden = !isManagerUser() || !list.length;
+    var waiting = list.filter(function (c) { return !(c.trade && c.trade.submitted); }).length;
+    var bd = $('#trade-badge'); bd.hidden = !waiting; bd.textContent = waiting;
+    b.setAttribute('aria-label', 'Trade' + (waiting ? ', ' + waiting + ' to submit to auction' : ''));
+  }
+  function tradeRow(c) {
+    var sub = !!(c.trade && c.trade.submitted), ro = !state.user || state.user.role !== 'admin';
+    var inStock = c.crm && c.crm.adoption ? Math.max(0, dayNum(todayStr()) - dayNum(c.crm.adoption)) : null;
+    var meta = [c.colour, miles(c.mileage), inStock != null ? inStock + (inStock === 1 ? ' day' : ' days') + ' in stock' : '', c.crm && c.crm.stock ? 'stock no. ' + c.crm.stock : ''].filter(Boolean).join(' · ');
+    return '<div class="tr-row' + (sub ? ' done' : '') + '">'
+      + '<div class="tr-car"><span class="plate" style="font-size:17px;padding:4px 9px 3px">' + esc(c.reg) + '</span><div class="tr-name"><b>' + esc([c.make, c.model].filter(Boolean).join(' ') || 'Details to follow') + '</b><small>' + esc(meta) + '</small></div></div>'
+      + '<label class="tr-tick"><input type="checkbox" data-trade="' + esc(c.id) + '"' + (sub ? ' checked' : '') + (ro ? ' disabled' : '') + '> <span>Submitted to auction' + (sub ? '<small>' + esc(c.trade.by) + ', ' + esc(fmtWhen(c.trade.at)) + '</small>' : '') + '</span></label>'
+      + '</div>';
+  }
+  function renderTrade() {
+    var list = state.trade ? Array.from(state.trade.values()) : [];
+    var age = function (c) { return c.crm && c.crm.adoption ? c.crm.adoption : '9999'; };
+    var waiting = list.filter(function (c) { return !(c.trade && c.trade.submitted); }).sort(function (a, b) { return age(a) < age(b) ? -1 : 1; });
+    var done = list.filter(function (c) { return c.trade && c.trade.submitted; }).sort(function (a, b) { return a.trade.at < b.trade.at ? 1 : -1; });
+    $('#tr-body').innerHTML = (waiting.length ? '<h3>To submit <span class="muted-s">' + waiting.length + '</span></h3><div class="tr-list">' + waiting.map(tradeRow).join('') + '</div>' : '<p class="rp-empty">Nothing waiting. Every auction car has been submitted.</p>')
+      + (done.length ? '<details class="tr-done"><summary>Submitted <span class="muted-s">' + done.length + '</span></summary><div class="tr-list">' + done.map(tradeRow).join('') + '</div></details>' : '');
+  }
   function refresh(force) {
     if (!state.user) return Promise.resolve();
     var url = '/api/cars' + (force || state.rev == null ? '' : '?since=' + state.rev);
@@ -157,8 +186,9 @@
       if (state.pending > 0) return;           // do not overwrite edits still being saved
       state.rev = r.rev;
       if (r.unchanged && state.loaded) return;
-      var m = new Map();
-      r.cars.forEach(function (c) { m.set(c.id, c); });
+      var m = new Map(), tr = new Map();
+      r.cars.forEach(function (c) { (isTrade(c) ? tr : m).set(c.id, c); });   // auction cars live in Trade, not on the board
+      state.trade = tr; renderTradeBtn(); if (!$('#ov-trade').hidden) renderTrade();
       if (state.loaded) announce(state.cars, m);
       state.cars = m;
       state.loaded = true;
@@ -1482,6 +1512,16 @@
   }
   function openReports() { loadDueIn(); $('#rp-target').textContent = TARGET; renderReports(); $('#ov-reports').hidden = false; $('#ov-reports .sheet').scrollTop = 0; $('#rp-close').focus(); }
   $('#rep-btn').addEventListener('click', openReports);
+  $('#trade-btn').addEventListener('click', function () { renderTrade(); $('#ov-trade').hidden = false; $('#ov-trade .sheet').scrollTop = 0; $('#tr-close').focus(); });
+  $('#tr-close').addEventListener('click', function () { $('#ov-trade').hidden = true; });
+  $('#tr-body').addEventListener('change', function (e) {
+    var id = e.target.dataset && e.target.dataset.trade; if (!id) return;
+    var box = e.target, on = box.checked; box.disabled = true;
+    api('POST', '/api/cars/' + id + '/trade', { submitted: on }).then(function (car) {
+      state.trade.set(id, car); renderTradeBtn(); renderTrade();
+      toast(on ? car.reg + ' marked as submitted to auction.' : car.reg + ' moved back to To submit.');
+    }).catch(function (ex) { box.checked = !on; box.disabled = false; toast((ex && ex.message) || 'Could not save that.'); });
+  });
   $('#rp-close').addEventListener('click', function () { $('#ov-reports').hidden = true; });
   $('#rp-body').addEventListener('input', function (e) {
     if (e.target.id === 'rp-cq') { state.rpCq = e.target.value; $('#rp-costs').innerHTML = costsHtml(); return; }

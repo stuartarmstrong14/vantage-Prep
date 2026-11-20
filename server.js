@@ -761,9 +761,25 @@ async function handleApi(req, res, url) {
 
   /* ----- cars ----- */
   if (method === 'GET' && p === '/api/cars') {
-    requireUser(req);
+    const cu = requireUser(req);
     if (url.searchParams.get('since') === String(rev)) return sendJson(res, 200, { rev, unchanged: true });
-    return sendJson(res, 200, { rev, cars: q.allCars.all().map(carOut) });
+    let rows = q.allCars.all();
+    if (!isManager(cu)) rows = rows.filter((r) => !isTradeCar(JSON.parse(r.data)));   // auction cars are for managers only
+    return sendJson(res, 200, { rev, cars: rows.map(carOut) });
+  }
+  // Trade: tick (or untick) "Submitted to auction". Administrators only.
+  const trMatch = p.match(/^\/api\/cars\/([a-f0-9]{12})\/trade$/);
+  if (trMatch && method === 'POST') {
+    const u = requireAdmin(req);
+    const b = await readJson(req) || {};
+    const row = q.carById.get(trMatch[1]);
+    if (!row) throw new HttpError(404, 'That car no longer exists.');
+    const c = JSON.parse(row.data);
+    if (!isTradeCar(c)) throw new HttpError(400, 'That car is not marked for auction in the CRM.');
+    c.trade = b.submitted ? { submitted: true, at: new Date().toISOString(), by: u.display } : null;
+    q.updateCar.run(JSON.stringify(c), new Date().toISOString(), u.display, row.id);
+    bump();
+    return sendJson(res, 200, carOut(q.carById.get(row.id)));
   }
 
   if (method === 'POST' && p === '/api/cars') {
@@ -1347,10 +1363,13 @@ const CRM = {
   firstDays: Number(envGet('CRM_FIRST_DAYS')) || 0,          // 0 = no limit
 };
 const crmStatus = { lastError: '', lastErrorAt: null };
+// Trade: cars the CRM marks Stock Type AUCTION. They are not prepped; managers tick them off once submitted to auction.
+const isTradeCar = (c) => !!(c && c.crm && c.crm.stockType === 'AUCTION' && c.archived !== true);
+const isManager = (u) => !!u && (u.role === 'admin' || u.role === 'viewer');
 // Cars the stock list added that still have no tag and no work started (nothing ticked, no 145 check, notes untouched).
 function untaggedCrmCars() {
   return q.allCars.all().map((r) => ({ id: r.id, c: JSON.parse(r.data) })).filter(({ c }) =>
-    (c.history && c.history[0] && c.history[0].by === 'CRM') && !String(c.tag || '').trim() && c.archived !== true
+    (c.history && c.history[0] && c.history[0].by === 'CRM') && !String(c.tag || '').trim() && c.archived !== true && !isTradeCar(c)
     && !Object.values(c.done || {}).some((v) => v === true) && !(c.checks || []).length
     && String(c.notes || '').trim() === 'Added from the CRM stock list.')
     .map(({ id, c }) => ({ id, reg: c.reg, name: [c.make, c.model].filter(Boolean).join(' '), added: c.added }));
@@ -1366,7 +1385,7 @@ function importCrm(buf, source) {
   const cars = q.allCars.all().map((r) => ({ id: r.id, data: JSON.parse(r.data) }));
   const pl = crm.plan(all, cars, Object.assign({}, CRM, { firstRun, seen, today: todayStr() }));
   const now = new Date().toISOString(), today = todayStr();
-  const crmInfo = (r, prev) => ({ stock: r.stock, branch: r.branch, kind: r.kind, progress: r.progress, adoption: r.adoption, price: r.price,
+  const crmInfo = (r, prev) => ({ stock: r.stock, branch: r.branch, kind: r.kind, progress: r.progress, stockType: r.stockType || '', adoption: r.adoption, price: r.price,
     seenAt: today, missingSince: '' , firstSeen: (prev && prev.firstSeen) || today });
   const added = [], updated = [], flagged = [], returned = [];
   db.exec('BEGIN');
@@ -1425,8 +1444,9 @@ function digestSettings() { try { return Object.assign({}, DIGEST_DEFAULT, JSON.
 const digestStatus = { lastSent: null, lastTo: 0, lastError: '', lastErrorAt: null };
 const EMAIL_RE = /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/;
 function buildDigest() {
-  const cars = q.allCars.all().map((r) => JSON.parse(r.data));
-  return digest.build(cars, todayStr(), { url: PUBLIC_URL || '', centre: envGet('CENTRE_NAME') });
+  const all = q.allCars.all().map((r) => JSON.parse(r.data));
+  const trade = all.filter(isTradeCar), cars = all.filter((c) => !isTradeCar(c));
+  return digest.build(cars, todayStr(), { url: PUBLIC_URL || '', centre: envGet('CENTRE_NAME'), auction: CRM.branch ? trade.filter((c) => !(c.trade && c.trade.submitted)) : null });
 }
 async function sendMail(to, msg) {
   if (!mailReady()) throw new Error('Sending email is not set up. Add POSTMARK_SERVER_TOKEN and MAIL_FROM in Render.');

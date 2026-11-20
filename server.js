@@ -889,7 +889,15 @@ async function handleApi(req, res, url) {
     requireAdmin(req);
     return sendJson(res, 200, { ready: !!CRM.branch, branch: CRM.branch || null, kinds: CRM.kinds, progress: CRM.progress, maxDays: CRM.maxDays,
       firstRunDone: metaGet('crm_seen') != null, last: crmLast(), lastError: crmStatus.lastError, lastErrorAt: crmStatus.lastErrorAt,
-      untagged: untaggedCrmCars() });
+      untagged: untaggedCrmCars(), removed: Math.round(crmRemoved().size / 2) });
+  }
+  // Forget which cars were removed on purpose, so the next import can add them again.
+  if (p === '/api/crm/forget-removed' && method === 'POST') {
+    const u = requireAdmin(req);
+    const n = Math.round(crmRemoved().size / 2);
+    metaSet('crm_removed', '[]');
+    console.log('CRM removed list cleared by ' + u.display + ' (' + n + ' car(s))');
+    return sendJson(res, 200, { cleared: n });
   }
   // Due in stock (Reports): cars on the latest CRM list whose date into stock is still ahead.
   if (p === '/api/crm/duein' && method === 'GET') {

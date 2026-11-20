@@ -918,6 +918,9 @@
         ? 'Branch <b>' + esc(d.branch) + '</b>: adds ' + esc(d.kinds.join(' and ')) + ' cars marked ' + esc(d.progress.join(', ')) + '. ' + crmSummary(d.last)
           + (d.lastError ? '<br><b class="bad">Last problem</b> (' + esc(fmtWhen(d.lastErrorAt)) + '): ' + esc(d.lastError) : '')
         : 'Not set up yet. Add CRM_BRANCH (your branch code, e.g. 0042 for Toyota Leeds) in Render to switch it on.';
+      var rm = d.removed || 0, fb = $('#crm-forget');
+      fb.hidden = !rm;
+      if (rm) $('#crm-forget-txt').innerHTML = '<b>' + rm + (rm === 1 ? ' car was' : ' cars were') + ' removed</b> from the board, so the import won\'t add ' + (rm === 1 ? 'it' : 'them') + ' again. To get ' + (rm === 1 ? 'it' : 'them') + ' back, tap below and then import the CRM file again.';
       var ut = d.untagged || [], box = $('#crm-untag'), b = $('#crm-untag-btn');
       box.hidden = !ut.length; b.classList.remove('armed');
       if (ut.length) {
@@ -927,6 +930,12 @@
       }
     }).catch(function () { /* the rest of the panel still works */ });
   }
+  $('#crm-forget-btn').addEventListener('click', function () {
+    var b = $('#crm-forget-btn'); b.disabled = true;
+    api('POST', '/api/crm/forget-removed', {}).then(function (r) {
+      $('#crm-msg').textContent = 'Done. Now import the CRM file again and the ' + r.cleared + (r.cleared === 1 ? ' removed car' : ' removed cars') + ' will come back (if still eligible).'; loadCrm();
+    }).catch(function (ex) { toast((ex && ex.message) || 'Could not do that.'); }).then(function () { b.disabled = false; });
+  });
   $('#crm-untag-btn').addEventListener('click', function () {
     var b = $('#crm-untag-btn');
     if (!b.classList.contains('armed')) { b.classList.add('armed'); b.dataset.label = b.textContent; b.textContent = 'Tap again to remove them'; return; }

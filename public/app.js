@@ -52,8 +52,9 @@
   var linkMatch = location.pathname.match(/^\/c\/([a-f0-9]{12})$/);
   state.deepLink = linkMatch ? linkMatch[1] : null;
 
-  var ROLE_LABELS = { admin: 'Administrator', staff: 'Team member', advisor: 'Advisor (view only)', viewer: 'View only (sees everything, changes nothing)', valet: 'Valet Technician (valet and photos only)', paint: 'Paint Technician (paint only)', alloy: 'Alloy Technician (alloys only)', dent: 'Dent Technician (dents only)' };
-  var ROLE_ORDER = ['staff', 'valet', 'paint', 'alloy', 'dent', 'advisor', 'viewer', 'admin'];
+  var ROLE_LABELS = { admin: 'Administrator', vadmin: 'Vehicle Admin (stock, no logins)', staff: 'Team member', advisor: 'Advisor (view only)', viewer: 'View only (sees everything, changes nothing)', valet: 'Valet Technician (valet and photos only)', paint: 'Paint Technician (paint only)', alloy: 'Alloy Technician (alloys only)', dent: 'Dent Technician (dents only)' };
+  var ROLE_ORDER = ['staff', 'valet', 'paint', 'alloy', 'dent', 'advisor', 'viewer', 'vadmin', 'admin'];
+  function isAdminish() { return !!state.user && (state.user.role === 'admin' || state.user.role === 'vadmin'); }
   // Specialist logins see everything but can only tick their own bodywork job.
   var SPECIALIST = {
     paint: { done: ['body_paint'], fields: [], job: 'job:body_paint' },
@@ -151,7 +152,7 @@
 
   // Trade: cars with CRM Stock Type AUCTION. Managers (administrators and view-only) see them in Trade, nobody else sees them.
   function isTrade(c) { return !!(c && c.crm && c.crm.stockType === 'AUCTION' && c.archived !== true); }
-  function isManagerUser() { return !!state.user && (state.user.role === 'admin' || state.user.role === 'viewer'); }
+  function isManagerUser() { return !!state.user && (state.user.role === 'admin' || state.user.role === 'vadmin' || state.user.role === 'viewer'); }
   function renderTradeBtn() {
     var b = $('#trade-btn'); if (!b) return;
     var list = state.trade ? Array.from(state.trade.values()) : [];
@@ -161,7 +162,7 @@
     b.setAttribute('aria-label', 'Trade' + (waiting ? ', ' + waiting + ' to submit to auction' : ''));
   }
   function tradeRow(c) {
-    var sub = !!(c.trade && c.trade.submitted), ro = !state.user || state.user.role !== 'admin';
+    var sub = !!(c.trade && c.trade.submitted), ro = !isAdminish();
     var inStock = c.crm && c.crm.adoption ? Math.max(0, dayNum(todayStr()) - dayNum(c.crm.adoption)) : null;
     var meta = [c.colour, miles(c.mileage), inStock != null ? inStock + (inStock === 1 ? ' day' : ' days') + ' in stock' : '', c.crm && c.crm.stock ? 'stock no. ' + c.crm.stock : ''].filter(Boolean).join(' · ');
     return '<div class="tr-row' + (sub ? ' done' : '') + '">'
@@ -244,7 +245,7 @@
     $('#app').hidden = false;
     $('#a-user').value = '';
     $('#add-btn').hidden = readOnly();
-    $('#rep-btn').hidden = !state.user || (state.user.role !== 'admin' && state.user.role !== 'viewer');
+    $('#rep-btn').hidden = !isManagerUser();
     render();
     refresh(true);
     loadCosts();
@@ -508,7 +509,7 @@
     $('#m-notes').value = c.notes || '';
     $('#m-mot').innerHTML = ''; $('#m-mot').hidden = true;
     renderPrepChips(c);
-    $('#m-del').hidden = state.user.role !== 'admin';
+    $('#m-del').hidden = !isAdminish();
     $('#m-body').disabled = readOnly();
     $('#m-qr').hidden = readOnly();
     lockForRole();
@@ -963,8 +964,11 @@
   function openAccount() {
     $('#ac-h').textContent = state.user.display;
     $('#ac-sub').textContent = '@' + state.user.username + ' · ' + roleLabel(state.user.role) + ' · Initials ' + state.user.initials;
-    $('#ac-admin').hidden = state.user.role !== 'admin';
-    if (state.user.role === 'admin') loadCrm();
+    $('#ac-admin').hidden = !isAdminish();
+    $('#ac-logins').hidden = state.user.role !== 'admin';
+    $('#ac-backup-wrap').hidden = state.user.role !== 'admin';
+    $('#ac-backup-dl').hidden = state.user.role !== 'admin';
+    if (isAdminish()) loadCrm();
     $('#pw-form').reset();
     $('#pw-err').hidden = true;
     $('#ov-acct').hidden = false;
@@ -997,7 +1001,7 @@
   }
   var usOpen = {};
   function groupTitle(r) {
-    var t = { admin: 'Administrators', staff: 'Team members', advisor: 'Advisors', viewer: 'View only', valet: 'Valet Technicians', paint: 'Paint Technicians', alloy: 'Alloy Technicians', dent: 'Dent Technicians' };
+    var t = { admin: 'Administrators', vadmin: 'Vehicle Admins', staff: 'Team members', advisor: 'Advisors', viewer: 'View only', valet: 'Valet Technicians', paint: 'Paint Technicians', alloy: 'Alloy Technicians', dent: 'Dent Technicians' };
     return t[r] || roleLabel(r);
   }
   function renderUsers() {

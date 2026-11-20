@@ -198,10 +198,10 @@
       <button class="icon-btn" id="ac-close" type="button" aria-label="Close">&times;</button>
     </div>
     <div class="block" id="ac-admin" hidden>
-      <h3>Team</h3>
-      <div><button class="btn primary" id="ac-users" type="button" style="min-height:48px;padding:0 24px">Manage team logins</button></div>
-      <h3 style="margin-top:14px">Backup</h3>
-      <p class="muted-s">Download a full copy of everything: cars, history, logins and uploaded 145 point checks. Keep it somewhere safe, such as a work drive. Once a week is a good habit.</p>
+      <div id="ac-logins"><h3>Team</h3>
+      <div><button class="btn primary" id="ac-users" type="button" style="min-height:48px;padding:0 24px">Manage team logins</button></div></div>
+      <div id="ac-backup-wrap"><h3 style="margin-top:14px">Backup</h3>
+      <p class="muted-s">Download a full copy of everything: cars, history, logins and uploaded 145 point checks. Keep it somewhere safe, such as a work drive. Once a week is a good habit.</p></div>
       <h3 style="margin-top:14px">CRM stock list</h3>
       <p class="muted-s" id="crm-status">The CRM's daily stock export adds new cars and keeps details up to date.</p>
       <div class="uplact"><label class="btn" for="crm-file" style="min-height:48px;padding:0 24px;display:inline-flex;align-items:center;cursor:pointer">Import CRM stock file</label><input id="crm-file" type="file" accept=".csv,text/csv,application/vnd.ms-excel,text/plain" hidden></div>
@@ -215,7 +215,7 @@
       <div><button class="btn" id="ac-costs" type="button" style="min-height:48px;padding:0 24px">Edit cosmetic price list</button></div>
       <h3 style="margin-top:14px">Data</h3>
       <div class="row" style="gap:10px;flex-wrap:wrap"><button class="btn" id="ac-health" type="button" style="min-height:48px;padding:0 24px">Data health and recovery</button></div>
-      <div><a class="btn" id="ac-backup" href="/api/backup" style="min-height:48px;padding:0 24px;display:inline-flex;align-items:center;text-decoration:none">Download backup</a></div>
+      <div id="ac-backup-dl"><a class="btn" id="ac-backup" href="/api/backup" style="min-height:48px;padding:0 24px;display:inline-flex;align-items:center;text-decoration:none">Download backup</a></div>
     </div>
     <div class="block">
       <h3>Help</h3>
@@ -309,10 +309,10 @@
         <label for="u-user">Username<input class="field" id="u-user" maxlength="32" autocapitalize="none" spellcheck="false" required></label>
         <label for="u-pass">Starting password<input class="field" id="u-pass" type="text" minlength="8" maxlength="200" autocomplete="off" required></label>
         <label for="u-role">Role
-          <select class="field" id="u-role"><option value="staff">Team member</option><option value="valet">Valet Technician (valet and photos only)</option><option value="paint">Paint Technician (paint only)</option><option value="alloy">Alloy Technician (alloys only)</option><option value="dent">Dent Technician (dents only)</option><option value="advisor">Advisor (view only)</option><option value="viewer">View only (sees everything, changes nothing)</option><option value="admin">Administrator</option></select>
+          <select class="field" id="u-role"><option value="staff">Team member</option><option value="valet">Valet Technician (valet and photos only)</option><option value="paint">Paint Technician (paint only)</option><option value="alloy">Alloy Technician (alloys only)</option><option value="dent">Dent Technician (dents only)</option><option value="advisor">Advisor (view only)</option><option value="viewer">View only (sees everything, changes nothing)</option><option value="vadmin">Vehicle Admin (stock, no logins)</option><option value="admin">Administrator</option></select>
         </label>
       </div>
-      <p class="muted-s">Team members can add cars and tick off prep. Valet, Paint, Alloy and Dent Technician logins can see every car but only tick their own job. Advisors can only look at progress, for example after scanning a car's QR sticker. Administrators can also delete cars and manage logins. Tell the person their starting password in person; they can change it under Account.</p>
+      <p class="muted-s">Team members can add cars and tick off prep. Valet, Paint, Alloy and Dent Technician logins can see every car but only tick their own job. Advisors can only look at progress, for example after scanning a car's QR sticker. Vehicle Admins can add, amend and delete stock, import the CRM file and see reports, but cannot manage logins. Administrators can do everything, including managing logins. Tell the person their starting password in person; they can change it under Account.</p>
       <p class="formerr light" id="u-err" role="alert" hidden></p>
       <div class="row"><button class="btn primary" type="submit" style="min-height:46px;padding:0 24px">Add person</button></div>
     </form>

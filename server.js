@@ -897,6 +897,7 @@ async function handleApi(req, res, url) {
     const now = new Date().toISOString();
     db.exec('BEGIN');
     try {
+      rememberRemoved(list.map((x) => { const row = q.carById.get(x.id); return row ? JSON.parse(row.data) : null; }));
       for (const x of list) { q.binFilesForCar.run(now, u.display, x.id); q.deleteCar.run(x.id); q.motHistDel.run(x.id); }
       db.exec('COMMIT');
     } catch (e) { db.exec('ROLLBACK'); throw e; }
@@ -1106,6 +1107,7 @@ async function handleApi(req, res, url) {
       const adm = requireAdmin(req);
       const gone = q.carById.get(id);
       q.binFilesForCar.run(new Date().toISOString(), adm.display, id);
+      if (gone) rememberRemoved([JSON.parse(gone.data)]);
       q.deleteCar.run(id);
       q.motHistDel.run(id);
       console.log('car deleted: ' + (gone ? JSON.parse(gone.data).reg : id) + ' by ' + adm.display + ' (its 145 checks are in the recycle bin for 30 days)');
@@ -1375,6 +1377,14 @@ function untaggedCrmCars() {
     && String(c.notes || '').trim() === 'Added from the CRM stock list.')
     .map(({ id, c }) => ({ id, reg: c.reg, name: [c.make, c.model].filter(Boolean).join(' '), added: c.added }));
 }
+// Cars someone removed from the app on purpose (Remove untagged cars, or Delete car on a car from the stock list).
+// The import never adds these again. Everything else that is eligible and not on the board is added.
+function crmRemoved() { try { return new Set(JSON.parse(metaGet('crm_removed') || '[]')); } catch (e) { return new Set(); } }
+function rememberRemoved(cars) {
+  const keys = []; for (const c of cars) { if (!c || !c.crm) continue; if (c.crm.stock) keys.push(c.crm.stock); keys.push(crm.normReg(c.reg)); }
+  if (!keys.length) return;
+  metaSet('crm_removed', JSON.stringify([...new Set([...crmRemoved(), ...keys])].slice(-5000)));
+}
 function crmLast() { try { return JSON.parse(metaGet('crm_last') || 'null'); } catch (e) { return null; } }
 function importCrm(buf, source) {
   if (!CRM.branch) throw new Error('CRM import is not set up. Add CRM_BRANCH (e.g. 0042) in Render.');
@@ -1385,7 +1395,7 @@ function importCrm(buf, source) {
   const seen = new Set(firstRun ? [] : JSON.parse(seenRaw));
   const cars = q.allCars.all().map((r) => ({ id: r.id, data: JSON.parse(r.data) }));
   let unwanted = new Set(); try { unwanted = new Set(JSON.parse(metaGet('crm_unwanted') || '[]')); } catch (e) { /* none yet */ }
-  const pl = crm.plan(all, cars, Object.assign({}, CRM, { firstRun, seen, unwanted, today: todayStr() }));
+  const pl = crm.plan(all, cars, Object.assign({}, CRM, { firstRun, seen, unwanted, removed: crmRemoved(), today: todayStr() }));
   const now = new Date().toISOString(), today = todayStr();
   const crmInfo = (r, prev) => ({ stock: r.stock, branch: r.branch, kind: r.kind, progress: r.progress, stockType: r.stockType || '', adoption: r.adoption, price: r.price,
     seenAt: today, missingSince: '' , firstSeen: (prev && prev.firstSeen) || today });

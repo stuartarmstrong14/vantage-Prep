@@ -1371,8 +1371,9 @@ function importCrm(buf, source) {
   db.exec('BEGIN');
   try {
     for (const r of pl.add) {
+      // A car due in goes on the board now (Inbound, tagged "Due in"); its days in prep count from its due date.
       const car = { reg: r.regShown, make: r.make, model: r.model, colour: r.colour, tag: '', prep: [], mileage: r.mileage != null ? String(r.mileage) : '', mot: '',
-        notes: 'Added from the CRM stock list.', stage: 'arrived', added: today, readyAt: '', done: {}, crm: crmInfo(r, null),
+        notes: 'Added from the CRM stock list.', stage: 'arrived', added: r.adoption && r.adoption > today ? r.adoption : today, readyAt: '', done: {}, crm: crmInfo(r, null),
         history: [{ s: 'arrived', at: now, by: 'CRM' }] };
       autoMotPrep(car);
       const id = crypto.randomBytes(6).toString('hex');

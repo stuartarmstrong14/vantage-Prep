@@ -234,6 +234,9 @@
   function stageKey(c) { return keyFromDone(c.done || {}); }
   function stageDone(c, s) { var d = c.done || {}; return s.t.every(function (t) { return d[s.k + '_' + t[0]] === true; }); }
   function stageIdx(c) { var k = stageKey(c), i = STAGES.findIndex(function (s) { return s.k === k; }); return i < 0 ? 0 : i; }
+  // Due in: the car is on the board ahead of its date into stock (from the CRM stock list).
+  function dueIn(c) { return !!c.added && c.added > todayStr() && !isDone(c); }
+  function dueText(c) { return 'Due in ' + new Date(c.added + 'T12:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }); }
   function carDays(c) {
     var end = (isDone(c) && c.readyAt) ? c.readyAt : todayStr();
     return Math.max(0, dayNum(end) - dayNum(c.added || todayStr()));
@@ -400,7 +403,8 @@
     var meta = [c.tag ? (/^tag/i.test(c.tag) ? c.tag : 'Tag ' + c.tag) : '', miles(c.mileage), c.mot ? 'MOT ' + isoToShort(c.mot) : ''].filter(Boolean).map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('');
     var tags = (showStatus ? '<span class="pill stat-' + ['prep', 'done', 'arch'][statusOf(c)] + '">' + ['In prep', 'Completed', 'Archived'][statusOf(c)] + '</span>' : '')
       + (mi ? '<span class="pill ' + mi.cls + '">' + esc(mi.t) + '</span>' : '');
-    var daysTxt = isDone(c) ? ('Prepped in ' + d + 'd') : (d + (d === 1 ? ' day' : ' days') + ' in prep');
+    var daysTxt = isDone(c) ? ('Prepped in ' + d + 'd') : dueIn(c) ? dueText(c) : (d + (d === 1 ? ' day' : ' days') + ' in prep');
+    if (dueIn(c)) dc = 'warn';
     return '<button class="car" type="button" data-open="' + esc(id) + '">'
       + '<div class="car-top"><span class="plate">' + esc(c.reg || 'No reg') + '</span><span class="pill num ' + dc + '">' + daysTxt + '</span></div>'
       + '<div class="car-name">' + esc(name || 'Unnamed car') + '</div>'
@@ -587,7 +591,7 @@
       return '<div class="seg' + cls + '"><i></i><span>' + esc(st.s || st.l) + (cls === ' on' ? ' &#10003;' : '') + '</span></div>';
     }).join('');
     var d = carDays(c);
-    $('#m-days').innerHTML = '<span>Now at <b>' + esc(STAGES[stageIdx(c)].l) + '</b></span><span><b class="num">' + d + '</b> ' + (isDone(c) ? 'days from arrival to completed' : 'days in prep, target ' + TARGET) + '</span><span>Arrived <b>' + esc(fmtDate(c.added)) + '</b></span><span><b class="num">' + doneCount(c) + '</b> of ' + TOTAL + ' tasks done</span>';
+    $('#m-days').innerHTML = '<span>Now at <b>' + esc(STAGES[stageIdx(c)].l) + '</b></span><span><b class="num">' + d + '</b> ' + (isDone(c) ? 'days from arrival to completed' : 'days in prep, target ' + TARGET) + '</span><span>' + (dueIn(c) ? 'Due in <b>' : 'Arrived <b>') + esc(fmtDate(c.added)) + '</b></span><span><b class="num">' + doneCount(c) + '</b> of ' + TOTAL + ' tasks done</span>';
     var dv = c.dvla, dvEl = $('#m-dvla');
     if (dvEl) {
       dvEl.hidden = !dv;
@@ -1464,7 +1468,7 @@
     var cars = d.dueIn.cars || [];
     if (!cars.length) return '<p class="rp-empty">Nothing due in. Every car on the latest stock list (' + esc(fmtWhen(d.dueIn.at)) + ') is already in stock.</p>';
     var t0 = dayNum(d.today);
-    return '<p class="sub">' + cars.length + (cars.length === 1 ? ' car' : ' cars') + ' on the CRM stock list with a date into stock still ahead. Each one joins prep on its date. From the list imported ' + esc(fmtWhen(d.dueIn.at)) + '.</p>'
+    return '<p class="sub">' + cars.length + (cars.length === 1 ? ' car' : ' cars') + ' on the CRM stock list with a date into stock still ahead. Used and Ex Demo cars are already at Inbound, tagged Due in; their days in prep start on that date. From the list imported ' + esc(fmtWhen(d.dueIn.at)) + '.</p>'
       + '<div class="rp-list">' + cars.map(function (c) {
         var n = dayNum(c.adoption) - t0, when = n <= 0 ? 'today' : n === 1 ? 'tomorrow' : 'in ' + n + ' days';
         var date = new Date(c.adoption + 'T12:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });

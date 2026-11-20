@@ -874,7 +874,7 @@ async function handleApi(req, res, url) {
   /* ---------- CRM stock import (administrators) ---------- */
   if (p === '/api/crm' && method === 'GET') {
     requireAdmin(req);
-    return sendJson(res, 200, { ready: !!CRM.branch, branch: CRM.branch || null, kinds: CRM.kinds, progress: CRM.progress, firstDays: CRM.firstDays,
+    return sendJson(res, 200, { ready: !!CRM.branch, branch: CRM.branch || null, kinds: CRM.kinds, progress: CRM.progress, maxDays: CRM.maxDays,
       firstRunDone: metaGet('crm_seen') != null, last: crmLast(), lastError: crmStatus.lastError, lastErrorAt: crmStatus.lastErrorAt,
       untagged: untaggedCrmCars() });
   }
@@ -1354,13 +1354,14 @@ scheduleLookup();
 // The CRM emails its used-stock export (UsedExportAll.csv) each day. Cars for this branch (CRM_BRANCH) of the
 // chosen kinds (CRM_KINDS) and progress codes (CRM_PROGRESS) are added at Inbound; cars already in the app are
 // updated (blank make, model and colour filled in, mileage kept up to date); cars that drop off the list are flagged.
-// Every matching car not already on the board is added, however long it has been in stock. CRM_FIRST_DAYS (optional)
-// limits the very first import to cars in stock that many days or fewer. Cars already on the board are matched and updated.
+// New matching cars are added if they have been in stock CRM_MAX_DAYS (30) days or fewer, or were converted from another
+// kind (e.g. a demo becoming Used). Cars already on the board are matched and updated whatever their age.
 const CRM = {
   branch: envGet('CRM_BRANCH'),
   kinds: (envGet('CRM_KINDS') || 'Used vehicles,Ex Demo').split(',').map((x) => x.trim()).filter(Boolean),
   progress: (envGet('CRM_PROGRESS') || 'Arr').split(',').map((x) => x.trim()).filter(Boolean),
-  firstDays: Number(envGet('CRM_FIRST_DAYS')) || 0,          // 0 = no limit
+  // Cars in stock longer than this that are not already on the board are not added (0 = no limit). Conversions are always added.
+  maxDays: envGet('CRM_MAX_DAYS') === '0' ? 0 : (Number(envGet('CRM_MAX_DAYS')) || 30),
 };
 const crmStatus = { lastError: '', lastErrorAt: null };
 // Trade: cars the CRM marks Stock Type AUCTION. They are not prepped; managers tick them off once submitted to auction.
@@ -1383,7 +1384,8 @@ function importCrm(buf, source) {
   const firstRun = seenRaw == null;
   const seen = new Set(firstRun ? [] : JSON.parse(seenRaw));
   const cars = q.allCars.all().map((r) => ({ id: r.id, data: JSON.parse(r.data) }));
-  const pl = crm.plan(all, cars, Object.assign({}, CRM, { firstRun, seen, today: todayStr() }));
+  let unwanted = new Set(); try { unwanted = new Set(JSON.parse(metaGet('crm_unwanted') || '[]')); } catch (e) { /* none yet */ }
+  const pl = crm.plan(all, cars, Object.assign({}, CRM, { firstRun, seen, unwanted, today: todayStr() }));
   const now = new Date().toISOString(), today = todayStr();
   const crmInfo = (r, prev) => ({ stock: r.stock, branch: r.branch, kind: r.kind, progress: r.progress, stockType: r.stockType || '', adoption: r.adoption, price: r.price,
     seenAt: today, missingSince: '' , firstSeen: (prev && prev.firstSeen) || today });
@@ -1419,11 +1421,12 @@ function importCrm(buf, source) {
       q.updateCar.run(JSON.stringify(c), row.updated_at, row.updated_by, id); flagged.push(c.reg);
     }
     metaSet('crm_seen', JSON.stringify([...new Set(pl.seen)]));
+    metaSet('crm_unwanted', JSON.stringify([...new Set([...unwanted, ...pl.unwantedNow])].slice(-5000)));
     metaSet('crm_duein', JSON.stringify({ at: now, cars: pl.dueIn }));
     db.exec('COMMIT');
   } catch (e) { db.exec('ROLLBACK'); throw e; }
   const result = { at: now, source, firstRun, rows: pl.counts.rows, branchRows: pl.counts.branch, wanted: pl.counts.wanted,
-    added: added.map((a) => a.reg), updated, flagged, returned, olderSkipped: pl.skippedOld.length, firstDays: CRM.firstDays, dueIn: pl.dueIn.length };
+    added: added.map((a) => a.reg), updated, flagged, returned, olderSkipped: pl.skippedOld.length, maxDays: CRM.maxDays, dueIn: pl.dueIn.length };
   metaSet('crm_last', JSON.stringify(result));
   crmStatus.lastError = '';
   if (added.length || updated.length || flagged.length) bump();

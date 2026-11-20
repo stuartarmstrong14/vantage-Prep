@@ -242,7 +242,7 @@ The dealer CRM emails its used-stock export (`UsedExportAll.csv`) each day. Forw
 
 - Only cars for this branch (`CRM_BRANCH`, e.g. `0042` for Toyota Leeds) are used.
 - New **Used vehicles** and **Ex Demo** cars marked **Arr** are added at Inbound with make, model, colour and mileage filled in (`CRM_KINDS` and `CRM_PROGRESS` change this). A demonstrator or sale-or-return car is added the first time it appears as Used or Ex Demo.
-- Every matching car that is not already on the board is added, however long it has been in stock, so no car is missed. Cars already on the board are matched by registration and updated, never duplicated. (Optional: `CRM_FIRST_DAYS` limits the very first import to cars in stock that many days or fewer.)
+- A matching car that is not already on the board is added if it has been in stock **30 days or fewer** (`CRM_MAX_DAYS`, `0` = no limit). Older cars are left out, unless the CRM has just converted them (for example a demonstrator or SOR car that is now Used), which are always added. Cars already on the board are matched by registration and updated whatever their age, never duplicated.
 - Cars already in the app (matched by registration) get a blank make, model or colour filled in and the mileage kept up to date. Tags, ticks and notes are never touched.
 - A car deleted from the app is not added again while it stays on the list.
 - Cars that drop off the list are flagged on the car ("No longer on the CRM stock list since ...") rather than archived.

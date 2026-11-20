@@ -5,7 +5,7 @@ A web app for tracking used cars through preparation, with a username and passwo
 - **Staff** can add cars, tick off prep and sign off QC with their initials.
 - **Advisors** can look at progress but cannot change anything. This is the role for sales advisors who scan QR stickers.
 - **View only** sees everything a manager sees (every car, Reports, cosmetic costs, MOT history) but cannot tick, edit, upload, add or delete anything. Useful for directors and visitors. It can use Check MOT. Create it under Manage team logins, role **View only**.
-- **Vehicle Admins** can add, amend and delete stock, import the CRM file, tick auction submissions, edit the cosmetic price list and see Reports, but cannot add, change or reset any logins or download the full backup (it contains logins).
+- **Vehicle Admins** and **Centre Principals** can add, amend and delete stock, import the CRM file, tick auction submissions, edit the cosmetic price list and see Reports, but cannot add, change or reset any logins or download the full backup (it contains logins).
 - **Administrators** can also delete cars and add, deactivate or reset staff logins.
 - Everyone sees changes from other people within about 8 seconds.
 

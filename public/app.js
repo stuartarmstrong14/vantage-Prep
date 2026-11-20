@@ -879,7 +879,7 @@
     if (r.flagged.length) bits.push(r.flagged.length + ' no longer listed');
     return 'Last import ' + fmtWhen(r.at) + ' (' + esc(r.source) + '): ' + bits.join(', ') + '. '
       + r.wanted + ' Used/Ex Demo cars on the list for this branch.' + (r.dueIn ? ' ' + r.dueIn + ' due in (see Reports).' : '')
-      + (r.firstRun && r.olderSkipped ? ' First import: ' + r.olderSkipped + ' cars in stock over ' + (r.firstDays || 30) + ' days and not already on the board were left out.' : '')
+      + (r.firstRun && r.olderSkipped ? ' First import: ' + r.olderSkipped + ' cars in stock over ' + r.firstDays + ' days and not already on the board were left out.' : '')
       + (r.added.length ? '<br>Added: ' + esc(r.added.join(', ')) : '');
   }
   function loadCrm() {

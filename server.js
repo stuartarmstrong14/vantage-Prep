@@ -1338,13 +1338,13 @@ scheduleLookup();
 // The CRM emails its used-stock export (UsedExportAll.csv) each day. Cars for this branch (CRM_BRANCH) of the
 // chosen kinds (CRM_KINDS) and progress codes (CRM_PROGRESS) are added at Inbound; cars already in the app are
 // updated (blank make, model and colour filled in, mileage kept up to date); cars that drop off the list are flagged.
-// The very first import only adds cars that came into stock in the last CRM_FIRST_DAYS days (30).
-// Cars already on the board are matched and updated whatever their age.
+// Every matching car not already on the board is added, however long it has been in stock. CRM_FIRST_DAYS (optional)
+// limits the very first import to cars in stock that many days or fewer. Cars already on the board are matched and updated.
 const CRM = {
   branch: envGet('CRM_BRANCH'),
   kinds: (envGet('CRM_KINDS') || 'Used vehicles,Ex Demo').split(',').map((x) => x.trim()).filter(Boolean),
   progress: (envGet('CRM_PROGRESS') || 'Arr').split(',').map((x) => x.trim()).filter(Boolean),
-  firstDays: Number(envGet('CRM_FIRST_DAYS')) || 30,
+  firstDays: Number(envGet('CRM_FIRST_DAYS')) || 0,          // 0 = no limit
 };
 const crmStatus = { lastError: '', lastErrorAt: null };
 // Cars the stock list added that still have no tag and no work started (nothing ticked, no 145 check, notes untouched).

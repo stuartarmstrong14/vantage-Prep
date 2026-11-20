@@ -678,7 +678,7 @@ async function handleApi(req, res, url) {
 
   if (method === 'GET' && p === '/api/session') {
     const u = currentUser(req);
-    return sendJson(res, 200, { setup: q.countUsers.get().c === 0, user: u ? publicUser(u) : null, publicUrl: PUBLIC_URL || null, lookup: lookupReady() });
+    return sendJson(res, 200, { setup: q.countUsers.get().c === 0, user: u ? publicUser(u) : null, publicUrl: PUBLIC_URL || null, lookup: lookupReady(), testBanner: envGet('TEST_BANNER').slice(0, 80) || null });
   }
 
   if (method === 'POST' && p === '/api/setup') {

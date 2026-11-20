@@ -1417,6 +1417,7 @@
   /* ---------- start ---------- */
   api('GET', '/api/session').then(function (s) {
     lookupOn = !!s.lookup; $('#n-look').hidden = !lookupOn;
+    var tb = $('#test-banner'); if (tb) { tb.hidden = !s.testBanner; tb.textContent = s.testBanner || ''; document.body.classList.toggle('has-test-banner', !!s.testBanner); }
     if (s.user) { state.user = s.user; startApp(); }
     else {
       showAuth(s.setup ? 'setup' : 'login');

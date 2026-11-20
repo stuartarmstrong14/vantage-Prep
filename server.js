@@ -1338,12 +1338,13 @@ scheduleLookup();
 // The CRM emails its used-stock export (UsedExportAll.csv) each day. Cars for this branch (CRM_BRANCH) of the
 // chosen kinds (CRM_KINDS) and progress codes (CRM_PROGRESS) are added at Inbound; cars already in the app are
 // updated (blank make, model and colour filled in, mileage kept up to date); cars that drop off the list are flagged.
-// The very first import only adds cars that came into stock in the last CRM_FIRST_DAYS days (14).
+// The very first import only adds cars that came into stock in the last CRM_FIRST_DAYS days (30).
+// Cars already on the board are matched and updated whatever their age.
 const CRM = {
   branch: envGet('CRM_BRANCH'),
   kinds: (envGet('CRM_KINDS') || 'Used vehicles,Ex Demo').split(',').map((x) => x.trim()).filter(Boolean),
   progress: (envGet('CRM_PROGRESS') || 'Arr').split(',').map((x) => x.trim()).filter(Boolean),
-  firstDays: Number(envGet('CRM_FIRST_DAYS')) || 14,
+  firstDays: Number(envGet('CRM_FIRST_DAYS')) || 30,
 };
 const crmStatus = { lastError: '', lastErrorAt: null };
 // Cars the stock list added that still have no tag and no work started (nothing ticked, no 145 check, notes untouched).
@@ -1403,7 +1404,7 @@ function importCrm(buf, source) {
     db.exec('COMMIT');
   } catch (e) { db.exec('ROLLBACK'); throw e; }
   const result = { at: now, source, firstRun, rows: pl.counts.rows, branchRows: pl.counts.branch, wanted: pl.counts.wanted,
-    added: added.map((a) => a.reg), updated, flagged, returned, olderSkipped: pl.skippedOld.length, dueIn: pl.dueIn.length };
+    added: added.map((a) => a.reg), updated, flagged, returned, olderSkipped: pl.skippedOld.length, firstDays: CRM.firstDays, dueIn: pl.dueIn.length };
   metaSet('crm_last', JSON.stringify(result));
   crmStatus.lastError = '';
   if (added.length || updated.length || flagged.length) bump();

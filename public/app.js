@@ -874,7 +874,7 @@
     var bits = [r.added.length + ' added', r.updated.length + ' updated'];
     if (r.flagged.length) bits.push(r.flagged.length + ' no longer listed');
     return 'Last import ' + fmtWhen(r.at) + ' (' + esc(r.source) + '): ' + bits.join(', ') + '. '
-      + r.wanted + ' Used/Ex Demo cars on the list for this branch.'
+      + r.wanted + ' Used/Ex Demo cars on the list for this branch.' + (r.dueIn ? ' ' + r.dueIn + ' due in (see Reports).' : '')
       + (r.firstRun && r.olderSkipped ? ' First import: ' + r.olderSkipped + ' cars already in stock over 14 days were left out.' : '')
       + (r.added.length ? '<br>Added: ' + esc(r.added.join(', ')) : '');
   }
@@ -1361,6 +1361,7 @@
     var hadFocus = !!focusId, selEnd = hadFocus ? document.activeElement.selectionEnd : 0;
     $('#rp-body').innerHTML = tiles + '<div class="rp-grid" style="margin-top:14px">'
       + '<section class="rp-card full"><h3>Cars completed</h3>' + weekly + '</section>'
+      + '<section class="rp-card full"><h3>Due in stock</h3><div id="rp-duein">' + dueInHtml() + '</div></section>'
       + '<section class="rp-card"><h3>Where the stock is now</h3>' + byStage + '<p class="sub">' + active.length + ' cars in prep.</p></section>'
       + '<section class="rp-card"><h3>Time in each stage</h3>' + stageTime + '</section>'
       + '<section class="rp-card"><h3>Cars over target</h3>' + stuckHtml + '</section>'
@@ -1451,7 +1452,30 @@
       + (open === 'alloys' ? wh.replace('rp-card full', 'rp-inner') : open === 'cosmetics' ? pt.replace('rp-card full', 'rp-inner') : '<p class="sub">Tap Alloys or Cosmetics to see what is outstanding on cars in prep.</p>')
       + '</section>';
   }
-  function openReports() { $('#rp-target').textContent = TARGET; renderReports(); $('#ov-reports').hidden = false; $('#ov-reports .sheet').scrollTop = 0; $('#rp-close').focus(); }
+  // Due in stock comes from the latest CRM stock list (loaded when Reports opens)
+  function loadDueIn() {
+    api('GET', '/api/crm/duein').then(function (d) { state.dueIn = d; if (!$('#ov-reports').hidden) { var el = $('#rp-duein'); if (el) el.innerHTML = dueInHtml(); } }).catch(function () { state.dueIn = null; });
+  }
+  function dueInHtml() {
+    var d = state.dueIn;
+    if (!d) return '<p class="rp-empty">Loading…</p>';
+    if (!d.ready) return '<p class="rp-empty">Shows cars due in from the CRM stock list once CRM_BRANCH is set up.</p>';
+    if (!d.dueIn) return '<p class="rp-empty">No CRM stock list imported yet.</p>';
+    var cars = d.dueIn.cars || [];
+    if (!cars.length) return '<p class="rp-empty">Nothing due in. Every car on the latest stock list (' + esc(fmtWhen(d.dueIn.at)) + ') is already in stock.</p>';
+    var t0 = dayNum(d.today);
+    return '<p class="sub">' + cars.length + (cars.length === 1 ? ' car' : ' cars') + ' on the CRM stock list with a date into stock still ahead. Each one joins prep on its date. From the list imported ' + esc(fmtWhen(d.dueIn.at)) + '.</p>'
+      + '<div class="rp-list">' + cars.map(function (c) {
+        var n = dayNum(c.adoption) - t0, when = n <= 0 ? 'today' : n === 1 ? 'tomorrow' : 'in ' + n + ' days';
+        var date = new Date(c.adoption + 'T12:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+        var name = [c.make, c.model].filter(Boolean).join(' ') || 'Details to follow';
+        var sub = [c.colour, c.kind, c.mileage != null ? Number(c.mileage).toLocaleString('en-GB') + ' miles' : '', c.price ? '£' + Number(c.price).toLocaleString('en-GB') : '', c.stock ? 'stock no. ' + c.stock : ''].filter(Boolean).join(' · ');
+        var left = '<span class="l"><b><span class="plate" style="font-size:15px;padding:3px 8px 2px;margin-right:6px">' + esc(c.reg) + '</span>' + esc(name) + '</b><small>' + esc(sub) + (c.onBoard ? ' · already on the board' : '') + '</small></span>';
+        var right = '<span class="r' + (n <= 1 ? ' bad' : '') + '">' + esc(date) + '<br><small>' + when + '</small></span>';
+        return c.onBoard ? '<button type="button" class="rp-row" data-open="' + esc(c.onBoard) + '">' + left + right + '</button>' : '<div class="rp-row plain">' + left + right + '</div>';
+      }).join('') + '</div>';
+  }
+  function openReports() { loadDueIn(); $('#rp-target').textContent = TARGET; renderReports(); $('#ov-reports').hidden = false; $('#ov-reports .sheet').scrollTop = 0; $('#rp-close').focus(); }
   $('#rep-btn').addEventListener('click', openReports);
   $('#rp-close').addEventListener('click', function () { $('#ov-reports').hidden = true; });
   $('#rp-body').addEventListener('input', function (e) {

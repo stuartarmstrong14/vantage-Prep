@@ -862,6 +862,18 @@ async function handleApi(req, res, url) {
       firstRunDone: metaGet('crm_seen') != null, last: crmLast(), lastError: crmStatus.lastError, lastErrorAt: crmStatus.lastErrorAt,
       untagged: untaggedCrmCars() });
   }
+  // Due in stock (Reports): cars on the latest CRM list whose date into stock is still ahead.
+  if (p === '/api/crm/duein' && method === 'GET') {
+    const u = requireUser(req);
+    if (u.role !== 'admin' && u.role !== 'viewer') throw new HttpError(403, 'Only administrators can see reports.');
+    let d = null; try { d = JSON.parse(metaGet('crm_duein') || 'null'); } catch (e) { d = null; }
+    const today = todayStr();
+    if (d) {
+      const regs = new Map(q.allCars.all().map((r) => [crm.normReg(JSON.parse(r.data).reg), r.id]));
+      d.cars = d.cars.filter((c) => c.adoption >= today).map((c) => Object.assign({}, c, { onBoard: regs.get(crm.normReg(c.reg)) || null }));
+    }
+    return sendJson(res, 200, { ready: !!CRM.branch, branch: CRM.branch || null, today, dueIn: d });
+  }
   // Remove the cars the stock list added that never had a tag. They are not added again while they stay on the list.
   if (p === '/api/crm/remove-untagged' && method === 'POST') {
     const u = requireAdmin(req);
@@ -1351,7 +1363,7 @@ function importCrm(buf, source) {
   const firstRun = seenRaw == null;
   const seen = new Set(firstRun ? [] : JSON.parse(seenRaw));
   const cars = q.allCars.all().map((r) => ({ id: r.id, data: JSON.parse(r.data) }));
-  const pl = crm.plan(all, cars, Object.assign({}, CRM, { firstRun, seen }));
+  const pl = crm.plan(all, cars, Object.assign({}, CRM, { firstRun, seen, today: todayStr() }));
   const now = new Date().toISOString(), today = todayStr();
   const crmInfo = (r, prev) => ({ stock: r.stock, branch: r.branch, kind: r.kind, progress: r.progress, adoption: r.adoption, price: r.price,
     seenAt: today, missingSince: '' , firstSeen: (prev && prev.firstSeen) || today });
@@ -1386,10 +1398,11 @@ function importCrm(buf, source) {
       q.updateCar.run(JSON.stringify(c), row.updated_at, row.updated_by, id); flagged.push(c.reg);
     }
     metaSet('crm_seen', JSON.stringify([...new Set(pl.seen)]));
+    metaSet('crm_duein', JSON.stringify({ at: now, cars: pl.dueIn }));
     db.exec('COMMIT');
   } catch (e) { db.exec('ROLLBACK'); throw e; }
   const result = { at: now, source, firstRun, rows: pl.counts.rows, branchRows: pl.counts.branch, wanted: pl.counts.wanted,
-    added: added.map((a) => a.reg), updated, flagged, returned, olderSkipped: pl.skippedOld.length };
+    added: added.map((a) => a.reg), updated, flagged, returned, olderSkipped: pl.skippedOld.length, dueIn: pl.dueIn.length };
   metaSet('crm_last', JSON.stringify(result));
   crmStatus.lastError = '';
   if (added.length || updated.length || flagged.length) bump();

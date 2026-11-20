@@ -192,10 +192,10 @@ html{scroll-behavior:smooth}
     <div class="stack">
       <h3>Kinds of login</h3>
       <ul class="points">
-        <li><b>Staff</b> add cars, tick off prep, upload 145 point checks, write notes, print QR stickers and archive completed cars.</li>
+        <li><b>Team members</b> add cars, tick off prep, upload 145 point checks, write notes, print QR stickers and archive completed cars.</li>
         <li><b>Technician</b> logins see every car but can only tick their own job: <b>Valet Technician</b> (Valet and Photos), <b>Paint Technician</b>, <b>Alloy Technician</b> (who can also set how many wheels need refining) and <b>Dent Technician</b>.</li>
         <li><b>Advisors</b> can look but not change anything, for example after scanning a car's QR sticker.</li>
-        <li><b>Administrators</b> can do everything staff can, plus Reports, deleting cars and managing staff logins.</li>
+        <li><b>Vehicle Admins</b> and <b>Centre Principals</b> run stock and Reports but can't manage logins. <b>Administrators</b> can do everything.</li>
       </ul>
     </div>
   </div>
@@ -205,9 +205,9 @@ html{scroll-behavior:smooth}
   <div class="sec-h"><span class="eyebrow">Your part</span><h2>Who does what</h2>
     <p class="intro">Each team works on its own stage. Tap your department's box under <b>How prep is going</b> to see only the cars waiting for you.</p></div>
   <div class="roles">
-    <article class="role"><div class="role-h"><h3>Managers controlling preparation</h3><span class="chip">All stages</span></div><span class="login">ADMINISTRATOR LOGIN</span>
+    <article class="role"><div class="role-h"><h3>Managers controlling preparation</h3><span class="chip">All stages</span></div><span class="login">ADMINISTRATOR, VEHICLE ADMIN OR CENTRE PRINCIPAL LOGIN</span>
       <p>Add cars and check the ones that arrive by email, set Prep requested, chase cars over 7 days, use Reports and Outstanding bodywork, archive completed cars, print notices and manage logins.</p></article>
-    <article class="role"><div class="role-h"><h3>Workshop controllers</h3><span class="chip">Mechanical</span></div><span class="login">STAFF LOGIN</span>
+    <article class="role"><div class="role-h"><h3>Workshop controllers</h3><span class="chip">Mechanical</span></div><span class="login">TEAM MEMBER LOGIN</span>
       <p>Upload the 145 point check, tick Service, MOT passed and Mechanical QC, check the MOT date, and note any parts on order.</p></article>
     <article class="role"><div class="role-h"><h3>Painters</h3><span class="chip">Paint</span></div><span class="login">PAINT TECHNICIAN LOGIN</span>
       <p>Your list opens on cars still needing paint. Read the cosmetic notes, then tick <b>Paint work completed</b>. Everything else is view only.</p></article>
@@ -215,11 +215,11 @@ html{scroll-behavior:smooth}
       <p>Your list opens on cars still needing alloys. Set how many wheels need refining, then tick <b>Alloy wheels completed</b>.</p></article>
     <article class="role"><div class="role-h"><h3>Dent technicians</h3><span class="chip">Dents</span></div><span class="login">DENT TECHNICIAN LOGIN</span>
       <p>Your list opens on cars still needing dents. Tick <b>Dents completed</b> when the repair is done.</p></article>
-    <article class="role"><div class="role-h"><h3>Bodywork controller</h3><span class="chip">Bodywork</span></div><span class="login">STAFF LOGIN</span>
+    <article class="role"><div class="role-h"><h3>Bodywork controller</h3><span class="chip">Bodywork</span></div><span class="login">TEAM MEMBER LOGIN</span>
       <p>Write the cosmetic notes. <b>Cosmetic check complete</b> ticks itself once dents, alloys and paint are all done. There is no separate bodywork QC: the final Quality Check is the one check.</p></article>
     <article class="role"><div class="role-h"><h3>Valet technicians</h3><span class="chip">Valet &amp; Photos</span></div><span class="login">VALET TECHNICIAN LOGIN</span>
       <p>Your list opens on cars still needing a valet. Tick <b>Valet completed</b> when the valet is done, and <b>Photographs completed</b> when the photos are done. Everything else is view only.</p></article>
-    <article class="role"><div class="role-h"><h3>Photographers</h3><span class="chip">Photos</span></div><span class="login">STAFF OR VALET TECHNICIAN LOGIN</span>
+    <article class="role"><div class="role-h"><h3>Photographers</h3><span class="chip">Photos</span></div><span class="login">TEAM MEMBER OR VALET TECHNICIAN LOGIN</span>
       <p>Tick <b>Photographs completed</b> when the photos are done.</p></article>
   </div>
   <p class="note">The final <b>Quality check completed</b> box is ticked by whoever signs the car off as forecourt-ready, usually a manager.</p>
@@ -289,7 +289,7 @@ html{scroll-behavior:smooth}
         <li><b>Sign-off</b>: ticking the final <b>Quality check completed</b> adds your initials and the date.</li>
         <li><b>Who and when</b>: every ticked box shows the date and the person who ticked it.</li>
         <li><b>Car details</b>: correct the registration, make, model, tag, mileage or MOT expiry at the top. Type the MOT date as digits, for example <code>250527</code>, and it becomes 25/05/27.</li>
-        <li><b>Check MOT</b> (managers, staff and advisors): the button next to MOT expiry looks the car up with the DVSA, updates the expiry and opens the car's full MOT history: every test with pass or fail, mileage and each advisory or defect. A mileage lower than the test before shows in red. Tap it again to hide the history.</li>
+        <li><b>Check MOT</b> (managers, team members and advisors): the button next to MOT expiry looks the car up with the DVSA, updates the expiry and opens the car's full MOT history: every test with pass or fail, mileage and each advisory or defect. A mileage lower than the test before shows in red. Tap it again to hide the history.</li>
         <li><b>Notes</b>: faults, parts on order, who has the keys.</li>
       </ul>
       <p class="note">When all prep is done, the car waits at <b>Quality Check</b> (it shows in the Quality Check department box). Once the final <b>Quality check completed</b> box is ticked, it moves to the <b>Completed</b> tab by itself.</p>
@@ -416,13 +416,13 @@ MILEAGE 13442</pre>
   </div>
   <div class="trio">
     <div class="stack"><h3>Team logins</h3>
-      <p>Tap <b>Account</b>, then <b>Manage team logins</b>. Add a person with their full name, a username, a starting password and a role, then tell them the password in person. From the list you can change a role, reset a password, deactivate a login or delete it. Past sign-offs stay on the cars.</p></div>
+      <p>Tap <b>Account</b>, then <b>Manage team logins</b>. Add a person with their full name, a username, a starting password and a role, then tell them the password in person. Choose <b>Vehicle Admin</b> or <b>Centre Principal</b> for someone who runs stock but shouldn't manage logins. People are grouped by role in drop-down sections; tap a section to open it, or use the search box to find someone by name, username or initials. From the list you can change a role, reset a password, deactivate a login or delete it. Past sign-offs stay on the cars.</p></div>
     <div class="stack"><h3>Cosmetic price list</h3>
       <p>Tap <b>Account</b>, then <b>Edit cosmetic price list</b> to change repair names, hours and prices, or add and remove repairs. Every estimate uses the new prices straight away.</p></div>
     <div class="stack"><h3>Data health</h3>
       <p>Tap <b>Account</b>, then <b>Data health and recovery</b>. It shows that every 145 point check is stored and attached to its car. If a check is stored but not showing, tap <b>Reattach to their cars</b>. Removed checks stay in the <b>Recycle bin</b> for 30 days and can be restored. To bring back checks from an older copy, choose a downloaded backup under <b>Recover checks from a backup</b>.</p></div>
     <div class="stack"><h3>Backups</h3>
-      <p>Every night a full copy (cars, history, logins and every 145 point check) is sent to the company's own cloud storage and kept for 30 days. <b>Data health</b> shows when the last one went and has a <b>Back up to the cloud now</b> button. The app also keeps its own copy every day and before every update, and <b>Account</b>, <b>Download backup</b> saves a copy to your computer. Keep downloaded files somewhere private, because they include staff logins.</p></div>
+      <p>Every night a full copy (cars, history, logins and every 145 point check) is sent to the company's own cloud storage and kept for 30 days. <b>Data health</b> shows when the last one went and has a <b>Back up to the cloud now</b> button. The app also keeps its own copy every day and before every update, and <b>Account</b>, <b>Download backup</b> saves a copy to your computer. Keep downloaded files somewhere private, because they include everyone's logins.</p></div>
     <div class="stack"><h3>Daily prep email</h3>
       <p>Tap <b>Account</b>, then <b>Daily prep email</b>. Add who should get it (one email per line), pick the time and days, tick <b>Send the daily prep email</b> and <b>Save</b>. It shows cars in prep, what each department still has to do, cars over 7 days, cars awaiting QC, cars completed and MOTs due within 6 months. Use <b>Preview today's email</b> to see it and <b>Send test now</b> to try it.</p></div>
     <div class="stack"><h3>Deleting a car</h3>
@@ -446,7 +446,7 @@ MILEAGE 13442</pre>
       <tr><td>Forgot password</td><td>Ask an administrator to reset it under Manage team logins.</td></tr>
     </tbody>
   </table></div>
-  <p class="note">Advisors see the same screens as staff, with everything greyed out so nothing can be changed by accident. They can still use <b>Check MOT</b>. A <b>View only</b> login goes further: it also sees Reports and the cosmetic costs, for directors and visitors, but still can't change anything.</p>
+  <p class="note">Advisors see the same screens as team members, with everything greyed out so nothing can be changed by accident. They can still use <b>Check MOT</b>. A <b>View only</b> login goes further: it also sees Reports and the cosmetic costs, for directors and visitors, but still can't change anything.</p>
 </section>
 
 <p class="foot">145 Prepped · Vantage Motor Group · Screens show example cars.</p>

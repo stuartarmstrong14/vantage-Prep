@@ -283,7 +283,7 @@ const SPECIALIST = {
 };
 const DONE_BY_STAGE = [
   ['arrived', ['advert', 'lines', 'qr']], ['valet', ['done']], ['photos', ['done']],
-  ['mech', ['pt145', 'service', 'motbook', 'qc']], ['body', ['cosmetic', 'dent', 'wheels', 'paint', 'qc']], ['ready', ['qc']],
+  ['mech', ['pt145', 'service', 'motbook', 'qc']], ['body', ['cosmetic', 'dent', 'wheels', 'paint']], ['ready', ['qc']],
 ];
 function stageFromDone(done) {
   for (const [k, items] of DONE_BY_STAGE) if (!items.every((t) => done[k + '_' + t] === true)) return k;
@@ -419,6 +419,18 @@ function estimateDrivesJobs(cur, next) {
   next.stage = stageFromDone(done);
   if (next.stage !== cur.stage) next.readyAt = '';
 }
+// Bodywork has no separate QC (the final Quality Check is the one check). "Cosmetic check complete" ticks itself once
+// Dents, Alloy wheels and Paint are all done (ticked or not needed), and unticks again if one of them is unticked.
+const BODY_JOBS = ['body_dent', 'body_wheels', 'body_paint'];
+function autoCosmetic(next) {
+  const d = Object.assign({}, next.done || {});
+  const all = BODY_JOBS.every((k) => d[k] === true);
+  let changed = false;
+  if (all && d.body_cosmetic !== true) { d.body_cosmetic = true; next.cosmeticAuto = true; changed = true; }
+  else if (!all && d.body_cosmetic === true && next.cosmeticAuto) { d.body_cosmetic = false; delete next.cosmeticAuto; changed = true; }
+  if (changed) { next.done = d; next.stage = stageFromDone(d); }
+  return changed;
+}
 function applyCarPatch(cur, body, user) {
   const next = Object.assign({}, cur);
   for (const key of Object.keys(body)) {
@@ -486,6 +498,7 @@ function applyCarPatch(cur, body, user) {
     // any other key is ignored on purpose
   }
   if ('estimate' in body) estimateDrivesJobs(cur, next);
+  autoCosmetic(next);
   // Completed means every box ticked, including the final quality check. readyAt is the day that happened.
   // MOT due: put MOT on Prep requested, unless someone has taken it off for this MOT date.
   const tookOff = body.prep !== undefined && (cur.prep || []).includes('MOT') && !(next.prep || []).includes('MOT');
@@ -1759,6 +1772,17 @@ setInterval(() => {
 }, 5 * 60 * 1000).unref();
 
 // Every start (which is every update) and every day: back up first, then empty the recycle bin of anything older than 30 days.
+// Once at start: bring existing cars in line with the bodywork rule (no Bodywork QC; Cosmetic ticks itself).
+function bodyworkPass() {
+  let n = 0;
+  for (const r of q.allCars.all()) {
+    const c = JSON.parse(r.data); const before = c.stage;
+    const ch = autoCosmetic(c); const st = stageFromDone(c.done || {});
+    if (ch || st !== before) { c.stage = st; q.updateCar.run(JSON.stringify(c), r.updated_at, r.updated_by, r.id); n++; }
+  }
+  if (n) { bump(); console.log('bodywork rule applied to ' + n + ' car(s)'); }
+}
+try { bodyworkPass(); } catch (e) { console.log('bodywork pass failed: ' + e.message); }
 function dailyCare(reason) {
   autoBackup(reason);
   try { motPrepPass(); } catch (e) { console.log('MOT due pass failed: ' + e.message); }

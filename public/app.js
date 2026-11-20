@@ -8,11 +8,10 @@
     { k: 'photos', s: 'Photos', l: 'Photos', t: [['done', 'Photographs completed']] },
     { k: 'mech', s: 'Mech', l: 'Mechanical', t: [['pt145', '145 point mechanical check', null, 'upload'], ['service', 'Service'], ['motbook', 'MOT passed'], ['qc', 'Mechanical QC complete']] },
     { k: 'body', s: 'Body', l: 'Bodywork', t: [
-      ['cosmetic', 'Cosmetic check complete', { f: 'cosmeticNotes', label: 'Cosmetics to do', type: 'note' }],
+      ['cosmetic', 'Cosmetic check complete', { f: 'cosmeticNotes', label: 'Cosmetics to do', type: 'note' }],   // ticks itself once dents, alloys and paint are done
       ['dent', 'Dents completed'],
       ['wheels', 'Alloy wheels completed', { f: 'bodyWheels', label: 'Wheels to refine', type: 'number' }],
-      ['paint', 'Paint work completed'],
-      ['qc', 'QC complete', { f: 'bodyQcBy', label: 'Initials', type: 'text', sign: 'bodyQcOn', name: 'bodyQcName' }]
+      ['paint', 'Paint work completed']
     ] },
     { k: 'ready', s: 'QC', l: 'Quality Check', t: [['qc', 'Quality check completed', { f: 'finalQcBy', label: 'Initials', type: 'text', sign: 'finalQcOn', name: 'finalQcName' }]] }
   ];
@@ -669,6 +668,7 @@
         var tl = on && c.tickLog && c.tickLog[tid];
         if (on && c.notNeeded && c.notNeeded[tid]) signed += ' <small class="muted-s nn">Not needed: none on the cosmetic estimate</small>';
         else if (tl && tl.at) signed += ' <small class="muted-s">' + new Date(tl.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: TZ }) + (tl.by ? ' by ' + esc(tl.by) : '') + '</small>';
+        if (tid === 'body_cosmetic') signed += ' <small class="muted-s">' + (on && c.cosmeticAuto ? 'Done: dents, alloys and paint all complete' : on ? '' : 'Ticks itself once dents, alloys and paint are done') + '</small>';
         if (!on && tid === 'body_dent') {        // alloys show their count in the wheels box only
           var en = estCount(c, DENT_ITEM);
           if (en) signed += ' <small class="muted-s">' + en + (en === 1 ? ' dent' : ' dents') + ' on the estimate</small>';

@@ -649,18 +649,34 @@ async function handleApi(req, res, url) {
     if (!inboundAuthorised(req, url)) throw new HttpError(401, 'Not allowed.');
     const b = await readInbound(req);
     const sender = inbound.emailSender(b);
-    if (INBOUND_ALLOWED.length && !INBOUND_ALLOWED.includes(sender)) {
+    // Record every email that arrives, so Account -> CRM stock list can show what happened to it.
+    const atts = Array.isArray(b.Attachments) ? b.Attachments : [];
+    const log = { at: new Date().toISOString(), sender: sender || '(unknown)', subject: String(b.Subject || b.subject || '').slice(0, 120),
+      attachments: atts.map((a) => String(a.Name || a.ContentType || 'attachment').slice(0, 60)), outcome: '' };
+    const saveLog = () => { try { metaSet('inbound_last', JSON.stringify(log)); } catch (e) { /* not essential */ } };
+    // INBOUND_ALLOWED: addresses (a@b.co.uk) or whole domains (@b.co.uk) allowed to send.
+    const allowed = !INBOUND_ALLOWED.length || INBOUND_ALLOWED.some((x) => (x.startsWith('@') ? sender.endsWith(x) : x === sender));
+    if (!allowed) {
       console.log('inbound email ignored, sender not allowed:', sender || '(none)');
+      log.outcome = 'ignored: ' + (sender || 'the sender') + ' is not on INBOUND_ALLOWED in Render'; saveLog();
       return sendJson(res, 200, { created: [], skipped: [], ignored: 'sender not allowed' });
     }
-    // A CRM stock export attached to the email (UsedExportAll.csv) is imported first.
+    // A CRM stock export attached to the email (UsedExportAll.csv) is imported first. A forwarded email attached whole
+    // (Outlook "Forward as attachment") is opened to find the CSV inside it.
     let crmResult = null;
-    const atts = Array.isArray(b.Attachments) ? b.Attachments : [];
+    const csvs = [];
     for (const a of atts) {
-      if (!/\.csv$/i.test(String(a.Name || '')) && !/csv/i.test(String(a.ContentType || ''))) continue;
-      try { crmResult = importCrm(Buffer.from(String(a.Content || ''), 'base64'), 'email: ' + String(a.Name || 'attachment').slice(0, 60)); }
+      const name = String(a.Name || ''), type = String(a.ContentType || '');
+      if (/\.csv$/i.test(name) || /csv/i.test(type)) csvs.push({ name: name || 'attachment.csv', buf: Buffer.from(String(a.Content || ''), 'base64') });
+      else if (/\.eml$/i.test(name) || /message\/rfc822/i.test(type)) for (const x of inbound.csvFromEml(Buffer.from(String(a.Content || ''), 'base64'))) csvs.push(x);
+    }
+    for (const x of csvs) {
+      try { crmResult = importCrm(x.buf, 'email: ' + x.name.slice(0, 60)); }
       catch (e) { crmStatus.lastError = String(e.message || e).slice(0, 300); crmStatus.lastErrorAt = new Date().toISOString(); console.log('CRM import from email failed: ' + crmStatus.lastError); }
     }
+    log.outcome = csvs.length ? (crmResult ? 'CRM stock list imported: ' + crmResult.added.length + ' added, ' + crmResult.updated.length + ' updated' : 'CSV found but the import failed: ' + crmStatus.lastError)
+      : atts.length ? 'no CSV attachment found (attachments: ' + log.attachments.join(', ') + ')' : 'no attachment; read as a prep email';
+    saveLog();
     const found = inbound.parseCars(inbound.emailText(b)).slice(0, 100);
     // One card per registration: a car already on the app (for example added by the CRM stock list) is not added again.
     // Instead the email fills in what the stock list doesn't have: the tag, Prep requested, and any blank details.
@@ -895,7 +911,8 @@ async function handleApi(req, res, url) {
     requireAdmin(req);
     return sendJson(res, 200, { ready: !!CRM.branch, branch: CRM.branch || null, kinds: CRM.kinds, progress: CRM.progress, maxDays: CRM.maxDays,
       firstRunDone: metaGet('crm_seen') != null, last: crmLast(), lastError: crmStatus.lastError, lastErrorAt: crmStatus.lastErrorAt,
-      untagged: untaggedCrmCars(), removed: Math.round(crmRemoved().size / 2) });
+      untagged: untaggedCrmCars(), removed: Math.round(crmRemoved().size / 2), inboundLast: (() => { try { return JSON.parse(metaGet('inbound_last') || 'null'); } catch (e) { return null; } })(),
+      inboundOn: !!INBOUND_SECRET, allowed: INBOUND_ALLOWED });
   }
   // Forget which cars were removed on purpose, so the next import can add them again.
   if (p === '/api/crm/forget-removed' && method === 'POST') {

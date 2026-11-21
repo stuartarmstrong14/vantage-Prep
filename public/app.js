@@ -919,6 +919,10 @@
         ? 'Branch <b>' + esc(d.branch) + '</b>: adds ' + esc(d.kinds.join(' and ')) + ' cars marked ' + esc(d.progress.join(', ')) + '. ' + crmSummary(d.last)
           + (d.lastError ? '<br><b class="bad">Last problem</b> (' + esc(fmtWhen(d.lastErrorAt)) + '): ' + esc(d.lastError) : '')
         : 'Not set up yet. Add CRM_BRANCH (your branch code, e.g. 0042 for Toyota Leeds) in Render to switch it on.';
+      var il = d.inboundLast, ie = $('#crm-inbound');
+      if (ie) ie.innerHTML = !d.inboundOn ? 'Email in is not set up (INBOUND_SECRET).' : il
+        ? '<b>Last email received</b> ' + esc(fmtWhen(il.at)) + ' from ' + esc(il.sender) + (il.attachments.length ? ' with ' + esc(il.attachments.join(', ')) : '') + ': ' + esc(il.outcome) + '.'
+        : '<b>No email received yet</b> since this was added. If the CRM email was forwarded, check Postmark (Activity) to see whether it arrived.';
       var rm = d.removed || 0, fb = $('#crm-forget');
       fb.hidden = !rm;
       if (rm) $('#crm-forget-txt').innerHTML = '<b>' + rm + (rm === 1 ? ' car was' : ' cars were') + ' removed</b> from the board, so the import won\'t add ' + (rm === 1 ? 'it' : 'them') + ' again. To get ' + (rm === 1 ? 'it' : 'them') + ' back, tap below and then import the CRM file again.';
